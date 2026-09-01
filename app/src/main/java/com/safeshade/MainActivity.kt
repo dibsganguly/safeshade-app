@@ -93,7 +93,7 @@ class MainActivity : ComponentActivity() {
     /**
      * Fetches weather data from API and sends it to the connected device.
      *
-     * This function:
+     * This function:-
      * 1. Gets current GPS location
      * 2. Calls Open-Meteo API for weather data
      * 3. Updates local state
