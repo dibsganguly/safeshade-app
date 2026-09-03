@@ -38,6 +38,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
@@ -69,4 +70,7 @@ dependencies {
     implementation("com.google.android.gms:play-services-location:21.1.0")
     // 5. Icons
     implementation("androidx.compose.material:material-icons-extended:1.6.3")
+    // 6. Local persistence (dark-mode preference, paired-device list, onboarding-seen flag)
+    implementation("androidx.datastore:datastore-preferences:1.1.1")
+    implementation("com.google.code.gson:gson:2.10.1")
 }

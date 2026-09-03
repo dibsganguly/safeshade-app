@@ -7,7 +7,12 @@
  * Includes editors, pickers, and confirmation dialogs.
  *
  * @author SafeShade Team
- * @version 2.1.0
+ * @version 2.1.1
+ *
+ * FIXES (this pass):
+ *  - MedicalIdEditorDialog's "Save Changes" button called onSave(...) but
+ *    never onDismiss(), so the dialog stayed open after saving.
+ *  - DeviceSettingsDialog's "Save" button had the same bug.
  */
 
 package com.safeshade.ui.components
@@ -60,7 +65,7 @@ fun ModeSelectionDialog(
     Dialog(onDismissRequest = onDismiss) {
         Card(
             shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = CardColor)
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.safeShadeColors.surface)
         ) {
             Column(
                 modifier = Modifier.padding(24.dp),
@@ -70,7 +75,7 @@ fun ModeSelectionDialog(
                     "Select Mode",
                     fontWeight = FontWeight.Bold,
                     fontSize = 20.sp,
-                    color = TextDark
+                    color = MaterialTheme.safeShadeColors.onSurface
                 )
                 Spacer(modifier = Modifier.height(24.dp))
 
@@ -98,7 +103,7 @@ fun ModeSelectionDialog(
 
                 Spacer(modifier = Modifier.height(16.dp))
                 TextButton(onClick = onDismiss) {
-                    Text("Cancel", color = TextGray)
+                    Text("Cancel", color = MaterialTheme.safeShadeColors.onSurfaceMuted)
                 }
             }
         }
@@ -129,7 +134,7 @@ private fun ModeOptionCard(
             Icon(icon, null, tint = color, modifier = Modifier.size(48.dp))
             Spacer(modifier = Modifier.height(8.dp))
             Text(title, fontWeight = FontWeight.Bold, color = color)
-            Text(subtitle, fontSize = 11.sp, color = TextGray)
+            Text(subtitle, fontSize = 11.sp, color = MaterialTheme.safeShadeColors.onSurfaceMuted)
         }
     }
 }
@@ -157,7 +162,7 @@ fun PinEntryDialog(
     Dialog(onDismissRequest = onDismiss) {
         Card(
             shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = CardColor)
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.safeShadeColors.surface)
         ) {
             Column(
                 modifier = Modifier.padding(24.dp),
@@ -174,7 +179,7 @@ fun PinEntryDialog(
                     "Enter PIN",
                     fontWeight = FontWeight.Bold,
                     fontSize = 20.sp,
-                    color = TextDark
+                    color = MaterialTheme.safeShadeColors.onSurface
                 )
                 Spacer(modifier = Modifier.height(16.dp))
 
@@ -239,7 +244,7 @@ fun PinSetupDialog(
     Dialog(onDismissRequest = onDismiss) {
         Card(
             shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = CardColor)
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.safeShadeColors.surface)
         ) {
             Column(
                 modifier = Modifier.padding(24.dp),
@@ -249,7 +254,7 @@ fun PinSetupDialog(
                     "Set Parental PIN",
                     fontWeight = FontWeight.Bold,
                     fontSize = 20.sp,
-                    color = TextDark
+                    color = MaterialTheme.safeShadeColors.onSurface
                 )
                 Spacer(modifier = Modifier.height(16.dp))
 
@@ -316,25 +321,49 @@ fun AddEmergencyContactDialog(
 ) {
     var name by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
+    var nameError by remember { mutableStateOf<String?>(null) }
+    var phoneError by remember { mutableStateOf<String?>(null) }
+
+    fun validateAndSubmit() {
+        val trimmedName = name.trim()
+        val trimmedPhone = phone.trim()
+        val digitsOnly = trimmedPhone.filter { it.isDigit() }
+
+        nameError = if (trimmedName.isBlank()) "Name is required" else null
+        phoneError = when {
+            trimmedPhone.isBlank() -> "Phone number is required"
+            digitsOnly.length < 7 -> "Enter a valid phone number"
+            else -> null
+        }
+
+        if (nameError == null && phoneError == null) {
+            onAdd(EmergencyContact(trimmedName, trimmedPhone))
+        }
+    }
 
     Dialog(onDismissRequest = onDismiss) {
         Card(
             shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = CardColor)
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.safeShadeColors.surface)
         ) {
             Column(modifier = Modifier.padding(24.dp)) {
                 Text(
                     "Add Emergency Contact",
                     fontWeight = FontWeight.Bold,
                     fontSize = 20.sp,
-                    color = TextDark
+                    color = MaterialTheme.safeShadeColors.onSurface
                 )
                 Spacer(modifier = Modifier.height(16.dp))
 
                 OutlinedTextField(
                     value = name,
-                    onValueChange = { name = it },
+                    onValueChange = {
+                        name = it
+                        if (nameError != null) nameError = null
+                    },
                     label = { Text("Name") },
+                    isError = nameError != null,
+                    supportingText = nameError?.let { msg -> { Text(msg, color = AccentRed) } },
                     modifier = Modifier.fillMaxWidth()
                 )
 
@@ -342,9 +371,14 @@ fun AddEmergencyContactDialog(
 
                 OutlinedTextField(
                     value = phone,
-                    onValueChange = { phone = it },
+                    onValueChange = {
+                        phone = it
+                        if (phoneError != null) phoneError = null
+                    },
                     label = { Text("Phone Number") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                    isError = phoneError != null,
+                    supportingText = phoneError?.let { msg -> { Text(msg, color = AccentRed) } },
                     modifier = Modifier.fillMaxWidth()
                 )
 
@@ -359,11 +393,7 @@ fun AddEmergencyContactDialog(
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(
-                        onClick = {
-                            if (name.isNotBlank() && phone.isNotBlank()) {
-                                onAdd(EmergencyContact(name, phone))
-                            }
-                        },
+                        onClick = { validateAndSubmit() },
                         colors = ButtonDefaults.buttonColors(containerColor = AccentPurple)
                     ) {
                         Text("Add")
@@ -394,14 +424,14 @@ fun SensitivityDialog(
     Dialog(onDismissRequest = onDismiss) {
         Card(
             shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = CardColor)
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.safeShadeColors.surface)
         ) {
             Column(modifier = Modifier.padding(24.dp)) {
                 Text(
                     "Fall Detection Sensitivity",
                     fontWeight = FontWeight.Bold,
                     fontSize = 20.sp,
-                    color = TextDark
+                    color = MaterialTheme.safeShadeColors.onSurface
                 )
                 Spacer(modifier = Modifier.height(16.dp))
 
@@ -429,12 +459,12 @@ fun SensitivityDialog(
                             Text(
                                 sensitivity.label,
                                 fontWeight = FontWeight.Medium,
-                                color = TextDark
+                                color = MaterialTheme.safeShadeColors.onSurface
                             )
                             Text(
                                 sensitivity.description,
                                 fontSize = 12.sp,
-                                color = TextGray
+                                color = MaterialTheme.safeShadeColors.onSurfaceMuted
                             )
                         }
                     }
@@ -471,7 +501,7 @@ fun MedicalIdEditorDialog(
     Dialog(onDismissRequest = onDismiss) {
         Card(
             shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = CardColor),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.safeShadeColors.surface),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(
@@ -489,10 +519,10 @@ fun MedicalIdEditorDialog(
                         "Edit Medical ID",
                         fontWeight = FontWeight.Bold,
                         fontSize = 20.sp,
-                        color = TextDark
+                        color = MaterialTheme.safeShadeColors.onSurface
                     )
                     IconButton(onClick = onDismiss) {
-                        Icon(Icons.Rounded.Close, null, tint = TextGray)
+                        Icon(Icons.Rounded.Close, null, tint = MaterialTheme.safeShadeColors.onSurfaceMuted)
                     }
                 }
 
@@ -569,6 +599,7 @@ fun MedicalIdEditorDialog(
                                 age = age.toIntOrNull() ?: 0
                             )
                         )
+                        onDismiss()
                     },
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(containerColor = AccentPurple)
@@ -605,26 +636,26 @@ fun DeviceSettingsDialog(
     Dialog(onDismissRequest = onDismiss) {
         Card(
             shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = CardColor)
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.safeShadeColors.surface)
         ) {
             Column(modifier = Modifier.padding(24.dp)) {
                 Text(
                     "Device Settings",
                     fontWeight = FontWeight.Bold,
                     fontSize = 20.sp,
-                    color = TextDark
+                    color = MaterialTheme.safeShadeColors.onSurface
                 )
                 Spacer(modifier = Modifier.height(16.dp))
 
                 // Icon selection row
-                Text("Device Icon", fontSize = 14.sp, color = TextGray)
+                Text("Device Icon", fontSize = 14.sp, color = MaterialTheme.safeShadeColors.onSurfaceMuted)
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(12.dp))
-                        .border(1.dp, TextGray.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
+                        .border(1.dp, MaterialTheme.safeShadeColors.onSurfaceMuted.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
                         .clickable { onIconPickerRequest() }
                         .padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -639,9 +670,9 @@ fun DeviceSettingsDialog(
                         Icon(deviceSettings.iconType.icon, null, tint = AccentPurple)
                     }
                     Spacer(modifier = Modifier.width(12.dp))
-                    Text(deviceSettings.iconType.label, color = TextDark)
+                    Text(deviceSettings.iconType.label, color = MaterialTheme.safeShadeColors.onSurface)
                     Spacer(modifier = Modifier.weight(1f))
-                    Icon(Icons.Rounded.ChevronRight, null, tint = TextGray)
+                    Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.safeShadeColors.onSurfaceMuted)
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -678,6 +709,7 @@ fun DeviceSettingsDialog(
                                 name = name,
                                 primaryUserName = primaryUserName
                             ))
+                            onDismiss()
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = AccentPurple)
                     ) {
@@ -710,7 +742,7 @@ fun IconPickerDialog(
     Dialog(onDismissRequest = onDismiss) {
         Card(
             shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = CardColor)
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.safeShadeColors.surface)
         ) {
             Column(
                 modifier = Modifier.padding(20.dp)
@@ -719,7 +751,7 @@ fun IconPickerDialog(
                     "Choose Device Icon",
                     fontWeight = FontWeight.Bold,
                     fontSize = 20.sp,
-                    color = TextDark
+                    color = MaterialTheme.safeShadeColors.onSurface
                 )
                 Spacer(modifier = Modifier.height(20.dp))
 
@@ -781,7 +813,7 @@ private fun IconOption(
         Text(
             iconType.label,
             fontSize = 10.sp,
-            color = if (isSelected) Color.White else TextGray,
+            color = if (isSelected) Color.White else MaterialTheme.safeShadeColors.onSurfaceMuted,
             textAlign = TextAlign.Center,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
@@ -793,17 +825,62 @@ private fun IconOption(
 // ADD DEVICE DIALOG
 // ============================================
 
+private enum class AddDeviceScanState { SCANNING, FOUND, TIMED_OUT }
+
 /**
- * Dialog showing device pairing UI (placeholder).
+ * Dialog that drives a real BLE scan via [bleManager] to pair a new SafeShade
+ * device.
  *
- * @param onDismiss Callback when dialog dismissed
+ * FIXED: This used to be a pure fake - a spinner that said "Searching for
+ * devices..." forever and never actually touched BleManager. It now calls
+ * bleManager.startScanning(), shows a real 15s timeout state instead of
+ * spinning forever, and on a real find calls onPaired() with a PairedDevice
+ * built from bleManager's now-populated deviceAddress/deviceName so the
+ * caller can persist it (see MyDevicesCard / ProfileScreen).
+ *
+ * @param bleManager Shared BleManager instance owned by MainActivity
+ * @param onPaired Callback with the newly paired device, once found
+ * @param onDismiss Callback when dialog dismissed / cancelled
  */
 @Composable
-fun AddDeviceDialog(onDismiss: () -> Unit) {
-    Dialog(onDismissRequest = onDismiss) {
+fun AddDeviceDialog(
+    bleManager: com.safeshade.BleManager,
+    onPaired: (com.safeshade.data.PairedDevice) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var state by remember { mutableStateOf(AddDeviceScanState.SCANNING) }
+
+    LaunchedEffect(Unit) {
+        bleManager.startScanning(onFound = {
+            state = AddDeviceScanState.FOUND
+        })
+        kotlinx.coroutines.delay(15_000)
+        if (state == AddDeviceScanState.SCANNING) {
+            state = AddDeviceScanState.TIMED_OUT
+        }
+    }
+
+    // Once found, wait briefly for connection/name to settle then pair & dismiss.
+    LaunchedEffect(state) {
+        if (state == AddDeviceScanState.FOUND) {
+            kotlinx.coroutines.delay(600)
+            onPaired(
+                com.safeshade.data.PairedDevice(
+                    address = bleManager.deviceAddress.value,
+                    name = bleManager.deviceName.value
+                )
+            )
+            onDismiss()
+        }
+    }
+
+    Dialog(onDismissRequest = {
+        if (state == AddDeviceScanState.SCANNING) bleManager.disconnect()
+        onDismiss()
+    }) {
         Card(
             shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = CardColor)
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.safeShadeColors.surface)
         ) {
             Column(
                 modifier = Modifier.padding(24.dp),
@@ -820,25 +897,60 @@ fun AddDeviceDialog(onDismiss: () -> Unit) {
                     "Pair New Device",
                     fontWeight = FontWeight.Bold,
                     fontSize = 20.sp,
-                    color = TextDark
+                    color = MaterialTheme.safeShadeColors.onSurface
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     "Make sure your SafeShade device is powered on and in pairing mode.",
                     textAlign = TextAlign.Center,
-                    color = TextGray
+                    color = MaterialTheme.safeShadeColors.onSurfaceMuted
                 )
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // Simulated scanning indicator
-                CircularProgressIndicator(color = AccentPurple)
-                Spacer(modifier = Modifier.height(16.dp))
-                Text("Searching for devices...", color = TextGray, fontSize = 14.sp)
+                when (state) {
+                    AddDeviceScanState.SCANNING -> {
+                        CircularProgressIndicator(color = AccentPurple)
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text("Searching for devices...", color = MaterialTheme.safeShadeColors.onSurfaceMuted, fontSize = 14.sp)
+                    }
+                    AddDeviceScanState.FOUND -> {
+                        Icon(
+                            Icons.Rounded.CheckCircle,
+                            contentDescription = null,
+                            tint = AccentGreen,
+                            modifier = Modifier.size(40.dp)
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text("Device found - pairing...", color = MaterialTheme.safeShadeColors.onSurfaceMuted, fontSize = 14.sp)
+                    }
+                    AddDeviceScanState.TIMED_OUT -> {
+                        Icon(
+                            Icons.Rounded.SearchOff,
+                            contentDescription = null,
+                            tint = MaterialTheme.safeShadeColors.onSurfaceMuted,
+                            modifier = Modifier.size(40.dp)
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text("No device found nearby", color = MaterialTheme.safeShadeColors.onSurfaceMuted, fontSize = 14.sp)
+                    }
+                }
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                OutlinedButton(onClick = onDismiss) {
-                    Text("Cancel")
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    if (state == AddDeviceScanState.TIMED_OUT) {
+                        OutlinedButton(onClick = {
+                            state = AddDeviceScanState.SCANNING
+                        }) {
+                            Text("Retry")
+                        }
+                    }
+                    OutlinedButton(onClick = {
+                        if (state == AddDeviceScanState.SCANNING) bleManager.disconnect()
+                        onDismiss()
+                    }) {
+                        Text("Cancel")
+                    }
                 }
             }
         }

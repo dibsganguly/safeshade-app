@@ -18,12 +18,13 @@ data class CurrentWeather(
 
 data class HourlyWeather(
     val precipitation_probability: List<Int>,
-    val uv_index: List<Float>
+    val uv_index: List<Float>,
+    val relative_humidity_2m: List<Int>
 )
 
 // 2. API Interface
 interface OpenMeteoApi {
-    @GET("v1/forecast?current=temperature_2m,weather_code&hourly=precipitation_probability,uv_index&forecast_days=1")
+    @GET("v1/forecast?current=temperature_2m,weather_code&hourly=precipitation_probability,uv_index,relative_humidity_2m&forecast_days=1")
     suspend fun getWeather(
         @Query("latitude") lat: Double,
         @Query("longitude") lon: Double

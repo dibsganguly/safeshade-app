@@ -31,7 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import com.safeshade.ui.theme.AccentPurple
-import com.safeshade.ui.theme.IconGray
+import com.safeshade.ui.theme.safeShadeColors
 
 /**
  * Navigation item data class.
@@ -76,6 +76,7 @@ fun SafeShadeBottomBar(
 ) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
+    val colors = MaterialTheme.safeShadeColors
 
     Box(
         modifier = Modifier
@@ -84,7 +85,9 @@ fun SafeShadeBottomBar(
     ) {
         Card(
             shape = RoundedCornerShape(28.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
+            // Was hardcoded Color.White - stayed a bright white pill even
+            // in dark mode. Now theme-aware like every other surface.
+            colors = CardDefaults.cardColors(containerColor = colors.surface),
             elevation = CardDefaults.cardElevation(12.dp),
             modifier = Modifier
                 .height(64.dp)
@@ -99,6 +102,7 @@ fun SafeShadeBottomBar(
                     NavBarItem(
                         item = item,
                         isSelected = currentRoute == item.route,
+                        unselectedTint = colors.onSurfaceFaint,
                         onClick = {
                             navController.navigate(item.route) {
                                 // Pop up to start destination to avoid building up back stack
@@ -127,6 +131,7 @@ fun SafeShadeBottomBar(
 private fun NavBarItem(
     item: NavItem,
     isSelected: Boolean,
+    unselectedTint: Color,
     onClick: () -> Unit
 ) {
     Box(
@@ -140,7 +145,7 @@ private fun NavBarItem(
         Icon(
             imageVector = item.icon,
             contentDescription = item.label,
-            tint = if (isSelected) Color.White else IconGray,
+            tint = if (isSelected) Color.White else unselectedTint,
             modifier = Modifier.size(22.dp)
         )
     }

@@ -7,11 +7,33 @@
  * fall alert history, and safety settings.
  *
  * @author SafeShade Team
- * @version 2.1.0
+ * @version 3.0.0
+ *
+ * FIXES (this pass):
+ *  - Auto-call emergency toggle now requests CALL_PHONE right when turned on
+ *    (via onRequestSensitivePermissions) instead of silently deferring, and
+ *    its subtitle explains the real flow: a countdown dialog appears first,
+ *    the user can dismiss or call immediately, nothing dials in the
+ *    background. The real call-placing lives in EmergencyActions.kt / the
+ *    FallAlertDialog in SafeShadeApp.kt — this screen only surfaces the
+ *    setting and permission request.
+ *  - Added the SMS fallback alert toggle (new SafetySettings.smsFallbackEnabled
+ *    field), requesting SEND_SMS when turned on.
+ *  - Migrated off raw fontSize=/Color(0x...) literals onto
+ *    MaterialTheme.typography.* / MaterialTheme.safeShadeColors.*, and onto
+ *    GlassCard instead of plain Card.
  */
 
 package com.safeshade.ui.screens
 
+import android.Manifest
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -31,7 +53,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.safeshade.BleManager
 import com.safeshade.data.EmergencyContact
 import com.safeshade.data.FallAlertEvent
@@ -48,19 +69,22 @@ import java.util.*
  * - Find My Device button
  * - Emergency contacts management
  * - Fall alert history
- * - Safety settings (sensitivity, auto-call, parental controls)
+ * - Safety settings (sensitivity, auto-call, SMS fallback, parental controls)
  *
  * @param bleManager BLE manager for device commands
  * @param safetySettings Current safety settings
  * @param onSettingsChange Callback when settings change
  * @param fallHistory List of fall alert events
+ * @param onRequestSensitivePermissions Callback to request contextual runtime permissions
+ *   (CALL_PHONE / SEND_SMS) exactly when the user turns on the toggle that needs them
  */
 @Composable
 fun SafetyScreen(
     bleManager: BleManager,
     safetySettings: SafetySettings,
     onSettingsChange: (SafetySettings) -> Unit,
-    fallHistory: List<FallAlertEvent>
+    fallHistory: List<FallAlertEvent>,
+    onRequestSensitivePermissions: (Array<String>) -> Unit
 ) {
     val connectionState by bleManager.connectionState.collectAsState()
     val isConnected = connectionState == "Connected"
@@ -70,12 +94,21 @@ fun SafetyScreen(
     var showSensitivityDialog by remember { mutableStateOf(false) }
     var showPinSetupDialog by remember { mutableStateOf(false) }
 
+    // Tracks every settings write made from this screen so an AckBadge can
+    // show a real "applied on device" confirmation (SETTINGS_CHAR_UUID's
+    // ACK) instead of just trusting the local state update.
+    var settingsAckSeq by remember { mutableStateOf(0) }
+    val trackedOnSettingsChange: (SafetySettings) -> Unit = { newSettings ->
+        onSettingsChange(newSettings)
+        settingsAckSeq++
+    }
+
     // Dialogs
     if (showAddContactDialog) {
         AddEmergencyContactDialog(
             onDismiss = { showAddContactDialog = false },
             onAdd = { contact ->
-                onSettingsChange(safetySettings.copy(
+                trackedOnSettingsChange(safetySettings.copy(
                     emergencyContacts = safetySettings.emergencyContacts + contact
                 ))
                 showAddContactDialog = false
@@ -88,7 +121,7 @@ fun SafetyScreen(
             currentSensitivity = safetySettings.fallSensitivity,
             onDismiss = { showSensitivityDialog = false },
             onSelect = { sensitivity ->
-                onSettingsChange(safetySettings.copy(fallSensitivity = sensitivity))
+                trackedOnSettingsChange(safetySettings.copy(fallSensitivity = sensitivity))
                 showSensitivityDialog = false
             }
         )
@@ -98,35 +131,37 @@ fun SafetyScreen(
         PinSetupDialog(
             onDismiss = { showPinSetupDialog = false },
             onSave = { pin ->
-                onSettingsChange(safetySettings.copy(parentalPin = pin))
+                trackedOnSettingsChange(safetySettings.copy(parentalPin = pin))
                 showPinSetupDialog = false
             }
         )
     }
 
+    val colors = MaterialTheme.safeShadeColors
+
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(24.dp)
+            .padding(Spacing.xl)
             .verticalScroll(rememberScrollState())
     ) {
-        Text("Safety", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = TextDark)
-        Spacer(modifier = Modifier.height(24.dp))
+        Text("Safety", style = MaterialTheme.typography.displayMedium, color = colors.onSurface)
+        Spacer(modifier = Modifier.height(Spacing.xl))
 
-        // Find Device Button
+        // Find Device Button — kept first and motion-free so it's never slowed down.
         FindDeviceButton(
             isConnected = isConnected,
             onClick = { bleManager.sendCommand("CMD_FIND") }
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(Spacing.lg))
 
         // Emergency Contacts Card
         EmergencyContactsCard(
             contacts = safetySettings.emergencyContacts,
             onAddClick = { showAddContactDialog = true },
             onDeleteContact = { contact ->
-                onSettingsChange(safetySettings.copy(
+                trackedOnSettingsChange(safetySettings.copy(
                     emergencyContacts = safetySettings.emergencyContacts - contact
                 ))
             },
@@ -134,23 +169,38 @@ fun SafetyScreen(
                 val updated = safetySettings.emergencyContacts.map {
                     it.copy(isPrimary = it == contact)
                 }
-                onSettingsChange(safetySettings.copy(emergencyContacts = updated))
+                trackedOnSettingsChange(safetySettings.copy(emergencyContacts = updated))
             }
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(Spacing.lg))
 
         // Fall Alert History
         FallHistoryCard(fallHistory = fallHistory)
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(Spacing.lg))
 
-        // Alert Settings - FIXED FORMATTING
+        // Alert Settings
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "Alert Settings",
+                style = MaterialTheme.typography.titleSmall,
+                color = colors.onSurface
+            )
+            Spacer(modifier = Modifier.width(Spacing.sm))
+            com.safeshade.ui.components.AckBadge(
+                bleManager = bleManager,
+                tag = "SETTINGS",
+                trigger = settingsAckSeq.takeIf { it > 0 }
+            )
+        }
+        Spacer(modifier = Modifier.height(Spacing.sm))
         AlertSettingsCard(
             safetySettings = safetySettings,
-            onSettingsChange = onSettingsChange,
+            onSettingsChange = trackedOnSettingsChange,
             onSensitivityClick = { showSensitivityDialog = true },
-            onPinSetupClick = { showPinSetupDialog = true }
+            onPinSetupClick = { showPinSetupDialog = true },
+            onRequestSensitivePermissions = onRequestSensitivePermissions
         )
     }
 }
@@ -181,13 +231,12 @@ private fun FindDeviceButton(
             Spacer(modifier = Modifier.height(6.dp))
             Text(
                 "FIND MY DEVICE",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.labelLarge,
                 color = Color.White
             )
             Text(
                 "Trigger alarm on SafeShade",
-                fontSize = 11.sp,
+                style = MaterialTheme.typography.labelMedium,
                 color = Color.White.copy(alpha = 0.8f)
             )
         }
@@ -204,30 +253,40 @@ private fun EmergencyContactsCard(
     onDeleteContact: (EmergencyContact) -> Unit,
     onSetPrimary: (EmergencyContact) -> Unit
 ) {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = CardColor),
-        shape = RoundedCornerShape(20.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(modifier = Modifier.padding(20.dp)) {
+    val colors = MaterialTheme.safeShadeColors
+    GlassCard(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(Spacing.xl)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Emergency Contacts", fontWeight = FontWeight.Bold, color = TextDark)
+                Text(
+                    "Emergency Contacts",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = colors.onSurface
+                )
                 IconButton(onClick = onAddClick) {
-                    Icon(Icons.Rounded.PersonAdd, contentDescription = "Add Contact", tint = AccentPurple)
+                    Icon(Icons.Rounded.PersonAdd, contentDescription = "Add Contact", tint = colors.accentPrimary)
                 }
             }
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(Spacing.sm))
 
-            contacts.forEach { contact ->
-                EmergencyContactRow(
-                    contact = contact,
-                    onDelete = { onDeleteContact(contact) },
-                    onSetPrimary = { onSetPrimary(contact) }
+            if (contacts.isEmpty()) {
+                EmptyState(
+                    icon = Icons.Rounded.ContactPhone,
+                    message = "No emergency contacts yet"
                 )
+            } else {
+                contacts.forEach { contact ->
+                    key(contact.name, contact.phone) {
+                        EmergencyContactRow(
+                            contact = contact,
+                            onDelete = { onDeleteContact(contact) },
+                            onSetPrimary = { onSetPrimary(contact) }
+                        )
+                    }
+                }
             }
         }
     }
@@ -242,10 +301,12 @@ fun EmergencyContactRow(
     onDelete: () -> Unit,
     onSetPrimary: () -> Unit
 ) {
+    val colors = MaterialTheme.safeShadeColors
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp),
+            .animateContentSize(animationSpec = tween(Motion.normal))
+            .padding(vertical = Spacing.sm),
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Avatar
@@ -253,51 +314,46 @@ fun EmergencyContactRow(
             modifier = Modifier
                 .size(40.dp)
                 .clip(CircleShape)
-                .background(if (contact.isPrimary) AccentPurple else BgColor),
+                .background(if (contact.isPrimary) colors.accentPrimary else colors.background),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 Icons.Rounded.Person,
                 contentDescription = null,
-                tint = if (contact.isPrimary) Color.White else TextGray,
+                tint = if (contact.isPrimary) Color.White else colors.onSurfaceMuted,
                 modifier = Modifier.size(20.dp)
             )
         }
 
-        Spacer(modifier = Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(Spacing.md))
 
         // Contact info
         Column(modifier = Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     contact.name,
+                    style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium,
-                    color = TextDark,
+                    color = colors.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 if (contact.isPrimary) {
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Box(
-                        modifier = Modifier
-                            .background(AccentGreen.copy(alpha = 0.1f), RoundedCornerShape(4.dp))
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
-                    ) {
-                        Text("PRIMARY", fontSize = 9.sp, color = AccentGreen, fontWeight = FontWeight.Bold)
-                    }
+                    Spacer(modifier = Modifier.width(Spacing.sm))
+                    StatusBadge(text = "PRIMARY", color = colors.accentSuccess)
                 }
             }
-            Text(contact.phone, fontSize = 12.sp, color = TextGray)
+            Text(contact.phone, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceMuted)
         }
 
         // Action buttons
         if (!contact.isPrimary) {
             IconButton(onClick = onSetPrimary) {
-                Icon(Icons.Rounded.Star, contentDescription = "Set Primary", tint = TextGray, modifier = Modifier.size(20.dp))
+                Icon(Icons.Rounded.Star, contentDescription = "Set Primary", tint = colors.onSurfaceMuted, modifier = Modifier.size(20.dp))
             }
         }
         IconButton(onClick = onDelete) {
-            Icon(Icons.Rounded.Delete, contentDescription = "Delete", tint = AccentRed, modifier = Modifier.size(20.dp))
+            Icon(Icons.Rounded.Delete, contentDescription = "Delete", tint = colors.accentDanger, modifier = Modifier.size(20.dp))
         }
     }
 }
@@ -307,27 +363,26 @@ fun EmergencyContactRow(
  */
 @Composable
 private fun FallHistoryCard(fallHistory: List<FallAlertEvent>) {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = CardColor),
-        shape = RoundedCornerShape(20.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(modifier = Modifier.padding(20.dp)) {
-            Text("Fall Alert History", fontWeight = FontWeight.Bold, color = TextDark)
-            Spacer(modifier = Modifier.height(12.dp))
+    val colors = MaterialTheme.safeShadeColors
+    GlassCard(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(Spacing.xl)) {
+            Text(
+                "Fall Alert History",
+                style = MaterialTheme.typography.titleSmall,
+                color = colors.onSurface
+            )
+            Spacer(modifier = Modifier.height(Spacing.md))
 
             if (fallHistory.isEmpty()) {
-                Text(
-                    "No fall alerts recorded",
-                    color = TextGray,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 20.dp),
-                    textAlign = TextAlign.Center
+                EmptyState(
+                    icon = Icons.Rounded.History,
+                    message = "No fall alerts recorded"
                 )
             } else {
                 fallHistory.take(10).forEach { event ->
-                    AlertLogItem(event)
+                    key(event.id) {
+                        AlertLogItem(event)
+                    }
                 }
             }
         }
@@ -339,12 +394,13 @@ private fun FallHistoryCard(fallHistory: List<FallAlertEvent>) {
  */
 @Composable
 fun AlertLogItem(event: FallAlertEvent) {
-    val dateFormat = SimpleDateFormat("MMM dd, HH:mm", Locale.getDefault())
+    val colors = MaterialTheme.safeShadeColors
+    val dateFormat = remember { SimpleDateFormat("MMM dd, HH:mm", Locale.getDefault()) }
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp),
+            .padding(vertical = Spacing.sm),
         verticalAlignment = Alignment.Top
     ) {
         // Status indicator
@@ -355,27 +411,27 @@ fun AlertLogItem(event: FallAlertEvent) {
                 .clip(CircleShape)
                 .background(
                     when {
-                        event.wasEmergencyContacted -> AccentRed
-                        event.action.contains("dismissed", ignoreCase = true) -> AccentOrange
-                        else -> AccentGreen
+                        event.wasEmergencyContacted -> colors.accentDanger
+                        event.action.contains("dismissed", ignoreCase = true) -> colors.accentWarning
+                        else -> colors.accentSuccess
                     }
                 )
         )
 
-        Spacer(modifier = Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(Spacing.md))
 
         Column {
-            Text(event.eventType, fontWeight = FontWeight.Medium, color = TextDark, fontSize = 14.sp)
+            Text(event.eventType, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = colors.onSurface)
             Text(
                 "${dateFormat.format(Date(event.timestamp))} • ${event.action}",
-                fontSize = 12.sp,
-                color = TextGray
+                style = MaterialTheme.typography.bodySmall,
+                color = colors.onSurfaceMuted
             )
             if (event.wasEmergencyContacted) {
                 Text(
                     "Emergency contact notified",
-                    fontSize = 11.sp,
-                    color = AccentRed
+                    style = MaterialTheme.typography.labelMedium,
+                    color = colors.accentDanger
                 )
             }
         }
@@ -383,91 +439,112 @@ fun AlertLogItem(event: FallAlertEvent) {
 }
 
 /**
- * Alert settings card - FIXED FORMATTING (Issue #2.2)
+ * Alert settings card.
  */
 @Composable
 private fun AlertSettingsCard(
     safetySettings: SafetySettings,
     onSettingsChange: (SafetySettings) -> Unit,
     onSensitivityClick: () -> Unit,
-    onPinSetupClick: () -> Unit
+    onPinSetupClick: () -> Unit,
+    onRequestSensitivePermissions: (Array<String>) -> Unit
 ) {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = CardColor),
-        shape = RoundedCornerShape(20.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(modifier = Modifier.padding(20.dp)) {
+    val colors = MaterialTheme.safeShadeColors
+
+    GlassCard(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(Spacing.xl)) {
             Text(
                 "Alert Settings",
-                fontWeight = FontWeight.Bold,
-                fontSize = 16.sp,
-                color = TextDark
+                style = MaterialTheme.typography.titleSmall,
+                color = colors.onSurface
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(Spacing.lg))
 
-            // Auto-call toggle - FIXED FORMATTING
+            // Auto-call toggle
             SettingsToggleRow(
                 title = "Auto-call emergency contact",
-                subtitle = "Call primary contact after 30s of fall detection",
+                subtitle = "On a fall, an alert dialog with a visible countdown appears first — " +
+                    "you can dismiss it or call immediately. Nothing dials silently in the " +
+                    "background. Needs Phone permission to place a real call; otherwise the " +
+                    "dialer opens pre-filled and you tap to call.",
                 checked = safetySettings.autoCallEmergency,
-                onCheckedChange = {
-                    onSettingsChange(safetySettings.copy(autoCallEmergency = it))
+                onCheckedChange = { enabled ->
+                    if (enabled) {
+                        onRequestSensitivePermissions(arrayOf(Manifest.permission.CALL_PHONE))
+                    }
+                    onSettingsChange(safetySettings.copy(autoCallEmergency = enabled))
                 }
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
-            HorizontalDivider(color = BgColor, thickness = 1.dp)
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(Spacing.sm))
+            HorizontalDivider(color = colors.borderGlass, thickness = 1.dp)
+            Spacer(modifier = Modifier.height(Spacing.sm))
 
-            // Fall sensitivity - FIXED FORMATTING
+            // SMS fallback alert toggle
+            SettingsToggleRow(
+                title = "SMS fallback alert",
+                subtitle = "Also send a text to your primary emergency contact when a fall is " +
+                    "confirmed — useful if the call can't connect. Needs SMS permission.",
+                checked = safetySettings.smsFallbackEnabled,
+                onCheckedChange = { enabled ->
+                    if (enabled) {
+                        onRequestSensitivePermissions(arrayOf(Manifest.permission.SEND_SMS))
+                    }
+                    onSettingsChange(safetySettings.copy(smsFallbackEnabled = enabled))
+                }
+            )
+
+            Spacer(modifier = Modifier.height(Spacing.sm))
+            HorizontalDivider(color = colors.borderGlass, thickness = 1.dp)
+            Spacer(modifier = Modifier.height(Spacing.sm))
+
+            // Fall sensitivity
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(8.dp))
+                    .clip(RoundedCornerShape(Radius.sm))
                     .clickable { onSensitivityClick() }
-                    .padding(vertical = 12.dp),
+                    .padding(vertical = Spacing.md),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         "Fall detection sensitivity",
-                        fontSize = 14.sp,
+                        style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Medium,
-                        color = TextDark
+                        color = colors.onSurface
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         safetySettings.fallSensitivity.description,
-                        fontSize = 12.sp,
-                        color = TextGray,
-                        lineHeight = 16.sp
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colors.onSurfaceMuted
                     )
                 }
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(Spacing.sm))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         safetySettings.fallSensitivity.label,
-                        fontSize = 14.sp,
-                        color = AccentPurple,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = colors.accentPrimary,
                         fontWeight = FontWeight.SemiBold
                     )
                     Icon(
                         Icons.Rounded.ChevronRight,
                         contentDescription = null,
-                        tint = TextGray,
+                        tint = colors.onSurfaceMuted,
                         modifier = Modifier.size(20.dp)
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
-            HorizontalDivider(color = BgColor, thickness = 1.dp)
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(Spacing.sm))
+            HorizontalDivider(color = colors.borderGlass, thickness = 1.dp)
+            Spacer(modifier = Modifier.height(Spacing.md))
 
-            // SOS Volume - FIXED FORMATTING
+            // SOS Volume — real, forwarded to firmware via bleManager.sendSettings() at the call site.
             Column {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -476,35 +553,35 @@ private fun AlertSettingsCard(
                 ) {
                     Text(
                         "SOS Alarm Volume",
-                        fontSize = 14.sp,
+                        style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Medium,
-                        color = TextDark
+                        color = colors.onSurface
                     )
                     Text(
                         "${(safetySettings.sosVolumeLevel * 100).toInt()}%",
-                        fontSize = 14.sp,
-                        color = AccentPurple,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = colors.accentPrimary,
                         fontWeight = FontWeight.SemiBold
                     )
                 }
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(Spacing.sm))
                 Slider(
                     value = safetySettings.sosVolumeLevel,
                     onValueChange = { onSettingsChange(safetySettings.copy(sosVolumeLevel = it)) },
                     colors = SliderDefaults.colors(
-                        thumbColor = AccentPurple,
-                        activeTrackColor = AccentPurple,
-                        inactiveTrackColor = AccentPurple.copy(alpha = 0.2f)
+                        thumbColor = colors.accentPrimary,
+                        activeTrackColor = colors.accentPrimary,
+                        inactiveTrackColor = colors.accentPrimary.copy(alpha = 0.2f)
                     ),
                     modifier = Modifier.fillMaxWidth()
                 )
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
-            HorizontalDivider(color = BgColor, thickness = 1.dp)
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(Spacing.sm))
+            HorizontalDivider(color = colors.borderGlass, thickness = 1.dp)
+            Spacer(modifier = Modifier.height(Spacing.md))
 
-            // Parental controls - FIXED FORMATTING
+            // Parental controls
             SettingsToggleRow(
                 title = "Enable Parental Controls",
                 subtitle = "Password protect Guardian/Companion mode",
@@ -515,13 +592,19 @@ private fun AlertSettingsCard(
                 }
             )
 
-            if (safetySettings.parentalControlsEnabled) {
-                Spacer(modifier = Modifier.height(8.dp))
-                TextButton(
-                    onClick = onPinSetupClick,
-                    modifier = Modifier.align(Alignment.End)
-                ) {
-                    Text("Change PIN", color = AccentPurple, fontSize = 13.sp)
+            AnimatedVisibility(
+                visible = safetySettings.parentalControlsEnabled,
+                enter = fadeIn(tween(Motion.normal)) + expandVertically(tween(Motion.normal)),
+                exit = fadeOut(tween(Motion.fast)) + shrinkVertically(tween(Motion.fast))
+            ) {
+                Column {
+                    Spacer(modifier = Modifier.height(Spacing.sm))
+                    TextButton(
+                        onClick = onPinSetupClick,
+                        modifier = Modifier.align(Alignment.End)
+                    ) {
+                        Text("Change PIN", color = colors.accentPrimary, style = MaterialTheme.typography.bodySmall)
+                    }
                 }
             }
         }
@@ -529,7 +612,7 @@ private fun AlertSettingsCard(
 }
 
 /**
- * Reusable settings toggle row - FIXED FORMATTING
+ * Reusable settings toggle row.
  */
 @Composable
 fun SettingsToggleRow(
@@ -538,34 +621,34 @@ fun SettingsToggleRow(
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit
 ) {
+    val colors = MaterialTheme.safeShadeColors
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp),
+            .padding(vertical = Spacing.xs),
         horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.Top
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 title,
-                fontSize = 14.sp,
+                style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Medium,
-                color = TextDark
+                color = colors.onSurface
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 subtitle,
-                fontSize = 12.sp,
-                color = TextGray,
-                lineHeight = 16.sp
+                style = MaterialTheme.typography.bodySmall,
+                color = colors.onSurfaceMuted
             )
         }
-        Spacer(modifier = Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(Spacing.md))
         Switch(
             checked = checked,
             onCheckedChange = onCheckedChange,
             colors = SwitchDefaults.colors(
-                checkedTrackColor = AccentPurple,
+                checkedTrackColor = colors.accentPrimary,
                 checkedThumbColor = Color.White
             )
         )

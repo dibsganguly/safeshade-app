@@ -2,15 +2,37 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <uses-permission android:name="android.permission.BLUETOOTH" />
-    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
-    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
+    <!-- Legacy Bluetooth permissions for devices below Android 12 (API 31) -->
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
+
+    <!--
+        BLE scanning here only ever filters by our own SERVICE_UUID to find
+        a SafeShade device - scan results are never used to derive the
+        phone's physical location. neverForLocation lets the OS know that,
+        so this permission does not implicitly require location access to
+        be usable (see BleManager.startScanning()).
+    -->
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_SCAN"
+        android:usesPermissionFlags="neverForLocation" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
 
+    <!-- Used for actual GPS-based weather sync (MainActivity.fetchAndSendWeather), unrelated to BLE -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
+    <!-- Geofencing safe-zone alerts need to fire while the app is backgrounded -->
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+
+    <!-- Real auto-call-emergency on confirmed fall (user-confirmed, never silent-dialed) -->
+    <uses-permission android:name="android.permission.CALL_PHONE" />
+    <!-- SMS fallback alert to primary emergency contact -->
+    <uses-permission android:name="android.permission.SEND_SMS" />
+
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Geofence enter/exit and fall-alert notifications (Android 13+) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:allowBackup="true"
@@ -32,6 +54,10 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <receiver
+            android:name=".GeofenceBroadcastReceiver"
+            android:exported="false" />
     </application>
 
 </manifest>

@@ -130,6 +130,65 @@ enum class DeviceIconType(val icon: ImageVector, val label: String) {
 }
 
 // ============================================
+// ADAPTIVE MODES (context-aware persona profiles)
+// ============================================
+
+/**
+ * The "7 Adaptive Modes" from the pitch deck, approximated as an
+ * app-buildable behavioral profile: each mode auto-adjusts fall-detection
+ * sensitivity and, for modes aimed at less tech-comfortable wearers,
+ * switches the UI to a simplified large-font layout.
+ *
+ * @property defaultFallSensitivity Sensitivity preset applied on mode switch
+ * @property simplifiedUi Whether screens should render in large-font, reduced-density layout
+ * @property matchingDeviceIcon The DeviceIconType this mode is visually paired with
+ */
+enum class PersonaMode(
+    val label: String,
+    val icon: ImageVector,
+    val description: String,
+    val defaultFallSensitivity: FallSensitivity,
+    val simplifiedUi: Boolean,
+    val matchingDeviceIcon: DeviceIconType
+) {
+    ELDERLY(
+        "Elderly", Icons.Rounded.Elderly,
+        "Large-font UI, sensitive fall detection",
+        FallSensitivity.HIGH, simplifiedUi = true, matchingDeviceIcon = DeviceIconType.CANE
+    ),
+    KIDS(
+        "Kids", Icons.Rounded.ChildCare,
+        "Safe-zone alerts, colourful simplified UI",
+        FallSensitivity.MEDIUM, simplifiedUi = true, matchingDeviceIcon = DeviceIconType.BACKPACK
+    ),
+    BIKE(
+        "Bike", Icons.Rounded.DirectionsBike,
+        "Crash-tuned detection for cycling",
+        FallSensitivity.HIGH, simplifiedUi = false, matchingDeviceIcon = DeviceIconType.BIKE
+    ),
+    PET(
+        "Pet", Icons.Rounded.Pets,
+        "Activity tracking, fall detection off",
+        FallSensitivity.LOW, simplifiedUi = false, matchingDeviceIcon = DeviceIconType.COLLAR
+    ),
+    BACKPACK(
+        "Backpack", Icons.Rounded.Backpack,
+        "Balanced default profile",
+        FallSensitivity.MEDIUM, simplifiedUi = false, matchingDeviceIcon = DeviceIconType.BACKPACK
+    ),
+    HELMET(
+        "Helmet", Icons.Rounded.School,
+        "Higher-impact threshold for headwear",
+        FallSensitivity.LOW, simplifiedUi = false, matchingDeviceIcon = DeviceIconType.HAT
+    ),
+    WRIST(
+        "Wrist", Icons.Rounded.FrontHand,
+        "Everyday wristband profile",
+        FallSensitivity.MEDIUM, simplifiedUi = false, matchingDeviceIcon = DeviceIconType.WATCH
+    )
+}
+
+// ============================================
 // SAFETY & ALERTS
 // ============================================
 
@@ -161,6 +220,8 @@ data class FallAlertEvent(
  * @property fallSensitivity Sensitivity level for fall detection
  * @property emergencyContacts List of emergency contacts
  * @property sosVolumeLevel SOS alarm volume (0.0-1.0)
+ * @property smsFallbackEnabled Whether a fallback SMS alert is sent to the primary emergency
+ *   contact alongside/instead of the call when a fall is confirmed (requires SEND_SMS)
  */
 data class SafetySettings(
     val parentalControlsEnabled: Boolean = false,
@@ -171,7 +232,8 @@ data class SafetySettings(
         EmergencyContact("Maa", "+91 89173 60065", true),
         EmergencyContact("Dr. Raj Sarkar", "+91 82498 23741", false)
     ),
-    val sosVolumeLevel: Float = 0.8f
+    val sosVolumeLevel: Float = 0.8f,
+    val smsFallbackEnabled: Boolean = false
 )
 
 /**
@@ -242,5 +304,48 @@ data class LiveSensorData(
     val accelZ: Float = 0f,
     val temperature: Float = 24.5f,
     val lightLevel: Int = 78,
-    val batteryLevel: Int = 85
+    val batteryLevel: Int = 85,
+    /** True once at least one real BLE telemetry payload has been received for this session. */
+    val isRealData: Boolean = false
 )
+
+// ============================================
+// GEOFENCING
+// ============================================
+
+/**
+ * A Guardian-defined safe zone. Alerts fire on enter/exit via
+ * GeofenceManager (Android GeofencingClient), independent of the BLE link.
+ *
+ * @property radiusMeters Zone radius in meters
+ */
+data class GeofenceZone(
+    val id: String = UUID.randomUUID().toString(),
+    val name: String,
+    val lat: Double,
+    val lon: Double,
+    val radiusMeters: Float = 200f,
+    val alertOnExit: Boolean = true,
+    val alertOnEnter: Boolean = false
+)
+
+// ============================================
+// REMOTE LED CONTROL
+// ============================================
+
+/**
+ * Remote-controllable LED patterns for the device's WS2812B ring, sent over
+ * LED_CHAR_UUID as the pattern's numeric index. Mirrors firmware's own
+ * RGBPattern enum (SafeShadev21.ino) exactly — these are the same 7
+ * patterns already reachable via the device's physical button, just now
+ * also reachable remotely from the app.
+ */
+enum class LedPattern(val label: String, val wireIndex: Int) {
+    TORCH("Torch", 0),
+    RAINBOW("Rainbow", 1),
+    CYBER("Cyber", 2),
+    POLICE("Police", 3),
+    FIRE("Fire", 4),
+    OCEAN("Ocean", 5),
+    PULSE("Pulse", 6)
+}
