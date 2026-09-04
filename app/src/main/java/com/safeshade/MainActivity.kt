@@ -82,6 +82,11 @@ class MainActivity : ComponentActivity() {
     // Location state - observed by UI
     private var locationState by mutableStateOf(LocationState())
 
+    // Real sync-in-progress state - drives HomeScreen's Sync button spinner.
+    // Set true right as fetchAndSendWeather() starts, false on both the
+    // success and failure paths - never a fake/timer-based indicator.
+    private var syncInProgress by mutableStateOf(false)
+
     // Whether all Bluetooth + location permissions required for this app
     // are currently granted. The UI uses this to decide whether BLE
     // actions (scanning/connecting) are safe to trigger.
@@ -179,7 +184,8 @@ class MainActivity : ComponentActivity() {
                         lifecycleScope.launch { preferences.setOnboardingSeen(true) }
                     },
                     geofenceManager = geofenceManager,
-                    onRequestSensitivePermissions = ::requestSensitivePermissions
+                    onRequestSensitivePermissions = ::requestSensitivePermissions,
+                    syncInProgress = syncInProgress
                 )
             }
         }
@@ -227,21 +233,26 @@ class MainActivity : ComponentActivity() {
             return
         }
 
+        syncInProgress = true
         fusedLocationClient.lastLocation.addOnSuccessListener { location ->
-            if (location != null) {
-                // Update location state
-                locationState = LocationState(
-                    lat = location.latitude,
-                    lon = location.longitude,
-                    locationName = "Current Location",
-                    locality = "",
-                    altitude = location.altitude.toInt(),
-                    isValid = true
-                )
+            if (location == null) {
+                syncInProgress = false
+                return@addOnSuccessListener
+            }
 
-                // Fetch weather data on IO thread
-                CoroutineScope(Dispatchers.IO).launch {
-                    try {
+            // Update location state
+            locationState = LocationState(
+                lat = location.latitude,
+                lon = location.longitude,
+                locationName = "Current Location",
+                locality = "",
+                altitude = location.altitude.toInt(),
+                isValid = true
+            )
+
+            // Fetch weather data on IO thread
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
                         val response = WeatherService.api.getWeather(
                             location.latitude,
                             location.longitude
@@ -282,10 +293,10 @@ class MainActivity : ComponentActivity() {
                             hour = calendar.get(Calendar.HOUR_OF_DAY),
                             minute = calendar.get(Calendar.MINUTE)
                         )
-
-                    } catch (e: Exception) {
-                        e.printStackTrace()
-                    }
+                    syncInProgress = false
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    syncInProgress = false
                 }
             }
         }

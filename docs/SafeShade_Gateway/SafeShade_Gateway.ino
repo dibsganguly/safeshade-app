@@ -77,13 +77,39 @@ enum SmsState {
 SmsState smsState = SMS_IDLE;
 unsigned long smsStateEnteredAt = 0;
 String smsPendingBody = "";
+String smsTargetNumber = EMERGENCY_NUMBER;  // who the in-flight send is going to
 String smsRxBuffer = "";
-// Set when queueAlertSms() is called while a send is already in flight
-// (e.g. the mainboard's Elderly-mode stillness escalation fires a second
-// alert ~3s after the first, well within typical send time) - without
-// this the second, more urgent alert was silently swallowed. Consumed by
-// pumpSms() the moment the in-flight send finishes.
+// Set when queueSms() is called while a send is already in flight (e.g.
+// the mainboard's Elderly-mode stillness escalation fires a second alert
+// ~3s after the first, well within typical send time) - without this the
+// second, more urgent message was silently swallowed. Consumed by
+// pumpSms() the moment the in-flight send finishes. Generalized to carry
+// any target+body (not just the alert message) so a queued Guardian reply
+// can't be dropped either.
 bool resendRequested = false;
+String resendTarget = "";
+String resendBody = "";
+
+// ==========================================
+// Two-way SMS messaging (real, device-independent of BLE/phone proximity)
+// ==========================================
+// Any SMS sent to this SIM's own number - from the app (when BLE is out of
+// range) or from literally any other phone - is picked up here and relayed
+// to the mainboard's Messages screen over /messages. Replies (physical
+// quick-reply or an app-sent Companion reply relayed by the mainboard via
+// /reply) go back to whoever sent the most recent incoming message,
+// falling back to EMERGENCY_NUMBER if none has arrived yet this session.
+struct IncomingMsg {
+    String sender;
+    String body;
+};
+const int INCOMING_QUEUE_SIZE = 5;
+IncomingMsg incomingQueue[INCOMING_QUEUE_SIZE];
+int incomingQueueCount = 0;
+String lastIncomingSender = "";
+
+unsigned long lastIncomingSmsPollMillis = 0;
+const unsigned long INCOMING_SMS_POLL_INTERVAL_MS = 5000;
 
 // ==========================================
 // AT command engine
@@ -132,6 +158,23 @@ String csvField(const String &s, int index) {
     int end = s.indexOf(',', start);
     if (end == -1) end = s.length();
     return s.substring(start, end);
+}
+
+/** n-th (0-indexed) "..."-quoted field. Needed for AT+CMGL responses -
+ * csvField() alone can't parse them because the timestamp field itself
+ * contains a comma ("25/09/03,14:23:10+22"), which would otherwise be
+ * mistaken for a field separator. */
+String quotedField(const String &s, int index) {
+    int pos = 0;
+    for (int i = 0; i <= index; i++) {
+        int start = s.indexOf('"', pos);
+        if (start == -1) return "";
+        int end = s.indexOf('"', start + 1);
+        if (end == -1) return "";
+        if (i == index) return s.substring(start + 1, end);
+        pos = end + 1;
+    }
+    return "";
 }
 
 // ==========================================
@@ -251,6 +294,61 @@ bool liveFixUsable() {
            (millis() - liveFix.updatedAtMillis) < LIVE_FIX_MAX_AGE_MS;
 }
 
+void enqueueIncoming(const String &sender, const String &body) {
+    if (body.length() == 0) return;
+    if (incomingQueueCount >= INCOMING_QUEUE_SIZE) {
+        // drop the oldest to make room - fail-open, never blocks new messages
+        for (int i = 1; i < INCOMING_QUEUE_SIZE; i++) incomingQueue[i - 1] = incomingQueue[i];
+        incomingQueueCount = INCOMING_QUEUE_SIZE - 1;
+    }
+    incomingQueue[incomingQueueCount].sender = sender;
+    incomingQueue[incomingQueueCount].body = body;
+    incomingQueueCount++;
+    lastIncomingSender = sender;
+    Serial.print("[SMS] Incoming from ");
+    Serial.print(sender);
+    Serial.print(": ");
+    Serial.println(body);
+}
+
+/**
+ * Polls for unread received SMS via AT+CMGL (not the +CMT: URC approach) -
+ * a deliberate choice: this shares the exact same "poll on a timer, guard
+ * against an in-flight send" pattern already used for GNSS/CSQ, so
+ * incoming-message handling can never interleave with (and corrupt) the
+ * outbound SMS state machine's own AT traffic on the same UART. Each
+ * matched message is queued then explicitly deleted (AT+CMGD) so it's
+ * never re-read on the next poll.
+ */
+void pollIncomingSms() {
+    String r = sendAT("AT+CMGL=\"REC UNREAD\"", 3000);
+
+    int pos = 0;
+    while (true) {
+        int idx = r.indexOf("+CMGL:", pos);
+        if (idx == -1) break;
+
+        int headerEnd = r.indexOf('\n', idx);
+        if (headerEnd == -1) break;
+        String header = r.substring(idx, headerEnd);
+
+        int msgIndex = header.substring(7, header.indexOf(',')).toInt();
+        String sender = quotedField(header, 1);  // 0=status, 1=sender, 2=timestamp
+
+        int bodyEnd = r.indexOf('\n', headerEnd + 1);
+        if (bodyEnd == -1) bodyEnd = r.length();
+        String body = r.substring(headerEnd + 1, bodyEnd);
+        body.trim();
+
+        if (sender.length() > 0 && body.length() > 0) {
+            enqueueIncoming(sender, body);
+        }
+        sendAT("AT+CMGD=" + String(msgIndex), 1000);  // free the SIM storage slot
+
+        pos = bodyEnd;
+    }
+}
+
 // ==========================================
 // SMS state machine - advanced one step per loop() iteration so a send
 // (which takes several seconds end-to-end) never blocks the HTTP server
@@ -276,31 +374,35 @@ const char* smsStateName() {
     return "idle";
 }
 
-void buildAlertMessage() {
+String buildAlertMessageText() {
     if (liveFixUsable()) {
-        smsPendingBody =
-            "SafeShade ALERT: Fall/SOS detected. Lat " + String(liveFix.lat, 6) +
+        return "SafeShade ALERT: Fall/SOS detected. Lat " + String(liveFix.lat, 6) +
             " Lon " + String(liveFix.lon, 6) +
             " https://maps.google.com/?q=" + String(liveFix.lat, 6) + "," + String(liveFix.lon, 6);
-    } else {
-        smsPendingBody =
-            "SafeShade ALERT: Fall/SOS detected. Loc: " + String(DEMO_ADDRESS) +
-            ". Lat " + String(DEMO_LAT, 6) + " Lon " + String(DEMO_LON, 6) +
-            " https://maps.google.com/?q=" + String(DEMO_LAT, 6) + "," + String(DEMO_LON, 6);
     }
+    return "SafeShade ALERT: Fall/SOS detected. Loc: " + String(DEMO_ADDRESS) +
+        ". Lat " + String(DEMO_LAT, 6) + " Lon " + String(DEMO_LON, 6) +
+        " https://maps.google.com/?q=" + String(DEMO_LAT, 6) + "," + String(DEMO_LON, 6);
 }
 
-/** Kicks off an SMS send, or - if one is already in flight - marks a
- * resend so the newer alert (built fresh, with whatever the freshest fix/
- * message is at that moment) still goes out right after the current send
- * finishes, instead of being silently dropped. */
-void queueAlertSms() {
+/** Kicks off an SMS send to [number], or - if one is already in flight -
+ * marks a resend so this one still goes out right after the current send
+ * finishes, instead of being silently dropped. Generic across alert
+ * messages and two-way Guardian replies - both go through this. */
+void queueSms(const String &number, const String &body) {
     if (smsState != SMS_IDLE && smsState != SMS_DONE && smsState != SMS_FAILED) {
         resendRequested = true;
+        resendTarget = number;
+        resendBody = body;
         return;
     }
-    buildAlertMessage();
+    smsTargetNumber = number;
+    smsPendingBody = body;
     smsState = SMS_START;
+}
+
+void queueAlertSms() {
+    queueSms(EMERGENCY_NUMBER, buildAlertMessageText());
 }
 
 void pumpSms() {
@@ -311,7 +413,8 @@ void pumpSms() {
         case SMS_FAILED:
             if (resendRequested) {
                 resendRequested = false;
-                buildAlertMessage();
+                smsTargetNumber = resendTarget;
+                smsPendingBody = resendBody;
                 smsState = SMS_START;
             }
             return;
@@ -340,7 +443,7 @@ void pumpSms() {
             drainInto(smsRxBuffer);
             if (smsRxBuffer.indexOf("OK") != -1) {
                 smsRxBuffer = "";
-                EC200U.print("AT+CMGS=\"" + String(EMERGENCY_NUMBER) + "\"\r\n");
+                EC200U.print("AT+CMGS=\"" + smsTargetNumber + "\"\r\n");
                 smsState = SMS_WAIT_PROMPT;
                 smsStateEnteredAt = millis();
             } else if (millis() - smsStateEnteredAt > 2000) {
@@ -401,6 +504,44 @@ void handleAlert() {
     queueAlertSms();
 }
 
+/** Oldest pending incoming SMS (FIFO), if any - the mainboard polls this
+ * on a timer and drains the queue one message at a time. Works for a
+ * message sent from the app (when BLE is out of range) exactly the same
+ * as one texted in from any other phone - both just land in this queue. */
+void handleMessages() {
+    if (incomingQueueCount == 0) {
+        server.send(200, "application/json", "{\"pending\":false}");
+        return;
+    }
+    String sender = incomingQueue[0].sender;
+    String body = incomingQueue[0].body;
+    for (int i = 1; i < incomingQueueCount; i++) incomingQueue[i - 1] = incomingQueue[i];
+    incomingQueueCount--;
+
+    // Minimal JSON-string escaping - SMS bodies are free text and could
+    // contain quotes/backslashes/newlines.
+    String safeBody = body;
+    safeBody.replace("\\", "\\\\");
+    safeBody.replace("\"", "\\\"");
+    safeBody.replace("\r", "");
+    safeBody.replace("\n", "\\n");
+
+    String json = "{\"pending\":true,\"from\":\"" + sender + "\",\"text\":\"" + safeBody + "\"}";
+    server.send(200, "application/json", json);
+}
+
+/** Guardian reply relay (from the mainboard - either the physical
+ * quick-reply button or an app-sent Companion reply arriving over BLE) -
+ * sent via SMS to whoever texted in most recently, so the loop is
+ * genuinely two-way and independent of BLE range on either end. */
+void handleReply() {
+    String body = server.hasArg("plain") ? server.arg("plain") : "";
+    server.send(200, "application/json", "{\"queued\":true}");
+    if (body.length() == 0) return;
+    String target = lastIncomingSender.length() > 0 ? lastIncomingSender : String(EMERGENCY_NUMBER);
+    queueSms(target, body);
+}
+
 void handleStatus() {
     String json = "{";
     json += "\"modemReady\":" + String(modemReady ? "true" : "false") + ",";
@@ -459,6 +600,8 @@ void setup() {
     server.on("/gps", HTTP_GET, handleGps);
     server.on("/alert", HTTP_POST, handleAlert);
     server.on("/status", HTTP_GET, handleStatus);
+    server.on("/messages", HTTP_GET, handleMessages);
+    server.on("/reply", HTTP_POST, handleReply);
     server.begin();
     Serial.println("[SETUP] HTTP server started. Ready.");
     Serial.println();
@@ -481,6 +624,10 @@ void loop() {
             lastCsqPollMillis = now;
             pollCsq();
             refreshNetworkReady();
+        }
+        if (now - lastIncomingSmsPollMillis > INCOMING_SMS_POLL_INTERVAL_MS) {
+            lastIncomingSmsPollMillis = now;
+            pollIncomingSms();
         }
     }
 

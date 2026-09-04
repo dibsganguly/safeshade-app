@@ -16,31 +16,23 @@
  *  - The "LIVE" badge and battery reading are now gated on
  *    liveSensorData.isRealData so we never present simulated/stale numbers as
  *    if they were fresh from the device.
- *  - Added remote LED pattern control (item #13): a 7-chip grid mirroring the
- *    firmware's physical-button patterns, writes to LED_CHAR_UUID via
- *    bleManager.sendLedPattern(). LedControlCard now shows a real AckBadge
- *    (ACK_CHAR_UUID round trip) instead of the optimistic-only state it used
- *    to - the "selected" chip itself is still local UI state, but whether it
- *    actually applied is now device-confirmed, not assumed.
+ *  - LedControlCard (remote LED pattern control) moved to ProfileScreen.kt -
+ *    remote customization now lives together there (Adaptive Mode + LED),
+ *    leaving this screen as the read-only device/telemetry view. AppInfoCard
+ *    moved the other direction, from ProfileScreen.kt, and now lives here
+ *    alongside the rest of the device-facing information.
  */
 
 package com.safeshade.ui.screens
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -56,7 +48,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.safeshade.BleManager
-import com.safeshade.data.LedPattern
+import com.safeshade.BuildConfig
 import com.safeshade.data.LiveSensorData
 import com.safeshade.ui.components.GlassCard
 import com.safeshade.ui.components.LiveDot
@@ -120,11 +112,9 @@ fun DeviceScreen(
 
         Spacer(modifier = Modifier.height(Spacing.lg))
 
-        LedControlCard(
-            bleManager = bleManager,
-            enabled = isConnected,
-            onPatternSelected = { bleManager.sendLedPattern(it) }
-        )
+        AppInfoCard()
+
+        Spacer(modifier = Modifier.height(Spacing.xl))
     }
 }
 
@@ -144,7 +134,16 @@ private fun DeviceInfoCard(
     val colors = MaterialTheme.safeShadeColors
     GlassCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(Spacing.xl)) {
-            Text("Device Information", style = MaterialTheme.typography.titleSmall, color = colors.onSurface)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Rounded.Memory,
+                    contentDescription = null,
+                    tint = colors.accentPrimary,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(Spacing.sm))
+                Text("Device Information", style = MaterialTheme.typography.titleSmall, color = colors.onSurface)
+            }
             Spacer(modifier = Modifier.height(Spacing.lg))
 
             DeviceInfoRow("Name", deviceName)
@@ -168,7 +167,16 @@ private fun ConnectionStatsCard(
     val colors = MaterialTheme.safeShadeColors
     GlassCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(Spacing.xl)) {
-            Text("Connection Stats", style = MaterialTheme.typography.titleSmall, color = colors.onSurface)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Rounded.NetworkCheck,
+                    contentDescription = null,
+                    tint = colors.accentPrimary,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(Spacing.sm))
+                Text("Connection Stats", style = MaterialTheme.typography.titleSmall, color = colors.onSurface)
+            }
             Spacer(modifier = Modifier.height(Spacing.lg))
 
             DeviceInfoRow("Status", if (isConnected) "Connected" else "Disconnected")
@@ -196,7 +204,16 @@ private fun LiveSensorCard(sensorData: LiveSensorData) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Live Sensors", style = MaterialTheme.typography.titleSmall, color = colors.onSurface)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Rounded.Sensors,
+                        contentDescription = null,
+                        tint = colors.accentPrimary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(Spacing.sm))
+                    Text("Live Sensors", style = MaterialTheme.typography.titleSmall, color = colors.onSurface)
+                }
 
                 if (sensorData.isRealData) {
                     LiveIndicator()
@@ -252,132 +269,38 @@ private fun LiveSensorCard(sensorData: LiveSensorData) {
 }
 
 /**
- * Remote LED pattern control - a 7-chip grid mirroring the firmware's
- * RGBPattern enum. Selection is optimistic local UI state only; there's no
- * device readback to confirm the pattern actually took, so we show a brief
- * "sent" pulse on tap rather than claiming confirmed sync.
+ * App information card - relocated here from ProfileScreen.kt so the
+ * app-identity summary sits with the rest of the device/telemetry
+ * information rather than the customization-heavy Profile screen. Expanded
+ * beyond plain Version/Build with the app name and its tagline (the same
+ * "Universal Safety Companion" phrase already used as this file's header
+ * comment) - Version/Build still read live from BuildConfig, never
+ * hardcoded.
  */
 @Composable
-private fun LedControlCard(
-    bleManager: BleManager,
-    enabled: Boolean,
-    onPatternSelected: (LedPattern) -> Unit
-) {
+private fun AppInfoCard() {
     val colors = MaterialTheme.safeShadeColors
-    var selected by remember { mutableStateOf<LedPattern?>(null) }
-    var justSent by remember { mutableStateOf<LedPattern?>(null) }
-    var ackSeq by remember { mutableStateOf(0) }
-
-    LaunchedEffect(justSent) {
-        if (justSent != null) {
-            delay(900)
-            justSent = null
-        }
-    }
-
     GlassCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(Spacing.xl)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("LED Pattern", style = MaterialTheme.typography.titleSmall, color = colors.onSurface)
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
-                    imageVector = Icons.Rounded.Lightbulb,
+                    Icons.Rounded.Info,
                     contentDescription = null,
-                    tint = colors.accentWarning,
-                    modifier = Modifier.size(18.dp)
+                    tint = colors.accentPrimary,
+                    modifier = Modifier.size(20.dp)
                 )
+                Spacer(modifier = Modifier.width(Spacing.sm))
+                Text("App Information", style = MaterialTheme.typography.titleSmall, color = colors.onSurface)
             }
-            Spacer(modifier = Modifier.height(Spacing.xs))
-            // Real on-device confirmation now (was previously optimistic-only
-            // with no readback at all - see the class doc comment history).
-            // Tag is value-qualified ("LED:TORCH" not just "LED") - with the
-            // generic tag, rapidly tapping two different patterns could let
-            // the first (slower) send's stale ack satisfy the second
-            // pattern's badge, showing "SYNCED" for the wrong value (found
-            // in review).
-            com.safeshade.ui.components.AckBadge(
-                bleManager = bleManager,
-                tag = selected?.let { "LED:${it.name}" } ?: "",
-                trigger = ackSeq.takeIf { it > 0 }
-            )
             Spacer(modifier = Modifier.height(Spacing.lg))
 
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(3),
-                horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
-                verticalArrangement = Arrangement.spacedBy(Spacing.sm),
-                modifier = Modifier.heightIn(max = 260.dp)
-            ) {
-                items(LedPattern.entries) { pattern ->
-                    LedPatternChip(
-                        pattern = pattern,
-                        isSelected = selected == pattern,
-                        justSent = justSent == pattern,
-                        enabled = enabled,
-                        onClick = {
-                            selected = pattern
-                            justSent = pattern
-                            ackSeq++
-                            onPatternSelected(pattern)
-                        }
-                    )
-                }
-            }
+            Text("SafeShade", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = colors.onSurface)
+            Text("Universal Safety Companion", style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceMuted)
 
-            if (!enabled) {
-                Spacer(modifier = Modifier.height(Spacing.md))
-                Text(
-                    "Connect to the device to control the LED ring.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colors.onSurfaceMuted
-                )
-            }
-        }
-    }
-}
+            Spacer(modifier = Modifier.height(Spacing.lg))
 
-@Composable
-private fun LedPatternChip(
-    pattern: LedPattern,
-    isSelected: Boolean,
-    justSent: Boolean,
-    enabled: Boolean,
-    onClick: () -> Unit
-) {
-    val colors = MaterialTheme.safeShadeColors
-    val bgAlpha by animateFloatAsState(
-        targetValue = if (isSelected) 1f else 0f,
-        animationSpec = tween(200),
-        label = "ledChipBg"
-    )
-    val background = colors.accentPrimary.copy(alpha = 0.12f + 0.10f * bgAlpha)
-    val borderColor = if (isSelected) colors.accentPrimary else colors.borderGlass
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(Radius.sm))
-            .background(background)
-            .border(1.dp, borderColor, RoundedCornerShape(Radius.sm))
-            .clickable(enabled = enabled) { onClick() }
-            .padding(vertical = Spacing.md, horizontal = Spacing.sm),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            pattern.label,
-            style = MaterialTheme.typography.labelMedium,
-            color = if (isSelected) colors.accentPrimary else colors.onSurface,
-            fontWeight = FontWeight.Bold
-        )
-        AnimatedVisibility(visible = justSent) {
-            Text(
-                "sent",
-                style = MaterialTheme.typography.labelSmall,
-                color = colors.accentSuccess
-            )
+            DeviceInfoRow("Version", BuildConfig.VERSION_NAME)
+            DeviceInfoRow("Build", BuildConfig.BUILD_TYPE)
         }
     }
 }

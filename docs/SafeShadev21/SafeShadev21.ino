@@ -213,6 +213,9 @@ unsigned long lastGatewayStatusPollMillis = 0;
 const unsigned long GATEWAY_STATUS_POLL_INTERVAL_MS = 5000;
 const unsigned long GATEWAY_STATUS_MAX_AGE_MS = 15000;
 
+unsigned long lastGatewayMessagesPollMillis = 0;
+const unsigned long GATEWAY_MESSAGES_POLL_INTERVAL_MS = 3000;
+
 wl_status_t lastWifiStatus = WL_IDLE_STATUS; // debug: see loop()'s WiFi transition log
 
 // ==========================================
@@ -252,6 +255,21 @@ bool concussionConfirmPending = false;
 unsigned long concussionConfirmAtMillis = 0;
 const unsigned long CONCUSSION_CONFIRM_TIMEOUT_MS = 10000;
 
+// Kids: quiet hours - suppresses the non-critical incoming-message buzzer
+// chime during a Guardian-set window (e.g. bedtime); fall/SOS alerts are
+// never affected by this. -1 = disabled (no quiet hours set).
+int quietStartHour = -1;
+int quietEndHour = -1;
+
+// Bike/Helmet: turn-by-turn-style navigation. Real distance + bearing
+// computed from the actual live gateway GPS fix to a Guardian-set
+// destination (same haversine approach as Ride Stats, not fabricated) -
+// not full routed turn-by-turn directions, but enough to demo a working
+// nav readout on-device.
+bool navActive = false;
+double navDestLat = 0.0, navDestLon = 0.0;
+String navDestLabel = "";
+
 // Elderly: post-impact stillness check - if the wearer shows no motion
 // for STILLNESS_CHECK_MS after a fall trigger, that's a real signal they
 // may be unresponsive, so a second alert is fired as escalation (not just
@@ -287,6 +305,14 @@ const unsigned long CHECKIN_MISS_ESCALATE_MS = 300000; // 5 min unacknowledged
 String geofenceZoneName = "";
 bool geofenceInside = false;
 bool geofenceKnown = false;
+
+// SMS allowlist - populated by EXT "SMSALLOW:<num1>,<num2>,..." (full
+// replace each time it's received). Empty (count 0) means "allow
+// everything", the same as today's behavior - a filter is only active
+// once the app has actually pushed a non-empty list.
+#define SMS_ALLOWLIST_MAX 8
+char smsAllowlist[SMS_ALLOWLIST_MAX][21];
+int smsAllowlistCount = 0;
 
 struct WeatherData {
     int rainChance = 0;
@@ -907,11 +933,14 @@ class MessageCallbacks : public BLECharacteristicCallbacks {
             // Add to message history (Issue #5)
             addMessage(value, true);
 
-            tone(PIN_BUZZER, 1000, 100);
-            delay(110);
-            tone(PIN_BUZZER, 1500, 100);
-            delay(110);
-            tone(PIN_BUZZER, 2000, 150);
+            // Kids quiet hours mute the chime only - message still shows.
+            if (!(activeMode == MODE_KIDS && inQuietHours())) {
+                tone(PIN_BUZZER, 1000, 100);
+                delay(110);
+                tone(PIN_BUZZER, 1500, 100);
+                delay(110);
+                tone(PIN_BUZZER, 2000, 150);
+            }
 
             currentScreen = SCREEN_MESSAGE;
         }
@@ -988,6 +1017,10 @@ class ReplyCallbacks : public BLECharacteristicCallbacks {
         addMessage(value, false);
         pReplyChar->setValue(value.c_str());
         pReplyChar->notify();
+        // Real two-way relay - the Guardian is almost never the phone
+        // that's actually BLE-connected right now, so the notify above
+        // alone wouldn't reach them.
+        triggerGatewayReply(value);
 
         tone(PIN_BUZZER, 1500, 80);
     }
@@ -1005,6 +1038,13 @@ class LedCallbacks : public BLECharacteristicCallbacks {
         int idx = value.toInt();
         if (idx >= 0 && idx < RGB_COUNT) {
             rgbPattern = idx;
+            // FIXED: previously only ever applied from case SCREEN_RGB_MENU
+            // in the draw switch, so a BLE-driven pattern change sat inert
+            // until the wearer happened to open the Light Mode menu on the
+            // device itself. updateRGBPattern() is self-contained (reads
+            // rgbPattern/lightVal, ends with strip.show()) so it's safe to
+            // call here regardless of what screen is currently showing.
+            updateRGBPattern();
             sendAck(String("LED:") + rgbPatternNames[idx]);
         }
     }
@@ -1055,6 +1095,48 @@ class ExtCallbacks : public BLECharacteristicCallbacks {
                 geofenceZoneName = payload.substring(0, sep);
                 geofenceInside = payload.substring(sep + 1) == "IN";
                 geofenceKnown = true;
+            }
+        } else if (tag == "SMSALLOW") {
+            // "<num1>,<num2>,..." - full-replace each time, up to
+            // SMS_ALLOWLIST_MAX entries. Empty payload clears the list
+            // (back to "allow everything").
+            smsAllowlistCount = 0;
+            int start = 0;
+            while (start <= (int)payload.length() && smsAllowlistCount < SMS_ALLOWLIST_MAX) {
+                int comma = payload.indexOf(',', start);
+                String entry = (comma == -1) ? payload.substring(start) : payload.substring(start, comma);
+                entry.trim();
+                if (entry.length() > 0) {
+                    entry.toCharArray(smsAllowlist[smsAllowlistCount], sizeof(smsAllowlist[smsAllowlistCount]));
+                    smsAllowlistCount++;
+                }
+                if (comma == -1) break;
+                start = comma + 1;
+            }
+        } else if (tag == "QUIET") {
+            // "<startHour>:<endHour>" (0-23, wraps past midnight if
+            // start > end); empty payload disables quiet hours.
+            int sep = payload.indexOf(':');
+            if (sep != -1) {
+                quietStartHour = payload.substring(0, sep).toInt();
+                quietEndHour = payload.substring(sep + 1).toInt();
+            } else {
+                quietStartHour = -1;
+                quietEndHour = -1;
+            }
+        } else if (tag == "NAV") {
+            // "<lat>:<lon>:<label>"; empty payload stops/clears navigation.
+            if (payload.length() == 0) {
+                navActive = false;
+            } else {
+                int sep1 = payload.indexOf(':');
+                int sep2 = (sep1 == -1) ? -1 : payload.indexOf(':', sep1 + 1);
+                if (sep1 != -1 && sep2 != -1) {
+                    navDestLat = payload.substring(0, sep1).toDouble();
+                    navDestLon = payload.substring(sep1 + 1, sep2).toDouble();
+                    navDestLabel = payload.substring(sep2 + 1);
+                    navActive = true;
+                }
             }
         }
 
@@ -1470,7 +1552,13 @@ void drawHomeScreen() {
     // mode) and Wrist (watch-face layout has no room for it, and a
     // wandering-personality moment doesn't fit a watch-face) - per your
     // call to keep Shady out of the modes where he doesn't belong.
-    bool shadyAllowed = activeMode != MODE_HELMET && activeMode != MODE_WRIST;
+    // FIXED: Elderly excluded too - it has its own big-clock branch below
+    // that never calls drawShady, but this autonomous takeover check runs
+    // BEFORE the per-mode branch, so without this it could still arm/flip
+    // shadyTakeoverActive while in Elderly mode and blank out the big
+    // clock with a takeover the Elderly branch has no way to show.
+    bool shadyAllowed = activeMode != MODE_HELMET && activeMode != MODE_WRIST &&
+                         activeMode != MODE_ELDERLY;
     if (shadyAllowed && !shadyTakeoverActive && homeNow >= nextShadyTakeoverAtMillis) {
         shadyTakeoverActive = true;
         shadyTakeoverEndsAtMillis = homeNow + 3500;
@@ -1507,13 +1595,32 @@ void drawHomeScreen() {
         // at a glance) matters more here than Shady's screen time, so this
         // reverts to the original large centered clock instead of the
         // smaller left-aligned one the other modes use.
+        // FIXED: the font's ':' glyph rendered as a stray vertical line
+        // artifact at this size - draw hour/minute as two separate text
+        // draws with a gap, and fill the gap with two procedurally-drawn
+        // dots (same drawDisc() style already used for Shady elsewhere in
+        // this file) instead of relying on the glyph.
         u8g2.setFont(u8g2_font_logisoso32_tn);
-        char timeStr[6];
-        sprintf(timeStr, "%02d:%02d", clockHour, clockMinute);
-        int clockWidth = u8g2.getStrWidth(timeStr);
-        u8g2.setCursor((128 - clockWidth) / 2, 50);
-        u8g2.print(timeStr);
-        drawCenteredText(62, deviceDisplayName.c_str());
+        char hourStr[3], minStr[3];
+        sprintf(hourStr, "%02d", clockHour);
+        sprintf(minStr, "%02d", clockMinute);
+        int hourWidth = u8g2.getStrWidth(hourStr);
+        int minWidth = u8g2.getStrWidth(minStr);
+        const int colonGap = 14;
+        int clockWidth = hourWidth + colonGap + minWidth;
+        int clockX = (128 - clockWidth) / 2;
+        u8g2.setCursor(clockX, 50);
+        u8g2.print(hourStr);
+        int colonCx = clockX + hourWidth + colonGap / 2;
+        u8g2.drawDisc(colonCx, 33, 2);
+        u8g2.drawDisc(colonCx, 45, 2);
+        u8g2.setCursor(clockX + hourWidth + colonGap, 50);
+        u8g2.print(minStr);
+        // FIXED: deviceDisplayName ("SafeShade S1" by default) used to be
+        // drawn right under the clock here - close enough that its "S1"
+        // read as a stray extra "1" tacked onto the time at a glance. This
+        // view is meant to be the big, uncluttered clock (Elderly mode's
+        // whole point); the device name isn't essential info here.
     } else if (activeMode == MODE_PET) {
         // Pet mode: owner/ICE info always displayed instead of the clock -
         // whoever finds the pet needs this, not the time.
@@ -1531,25 +1638,29 @@ void drawHomeScreen() {
         drawShady(105, 40, 12, homeMood, homeNow);
         drawCenteredText(62, "SafeShade S1");
     } else if (activeMode == MODE_WRIST) {
-        // Wrist mode: watch-face layout - circular framing, clock stays
-        // central like a real watch, small HR "complication" (same live-
-        // reactive simulated value as SCREEN_VITALS) instead of Shady.
-        u8g2.drawCircle(64, 36, 30);
-        u8g2.drawCircle(64, 36, 28);
+        // Wrist mode: digital-watch layout. FIXED: the round analog-style
+        // bezel (two concentric circles) looked off/weird - replaced with a
+        // rectangular digital-watch "case" frame, big centered digital
+        // time, and the same live-reactive simulated HR "complication"
+        // below a divider line (same value as SCREEN_VITALS) instead of Shady.
+        u8g2.drawRFrame(14, 13, 100, 48, 6);
+        u8g2.drawRFrame(17, 16, 94, 42, 4);
 
         u8g2.setFont(u8g2_font_logisoso18_tr);
         char timeStr[6];
         sprintf(timeStr, "%02d:%02d", clockHour, clockMinute);
         int tw = u8g2.getStrWidth(timeStr);
-        u8g2.setCursor(64 - tw / 2, 42);
+        u8g2.setCursor(64 - tw / 2, 40);
         u8g2.print(timeStr);
+
+        u8g2.drawHLine(22, 45, 84);
 
         long motion = abs(AcX) + abs(AcY) + abs(AcZ);
         int simulatedHr = 60 + (int)constrain(motion / 800, 0, 40);
         u8g2.setFont(u8g2_font_profont10_tr);
         char hrStr[8];
         snprintf(hrStr, sizeof(hrStr), "%d bpm", simulatedHr);
-        drawCenteredText(60, hrStr);
+        drawCenteredText(55, hrStr);
     } else {
         // Clock - left-aligned and a size down from before, freeing up the
         // right side for a bigger, more expressive Shady.
@@ -1715,20 +1826,44 @@ void drawGPSScreen() {
     bool gatewayFresh = gatewayGps.fix &&
         (millis() - gatewayGps.lastPolledAtMillis) < GATEWAY_GPS_MAX_AGE_MS;
 
-    if (gatewayFresh) {
-        u8g2.setCursor(4, 25);
-        u8g2.print("Onboard GPS (");
-        u8g2.print(gatewayGps.satellites);
-        u8g2.print(" sats)");
+    // Bike/Helmet real-distance-and-bearing nav readout to a Guardian-set
+    // destination (see ExtCallbacks' "NAV" tag) - not full routed
+    // turn-by-turn, but a genuinely computed live distance/bearing rather
+    // than a placeholder. Takes over the two lines that otherwise show
+    // "Onboard GPS (N sats)"/"Cell:" status, which matter less than nav
+    // info while actively navigating.
+    bool showNav = navActive && (activeMode == MODE_BIKE || activeMode == MODE_HELMET) && gatewayFresh;
 
-        // Purely additive cellular status line - independent of the GPS
-        // fix itself, only shown when the gateway's /status poll is fresh.
-        bool gatewayStatusFresh = gatewayStatus.reachable &&
-            (millis() - gatewayStatus.lastPolledAtMillis) < GATEWAY_STATUS_MAX_AGE_MS;
-        if (gatewayStatusFresh) {
+    if (gatewayFresh) {
+        if (showNav) {
+            double distKm = haversineKm(gatewayGps.lat, gatewayGps.lon, navDestLat, navDestLon);
+            double brg = bearingDeg(gatewayGps.lat, gatewayGps.lon, navDestLat, navDestLon);
+
+            u8g2.setCursor(4, 25);
+            String label = navDestLabel.length() > 0 ? navDestLabel : "Destination";
+            if (label.length() > 16) label = label.substring(0, 16);
+            u8g2.print("Nav: ");
+            u8g2.print(label);
+
             u8g2.setCursor(4, 35);
-            u8g2.print("Cell: ");
-            u8g2.print(gatewayStatus.networkReady ? "OK" : "No signal");
+            u8g2.print(distKm, 2);
+            u8g2.print(" km ");
+            u8g2.print(bearingCompass(brg));
+        } else {
+            u8g2.setCursor(4, 25);
+            u8g2.print("Onboard GPS (");
+            u8g2.print(gatewayGps.satellites);
+            u8g2.print(" sats)");
+
+            // Purely additive cellular status line - independent of the GPS
+            // fix itself, only shown when the gateway's /status poll is fresh.
+            bool gatewayStatusFresh = gatewayStatus.reachable &&
+                (millis() - gatewayStatus.lastPolledAtMillis) < GATEWAY_STATUS_MAX_AGE_MS;
+            if (gatewayStatusFresh) {
+                u8g2.setCursor(4, 35);
+                u8g2.print("Cell: ");
+                u8g2.print(gatewayStatus.networkReady ? "OK" : "No signal");
+            }
         }
 
         u8g2.setCursor(4, 47);
@@ -2449,6 +2584,50 @@ void updateRideStats(double lat, double lon) {
     rideLastFixMillis = now;
 }
 
+/** Great-circle distance in km between two coordinates - same haversine
+ * math as updateRideStats() above, factored out so Bike/Helmet nav can
+ * reuse it for a real (not fabricated) distance-to-destination readout. */
+double haversineKm(double lat1, double lon1, double lat2, double lon2) {
+    const double R_KM = 6371.0;
+    double la1 = radians(lat1), la2 = radians(lat2);
+    double dLat = radians(lat2 - lat1);
+    double dLon = radians(lon2 - lon1);
+    double a = sin(dLat / 2) * sin(dLat / 2) +
+               cos(la1) * cos(la2) * sin(dLon / 2) * sin(dLon / 2);
+    double c = 2 * atan2(sqrt(a), sqrt(1 - a));
+    return R_KM * c;
+}
+
+/** Initial compass bearing (0-360, true north) from point 1 to point 2. */
+double bearingDeg(double lat1, double lon1, double lat2, double lon2) {
+    double la1 = radians(lat1), la2 = radians(lat2);
+    double dLon = radians(lon2 - lon1);
+    double y = sin(dLon) * cos(la2);
+    double x = cos(la1) * sin(la2) - sin(la1) * cos(la2) * cos(dLon);
+    double deg = degrees(atan2(y, x));
+    return deg < 0 ? deg + 360.0 : deg;
+}
+
+/** 8-point compass label for a bearing in degrees. */
+const char* bearingCompass(double deg) {
+    static const char* labels[8] = { "N", "NE", "E", "SE", "S", "SW", "W", "NW" };
+    int idx = (int)((deg + 22.5) / 45.0) % 8;
+    return labels[idx];
+}
+
+/** Kids mode quiet hours - real Guardian-set window (see ExtCallbacks'
+ * "QUIET" tag), wraps past midnight when startHour > endHour. Disabled
+ * (-1) means never quiet. Only ever gates the non-critical incoming-
+ * message chime - fall/SOS alerts are never suppressed by this. */
+bool inQuietHours() {
+    if (quietStartHour < 0 || quietEndHour < 0) return false;
+    if (quietStartHour == quietEndHour) return false;
+    if (quietStartHour < quietEndHour) {
+        return clockHour >= quietStartHour && clockHour < quietEndHour;
+    }
+    return clockHour >= quietStartHour || clockHour < quietEndHour;
+}
+
 /** Fire-and-forget ping to the gateway's /alert endpoint - asks it to send a real SMS with the last known GPS fix. Never blocks/delays the BLE alert path above it. */
 void triggerGatewayAlert() {
     if (WiFi.status() != WL_CONNECTED) {
@@ -2465,6 +2644,28 @@ void triggerGatewayAlert() {
     }
     int code = http.POST("");
     Serial.print("[GW] /alert -> ");
+    Serial.println(code);
+    http.end();
+}
+
+/**
+ * Relays a Guardian reply (physical quick-reply, or an app-sent Companion
+ * reply arriving over BLE) out via the gateway's real SMS channel, in
+ * parallel with the existing BLE notify - so a reply reaches the Guardian
+ * even when their phone isn't the one currently BLE-connected to this
+ * device (the normal case: the wearer's replies are meant for someone
+ * else's phone). Same fail-open contract as triggerGatewayAlert().
+ */
+void triggerGatewayReply(const String &text) {
+    if (WiFi.status() != WL_CONNECTED) return;
+
+    HTTPClient http;
+    http.setConnectTimeout(1000);
+    http.setTimeout(1500);
+    if (!http.begin(String(GATEWAY_BASE_URL) + "/reply")) return;
+    http.addHeader("Content-Type", "text/plain");
+    int code = http.POST(text);
+    Serial.print("[GW] /reply -> ");
     Serial.println(code);
     http.end();
 }
@@ -2526,6 +2727,123 @@ void pollGatewayStatus() {
     http.end();
 }
 
+/**
+ * Extracts a JSON string value for `key`, honoring backslash-escapes
+ * (\" and \n specifically - the only ones the gateway's /messages
+ * endpoint emits) - unlike pollGatewayStatus()'s local extractString()
+ * lambda, this is safe for arbitrary free-text SMS bodies that can
+ * contain quotes/newlines, not just the fixed enum-like status strings.
+ */
+String extractJsonString(const String &body, const char* key) {
+    int keyIdx = body.indexOf(key);
+    if (keyIdx == -1) return "";
+    int colonIdx = body.indexOf(':', keyIdx);
+    if (colonIdx == -1) return "";
+    int startQ = body.indexOf('"', colonIdx);
+    if (startQ == -1) return "";
+
+    String result;
+    int i = startQ + 1;
+    while (i < (int)body.length()) {
+        char c = body.charAt(i);
+        if (c == '\\' && i + 1 < (int)body.length()) {
+            char next = body.charAt(i + 1);
+            result += (next == 'n') ? '\n' : next;
+            i += 2;
+            continue;
+        }
+        if (c == '"') break;
+        result += c;
+        i++;
+    }
+    return result;
+}
+
+/**
+ * SMS allowlist filter, used by pollGatewayMessages() below: compares the
+ * message's `from` field's last 10 digits (stripped of any non-digit
+ * formatting, e.g. leading "+91") against each smsAllowlist[] entry's last
+ * 10 digits the same way, so "+91 89173 60065" vs "8917360065" vs
+ * "91-89173-60065" all match. smsAllowlistCount == 0 means no filter has
+ * ever been pushed - allow everything, same as before this feature
+ * existed.
+ */
+bool isSmsSenderAllowed(const String &from) {
+    if (smsAllowlistCount == 0) return true;
+
+    String fromDigits = "";
+    for (int i = 0; i < (int)from.length(); i++) {
+        if (isDigit(from.charAt(i))) fromDigits += from.charAt(i);
+    }
+    String fromLast10 = fromDigits.length() > 10 ?
+        fromDigits.substring(fromDigits.length() - 10) : fromDigits;
+    if (fromLast10.length() == 0) return false;
+
+    for (int i = 0; i < smsAllowlistCount; i++) {
+        String entry = String(smsAllowlist[i]);
+        String entryDigits = "";
+        for (int j = 0; j < (int)entry.length(); j++) {
+            if (isDigit(entry.charAt(j))) entryDigits += entry.charAt(j);
+        }
+        String entryLast10 = entryDigits.length() > 10 ?
+            entryDigits.substring(entryDigits.length() - 10) : entryDigits;
+        if (entryLast10.length() > 0 && entryLast10 == fromLast10) return true;
+    }
+    return false;
+}
+
+/**
+ * Two-way messaging: polls the gateway for the oldest pending incoming
+ * SMS (from the app, when BLE is out of range, or from literally any
+ * other phone texting the SIM directly) and, if there is one, feeds it
+ * into the exact same message-arrival path a BLE-delivered Guardian
+ * message uses (see MessageCallbacks::onWrite) - buzzes, timelines it,
+ * and switches to the Messages screen. The sender's last 4 digits are
+ * prefixed so the wearer can tell it came from a real phone number.
+ */
+void pollGatewayMessages() {
+    if (WiFi.status() != WL_CONNECTED) return;
+
+    HTTPClient http;
+    http.setConnectTimeout(1500);
+    http.setTimeout(2000);
+    if (!http.begin(String(GATEWAY_BASE_URL) + "/messages")) return;
+
+    int code = http.GET();
+    if (code == 200) {
+        String body = http.getString();
+        if (body.indexOf("\"pending\":true") != -1) {
+            String from = extractJsonString(body, "\"from\"");
+            String text = extractJsonString(body, "\"text\"");
+            // The gateway's handleMessages() already popped this message
+            // off its queue before responding, so it's "consumed" either
+            // way - a filtered-out sender is simply not shown, never left
+            // fetched-but-unprocessed / re-fetched.
+            if (text.length() > 0 && isSmsSenderAllowed(from)) {
+                String tag = from.length() >= 4 ? from.substring(from.length() - 4) : from;
+                String displayText = tag.length() > 0 ? ("[" + tag + "] " + text) : text;
+
+                guardianMessage = displayText;
+                hasNewMessage = true;
+                messageReceivedTime = millis();
+                addMessage(displayText, true);
+
+                // Kids quiet hours mute the chime only - message still shows.
+                if (!(activeMode == MODE_KIDS && inQuietHours())) {
+                    tone(PIN_BUZZER, 1000, 100);
+                    delay(110);
+                    tone(PIN_BUZZER, 1500, 100);
+                    delay(110);
+                    tone(PIN_BUZZER, 2000, 150);
+                }
+
+                currentScreen = SCREEN_MESSAGE;
+            }
+        }
+    }
+    http.end();
+}
+
 // ==========================================
 // 14. SETUP
 // ==========================================
@@ -2538,6 +2856,10 @@ void setup() {
     pinMode(PIN_BTN, INPUT_PULLUP);
 
     Wire.begin(SDA_PIN, SCL_PIN);
+    // FIXED: without a timeout, a stuck MPU6050 I2C bus (e.g. after
+    // idle/sleep) hangs loop() forever with zero recovery path - a wedged
+    // bus now times out instead of requiring a power-cycle.
+    Wire.setTimeout(1000);
 
     Wire.beginTransmission(MPU_ADDR);
     Wire.write(0x6B);
@@ -2772,6 +3094,13 @@ void loop() {
     if (currentMillis - lastGatewayStatusPollMillis > GATEWAY_STATUS_POLL_INTERVAL_MS) {
         lastGatewayStatusPollMillis = currentMillis;
         pollGatewayStatus();
+    }
+
+    // Two-way messaging - real, device-independent of BLE proximity (see
+    // pollGatewayMessages() doc comment).
+    if (currentMillis - lastGatewayMessagesPollMillis > GATEWAY_MESSAGES_POLL_INTERVAL_MS) {
+        lastGatewayMessagesPollMillis = currentMillis;
+        pollGatewayMessages();
     }
 
     // Live telemetry notify - real MPU6050/LDR/battery readings, replacing
@@ -3055,6 +3384,9 @@ void loop() {
                     pReplyChar->setValue(quickReplies[selectedReply]);
                     pReplyChar->notify();
                 }
+                // Real two-way relay via the gateway's SMS channel - same
+                // reasoning as ReplyCallbacks::onWrite above.
+                triggerGatewayReply(quickReplies[selectedReply]);
                 // FIXED: Add sent reply to message history (Issue #5)
                 addMessage(quickReplies[selectedReply], false);
                 playReplySent();
@@ -3197,17 +3529,13 @@ void loop() {
         triggerGatewayAlert();
     }
 
-    // Auto Sleep
-    if (currentScreen != SCREEN_SLEEP &&
-        currentScreen != SCREEN_SOS &&
-        currentScreen != SCREEN_FALL &&
-        currentScreen != SCREEN_RGB_MENU &&
-        (currentMillis - lastMotionTime > SLEEP_TIMEOUT_MS)) {
-        currentScreen = SCREEN_SLEEP;
-        u8g2.clearDisplay();
-        u8g2.sendBuffer();
-        forceLEDsOff();  // Ensure all LEDs off
-    }
+    // REMOVED: Auto Sleep. The device screen itself no longer sleeps/shuts
+    // off on inactivity - only Shady's mood goes SHADY_SLEEPY (see homeMood
+    // above, driven by the same lastMotionTime/SLEEP_TIMEOUT_MS signal)
+    // while the OLED and everything else stays fully live. SCREEN_SLEEP is
+    // simply never entered anymore; its draw case and the wake-on-press
+    // handling below are harmless dead code, kept in case this needs
+    // reverting rather than fully ripped out.
 
     // Drawing & LED Updates
     bool isBraking = (currentMillis - brakeTimer < 1500) && (currentMillis - brakeTimer > 0);
@@ -3274,21 +3602,53 @@ void loop() {
             updateRGBPattern();
             return;
 
-        case SCREEN_SOS:
+        case SCREEN_SOS: {
             drawSOSScreen();
-            for (int i = 0; i < NUM_LEDS; i++) {
-                strip.setPixelColor(i, strip.Color(255, 0, 0));
+
+            // FIXED: non-blocking siren (was the root cause of "SOS can't be
+            // dismissed"). This used to call delay(100) twice per loop()
+            // pass (~200ms blocked per call) while on this screen, which
+            // meant digitalRead(PIN_BTN) - sampled once per loop(), before
+            // this switch - never got re-sampled while SOS was showing, so
+            // taps/holds to cancel were silently dropped. Now a millis()
+            // timed phase toggle drives the same alternating tone/LED
+            // effect with zero delay() calls.
+            static unsigned long lastSosToneToggle = 0;
+            static bool sosPhaseHigh = false;
+            if (currentMillis - lastSosToneToggle >= 100) {
+                lastSosToneToggle = currentMillis;
+                sosPhaseHigh = !sosPhaseHigh;
             }
-            strip.show();
-            digitalWrite(PIN_LED, HIGH);
-            tone(PIN_BUZZER, 1000);
-            delay(100);
-            strip.clear();
-            strip.show();
-            digitalWrite(PIN_LED, LOW);
-            tone(PIN_BUZZER, 2000);
-            delay(100);
+
+            if (sosPhaseHigh) {
+                for (int i = 0; i < NUM_LEDS; i++) {
+                    strip.setPixelColor(i, strip.Color(255, 0, 0));
+                }
+                strip.show();
+                digitalWrite(PIN_LED, HIGH);
+            } else {
+                strip.clear();
+                strip.show();
+                digitalWrite(PIN_LED, LOW);
+            }
+
+            // FIXED: settings.sosVolume (0-100) was parsed off BLE but
+            // never actually read anywhere - make it real by gating the
+            // tone with a duty cycle inside each 250ms window instead of
+            // sounding continuously. 100% = tone plays the whole window,
+            // 20% = tone plays for ~50ms out of every 250ms, 0% = silent
+            // (LED/strip siren still runs). No delay() - same millis()
+            // timed approach as the phase toggle above.
+            int sosVol = constrain(settings.sosVolume, 0, 100);
+            unsigned long onMs = (unsigned long)(250UL * (unsigned long)sosVol / 100UL);
+            unsigned long phaseInWindow = currentMillis % 250UL;
+            if (sosVol > 0 && phaseInWindow < onMs) {
+                tone(PIN_BUZZER, sosPhaseHigh ? 1000 : 2000);
+            } else {
+                noTone(PIN_BUZZER);
+            }
             return;
+        }
 
         case SCREEN_FALL:
             drawFallScreen();

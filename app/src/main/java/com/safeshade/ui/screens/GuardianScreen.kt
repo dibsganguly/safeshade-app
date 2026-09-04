@@ -59,6 +59,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import com.safeshade.BleManager
 import com.safeshade.data.GeofenceZone
@@ -81,12 +82,19 @@ import java.util.*
  * @param isGuardianMode Current mode (true = Guardian, false = Companion)
  * @param onModeChange Callback when mode changes
  * @param messageHistory List of messages exchanged
- * @param onMessageSent Callback when a message is sent
+ * @param onSendMessage Actually transmits a Guardian->device message - BLE while
+ *   connected, automatic SMS fallback to [devicePhoneNumber] otherwise (device-
+ *   independent messaging; see SafeShadeApp's onSendGuardianMessage)
+ * @param onMessageSent Callback when a message is sent, for local history tracking
  * @param onReply Callback (messageId, replyText) when a reply is sent
  * @param geofenceZones Current list of Guardian-defined safe zones
  * @param onGeofenceZonesChange Callback with the FULL updated zone list on any add/edit/remove
  * @param location Guardian phone's last known location (from last weather sync)
  * @param onRequestSensitivePermissions Callback to request extra runtime permissions contextually
+ * @param devicePhoneNumber The wearable's SIM number, used for the SMS fallback and shown/edited here
+ * @param onDevicePhoneNumberChange Callback when the Guardian sets/edits the device phone number
+ * @param smsAllowlist Trusted SMS sender numbers; empty means unfiltered (every sender shown on device)
+ * @param onAllowlistChange Callback with the FULL updated allowlist on any add/remove
  */
 @Composable
 fun GuardianUserScreen(
@@ -95,12 +103,17 @@ fun GuardianUserScreen(
     isGuardianMode: Boolean,
     onModeChange: (Boolean) -> Unit,
     messageHistory: List<QuickMessage>,
+    onSendMessage: (String) -> Unit,
     onMessageSent: (QuickMessage) -> Unit,
     onReply: (msgId: String, reply: String) -> Unit,
     geofenceZones: List<GeofenceZone>,
     onGeofenceZonesChange: (List<GeofenceZone>) -> Unit,
     location: LocationState,
-    onRequestSensitivePermissions: (Array<String>) -> Unit
+    onRequestSensitivePermissions: (Array<String>) -> Unit,
+    devicePhoneNumber: String,
+    onDevicePhoneNumberChange: (String) -> Unit,
+    smsAllowlist: List<String> = emptyList(),
+    onAllowlistChange: (List<String>) -> Unit = {}
 ) {
     var showModeSelector by remember { mutableStateOf(false) }
     var showPinDialog by remember { mutableStateOf(false) }
@@ -154,11 +167,16 @@ fun GuardianUserScreen(
         if (isGuardianMode) {
             GuardianModeContent(
                 bleManager = bleManager,
+                onSendMessage = onSendMessage,
                 onMessageSent = onMessageSent,
                 geofenceZones = geofenceZones,
                 onGeofenceZonesChange = onGeofenceZonesChange,
                 location = location,
-                onRequestSensitivePermissions = onRequestSensitivePermissions
+                onRequestSensitivePermissions = onRequestSensitivePermissions,
+                devicePhoneNumber = devicePhoneNumber,
+                onDevicePhoneNumberChange = onDevicePhoneNumberChange,
+                smsAllowlist = smsAllowlist,
+                onAllowlistChange = onAllowlistChange
             )
         } else {
             CompanionModeContent(bleManager, messageHistory, onReply)
@@ -221,11 +239,16 @@ private fun GuardianScreenHeader(
 @Composable
 fun GuardianModeContent(
     bleManager: BleManager,
+    onSendMessage: (String) -> Unit,
     onMessageSent: (QuickMessage) -> Unit,
     geofenceZones: List<GeofenceZone>,
     onGeofenceZonesChange: (List<GeofenceZone>) -> Unit,
     location: LocationState,
-    onRequestSensitivePermissions: (Array<String>) -> Unit
+    onRequestSensitivePermissions: (Array<String>) -> Unit,
+    devicePhoneNumber: String,
+    onDevicePhoneNumberChange: (String) -> Unit,
+    smsAllowlist: List<String> = emptyList(),
+    onAllowlistChange: (List<String>) -> Unit = {}
 ) {
     val connectionState by bleManager.connectionState.collectAsState()
     val isConnected = connectionState == "Connected"
@@ -235,8 +258,8 @@ fun GuardianModeContent(
 
     // Quick messages card
     QuickMessagesCard(
-        isConnected = isConnected,
-        bleManager = bleManager,
+        canSend = isConnected || devicePhoneNumber.isNotBlank(),
+        onSendMessage = onSendMessage,
         onMessageSent = onMessageSent
     )
 
@@ -246,11 +269,11 @@ fun GuardianModeContent(
     CustomMessageCard(
         customMessage = customMessage,
         onMessageChange = { if (it.length <= 60) customMessage = it },
-        isConnected = isConnected,
+        canSend = isConnected || devicePhoneNumber.isNotBlank(),
         messageSent = messageSent,
         onSend = {
             if (customMessage.isNotBlank()) {
-                bleManager.sendGuardianMessage(customMessage)
+                onSendMessage(customMessage)
                 onMessageSent(QuickMessage(text = customMessage, fromGuardian = true))
                 messageSent = true
                 scope.launch {
@@ -274,8 +297,169 @@ fun GuardianModeContent(
 
     Spacer(modifier = Modifier.height(Spacing.lg))
 
+    // Embedded OpenStreetMap snapshot of the configured demo location
+    MapSnapshotCard()
+
+    Spacer(modifier = Modifier.height(Spacing.lg))
+
     // Honest note about what "location sharing" actually means here
     LocationShareInfoCard(location = location)
+
+    Spacer(modifier = Modifier.height(Spacing.lg))
+
+    // Device phone number (SMS fallback target) - lets messaging keep
+    // working device-independently when BLE isn't connected.
+    DevicePhoneNumberCard(
+        devicePhoneNumber = devicePhoneNumber,
+        onSave = onDevicePhoneNumberChange
+    )
+
+    Spacer(modifier = Modifier.height(Spacing.lg))
+
+    // SMS allowlist - restrict which senders' SMS the device shows
+    AllowlistCard(
+        allowlist = smsAllowlist,
+        onAllowlistChange = onAllowlistChange
+    )
+}
+
+/**
+ * Lets the Guardian set the wearable's own SIM number (the EC200U gateway's
+ * number) so messages keep working over SMS when BLE isn't connected -
+ * without this, GuardianModeContent's send controls are only enabled while
+ * paired over BLE.
+ */
+@Composable
+private fun DevicePhoneNumberCard(
+    devicePhoneNumber: String,
+    onSave: (String) -> Unit
+) {
+    val colors = MaterialTheme.safeShadeColors
+    var draft by remember(devicePhoneNumber) { mutableStateOf(devicePhoneNumber) }
+
+    GlassCard(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(Spacing.xl)) {
+            SectionHeader("Device SIM Number")
+            Spacer(modifier = Modifier.height(Spacing.sm))
+            Text(
+                "Used to send/receive messages over SMS when the device isn't connected over Bluetooth.",
+                style = MaterialTheme.typography.bodySmall,
+                color = colors.onSurfaceMuted
+            )
+            Spacer(modifier = Modifier.height(Spacing.md))
+
+            OutlinedTextField(
+                value = draft,
+                onValueChange = { if (it.length <= 20) draft = it },
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = { Text("+91XXXXXXXXXX", color = colors.onSurfaceMuted) },
+                singleLine = true,
+                shape = RoundedCornerShape(Radius.sm)
+            )
+
+            Spacer(modifier = Modifier.height(Spacing.md))
+
+            BouncyButton(
+                onClick = { onSave(draft.trim()) },
+                enabled = draft.trim().isNotBlank() && draft.trim() != devicePhoneNumber,
+                color = AccentTeal,
+                modifier = Modifier.fillMaxWidth().height(46.dp)
+            ) {
+                Text("Save Number", fontWeight = FontWeight.Bold, color = Color.White)
+            }
+        }
+    }
+}
+
+/**
+ * Lets the Guardian restrict which SMS senders the device shows/buzzes for
+ * over the SMS fallback path. An empty allowlist means unfiltered (every
+ * sender's SMS is shown) - this card only owns local add/remove UI state;
+ * the actual device resync happens in the caller (SafeShadeApp.kt) via
+ * [onAllowlistChange] -> bleManager.sendSmsAllowlist(...).
+ */
+@Composable
+private fun AllowlistCard(
+    allowlist: List<String>,
+    onAllowlistChange: (List<String>) -> Unit
+) {
+    val colors = MaterialTheme.safeShadeColors
+    var draft by remember { mutableStateOf("") }
+
+    GlassCard(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(Spacing.xl).animateContentSize()) {
+            SectionHeader("Message Allowlist")
+            Spacer(modifier = Modifier.height(Spacing.sm))
+            Text(
+                "Restrict incoming messages shown on the device to trusted senders only. Leave empty to allow every sender.",
+                style = MaterialTheme.typography.bodySmall,
+                color = colors.onSurfaceMuted
+            )
+            Spacer(modifier = Modifier.height(Spacing.md))
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                OutlinedTextField(
+                    value = draft,
+                    onValueChange = { if (it.length <= 20) draft = it },
+                    modifier = Modifier.weight(1f),
+                    placeholder = { Text("+91XXXXXXXXXX", color = colors.onSurfaceMuted) },
+                    singleLine = true,
+                    shape = RoundedCornerShape(Radius.sm)
+                )
+                Spacer(modifier = Modifier.width(Spacing.sm))
+                BouncyButton(
+                    onClick = {
+                        val trimmed = draft.trim()
+                        if (trimmed.isNotBlank() && trimmed !in allowlist) {
+                            onAllowlistChange(allowlist + trimmed)
+                        }
+                        draft = ""
+                    },
+                    enabled = draft.trim().isNotBlank() && draft.trim() !in allowlist,
+                    color = AccentTeal,
+                    modifier = Modifier.height(46.dp)
+                ) {
+                    Icon(Icons.Rounded.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Add", fontWeight = FontWeight.Bold, color = Color.White)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(Spacing.md))
+
+            if (allowlist.isEmpty()) {
+                EmptyState(
+                    icon = Icons.Rounded.MarkChatUnread,
+                    message = "No numbers added - every sender's message is currently shown on the device. " +
+                        "Add a number to restrict incoming messages to trusted senders only."
+                )
+            } else {
+                allowlist.forEach { number ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(number, style = MaterialTheme.typography.bodyMedium, color = colors.onSurface)
+                        IconButton(
+                            onClick = { onAllowlistChange(allowlist.filterNot { it == number }) },
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(
+                                Icons.Rounded.Close,
+                                contentDescription = "Remove $number",
+                                tint = AccentRed,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+                    if (number != allowlist.last()) {
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 2.dp))
+                    }
+                }
+            }
+        }
+    }
 }
 
 /**
@@ -283,11 +467,15 @@ fun GuardianModeContent(
  */
 @Composable
 private fun QuickMessagesCard(
-    isConnected: Boolean,
-    bleManager: BleManager,
+    canSend: Boolean,
+    onSendMessage: (String) -> Unit,
     onMessageSent: (QuickMessage) -> Unit
 ) {
     val colors = MaterialTheme.safeShadeColors
+    fun send(text: String) {
+        onSendMessage(text)
+        onMessageSent(QuickMessage(text = text, fromGuardian = true))
+    }
     GlassCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(Spacing.xl)) {
             SectionHeader("Quick Messages")
@@ -295,13 +483,11 @@ private fun QuickMessagesCard(
 
             // Row 1
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                QuickMessageButton("Come Home", AccentOrange, isConnected, Modifier.weight(1f)) {
-                    bleManager.sendGuardianMessage("Come home now!")
-                    onMessageSent(QuickMessage(text = "Come home now!", fromGuardian = true))
+                QuickMessageButton("Come Home", AccentOrange, canSend, Modifier.weight(1f)) {
+                    send("Come home now!")
                 }
-                QuickMessageButton("Call Me", AccentBlue, isConnected, Modifier.weight(1f)) {
-                    bleManager.sendGuardianMessage("Please call me!")
-                    onMessageSent(QuickMessage(text = "Please call me!", fromGuardian = true))
+                QuickMessageButton("Call Me", AccentBlue, canSend, Modifier.weight(1f)) {
+                    send("Please call me!")
                 }
             }
 
@@ -309,13 +495,11 @@ private fun QuickMessagesCard(
 
             // Row 2
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                QuickMessageButton("Stay Safe", AccentGreen, isConnected, Modifier.weight(1f)) {
-                    bleManager.sendGuardianMessage("Stay safe! Love you")
-                    onMessageSent(QuickMessage(text = "Stay safe! Love you", fromGuardian = true))
+                QuickMessageButton("Stay Safe", AccentGreen, canSend, Modifier.weight(1f)) {
+                    send("Stay safe! Love you")
                 }
-                QuickMessageButton("Dinner!", AccentPurple, isConnected, Modifier.weight(1f)) {
-                    bleManager.sendGuardianMessage("Dinner is ready!")
-                    onMessageSent(QuickMessage(text = "Dinner is ready!", fromGuardian = true))
+                QuickMessageButton("Dinner!", AccentPurple, canSend, Modifier.weight(1f)) {
+                    send("Dinner is ready!")
                 }
             }
 
@@ -323,13 +507,11 @@ private fun QuickMessagesCard(
 
             // Row 3
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                QuickMessageButton("I'm Here", AccentPink, isConnected, Modifier.weight(1f)) {
-                    bleManager.sendGuardianMessage("I'm outside!")
-                    onMessageSent(QuickMessage(text = "I'm outside!", fromGuardian = true))
+                QuickMessageButton("I'm Here", AccentPink, canSend, Modifier.weight(1f)) {
+                    send("I'm outside!")
                 }
-                QuickMessageButton("On My Way", AccentTeal, isConnected, Modifier.weight(1f)) {
-                    bleManager.sendGuardianMessage("On my way to you!")
-                    onMessageSent(QuickMessage(text = "On my way to you!", fromGuardian = true))
+                QuickMessageButton("On My Way", AccentTeal, canSend, Modifier.weight(1f)) {
+                    send("On my way to you!")
                 }
             }
         }
@@ -343,7 +525,7 @@ private fun QuickMessagesCard(
 private fun CustomMessageCard(
     customMessage: String,
     onMessageChange: (String) -> Unit,
-    isConnected: Boolean,
+    canSend: Boolean,
     messageSent: Boolean,
     onSend: () -> Unit
 ) {
@@ -373,7 +555,7 @@ private fun CustomMessageCard(
 
             BouncyButton(
                 onClick = onSend,
-                enabled = isConnected && customMessage.isNotBlank(),
+                enabled = canSend && customMessage.isNotBlank(),
                 color = AccentPurple,
                 modifier = Modifier.fillMaxWidth().height(50.dp)
             ) {
@@ -681,6 +863,60 @@ private fun GeofenceZoneDialog(
                         Text(if (initial == null) "Add Zone" else "Save Changes")
                     }
                 }
+            }
+        }
+    }
+}
+
+/**
+ * Embedded OpenStreetMap snapshot of the configured SafeShade demo location
+ * (Campus 12, KIIT University, Patia, Bhubaneswar). Uses OSM's no-API-key
+ * embed endpoint via a WebView - this project has no Maps SDK dependency.
+ * The marker/bbox reflect a fixed, configured location, not a live GPS feed;
+ * see LocationShareInfoCard below for what "location" actually means here.
+ */
+@Composable
+private fun MapSnapshotCard() {
+    val lat = 20.35520740274678
+    val lon = 85.81951928060086
+    val delta = 0.004
+    val mapUrl = "https://www.openstreetmap.org/export/embed.html" +
+        "?bbox=${lon - delta},${lat - delta},${lon + delta},${lat + delta}" +
+        "&layer=mapnik&marker=$lat,$lon"
+
+    GlassCard(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(Spacing.xl)) {
+            SectionHeader("Location Snapshot")
+            Spacer(modifier = Modifier.height(Spacing.md))
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(220.dp)
+                    .clip(RoundedCornerShape(Radius.sm))
+            ) {
+                AndroidView(
+                    modifier = Modifier.fillMaxSize(),
+                    factory = { context ->
+                        android.webkit.WebView(context).apply {
+                            settings.javaScriptEnabled = true
+                            settings.domStorageEnabled = true
+                            // Keep navigation inside this WebView (no external
+                            // browser hand-off) so the embed reliably renders here.
+                            webViewClient = android.webkit.WebViewClient()
+                            loadUrl(mapUrl)
+                        }
+                    },
+                    // NOTE: no `update` block - mapUrl is derived from fixed
+                    // constants and never changes after the first load. An
+                    // earlier version called loadUrl() again in `update`,
+                    // which Compose invokes on every recomposition of this
+                    // screen (e.g. every message/allowlist/connection-state
+                    // change) - repeatedly restarting the page load before it
+                    // ever finished rendering, which is why the map appeared
+                    // to never show up.
+                    onRelease = { it.destroy() }
+                )
             }
         }
     }

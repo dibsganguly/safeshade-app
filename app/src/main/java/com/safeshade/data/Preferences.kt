@@ -45,6 +45,8 @@ private object PrefsKeys {
     val ONBOARDING_SEEN = booleanPreferencesKey("onboarding_seen")
     val PAIRED_DEVICES = stringPreferencesKey("paired_devices_json")
     val ACTIVE_MODE = stringPreferencesKey("active_persona_mode")
+    val DEVICE_PHONE_NUMBER = stringPreferencesKey("device_phone_number")
+    val SMS_ALLOWLIST = stringPreferencesKey("sms_allowlist")
 }
 
 class SafeShadePreferences(private val context: Context) {
@@ -104,5 +106,33 @@ class SafeShadePreferences(private val context: Context) {
 
     suspend fun setActiveMode(mode: PersonaMode) {
         context.dataStore.edit { it[PrefsKeys.ACTIVE_MODE] = mode.name }
+    }
+
+    /**
+     * The wearable's own SIM number (the EC200U gateway's number), set by
+     * the Guardian so the app can send/receive messages over SMS - the
+     * device-independent fallback used when BLE isn't connected. See
+     * SafeShadeApp's onSendGuardianMessage / SmsReceiver wiring.
+     */
+    val devicePhoneNumber: Flow<String> =
+        context.dataStore.data.map { it[PrefsKeys.DEVICE_PHONE_NUMBER] ?: "" }
+
+    suspend fun setDevicePhoneNumber(number: String) {
+        context.dataStore.edit { it[PrefsKeys.DEVICE_PHONE_NUMBER] = number }
+    }
+
+    /**
+     * Trusted SMS senders. When empty, every sender's SMS is shown on the
+     * device (no filtering) - see AllowlistCard in GuardianScreen.kt for the
+     * add/remove UI, and SafeShadeApp's wiring to
+     * bleManager.sendSmsAllowlist() for how this reaches the device.
+     */
+    val smsAllowlist: Flow<List<String>> = context.dataStore.data.map { prefs ->
+        val raw = prefs[PrefsKeys.SMS_ALLOWLIST] ?: ""
+        if (raw.isBlank()) emptyList() else raw.split(",").map { it.trim() }.filter { it.isNotBlank() }
+    }
+
+    suspend fun setSmsAllowlist(numbers: List<String>) {
+        context.dataStore.edit { it[PrefsKeys.SMS_ALLOWLIST] = numbers.joinToString(",") }
     }
 }

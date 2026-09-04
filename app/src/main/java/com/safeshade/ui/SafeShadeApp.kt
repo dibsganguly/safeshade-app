@@ -33,6 +33,7 @@
 
 package com.safeshade.ui
 
+import android.Manifest
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.LocalPhone
@@ -49,9 +50,11 @@ import androidx.navigation.compose.rememberNavController
 import com.safeshade.BleManager
 import com.safeshade.GeofenceEventBus
 import com.safeshade.GeofenceManager
+import com.safeshade.SmsMessageEventBus
 import com.safeshade.data.*
 import com.safeshade.placeEmergencyCall
 import com.safeshade.sendEmergencySms
+import com.safeshade.sendSmsText
 import com.safeshade.ui.navigation.SafeShadeBottomBar
 import com.safeshade.ui.screens.*
 import com.safeshade.ui.theme.*
@@ -76,7 +79,8 @@ fun SafeShadeApp(
     onboardingSeen: Boolean? = true,
     onOnboardingComplete: () -> Unit = {},
     geofenceManager: GeofenceManager,
-    onRequestSensitivePermissions: (Array<String>) -> Unit = {}
+    onRequestSensitivePermissions: (Array<String>) -> Unit = {},
+    syncInProgress: Boolean = false
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -95,12 +99,49 @@ fun SafeShadeApp(
     var isGuardianMode by remember { mutableStateOf(true) }
     var geofenceZones by remember { mutableStateOf(listOf<GeofenceZone>()) }
     var activeMode by remember { mutableStateOf(PersonaMode.BACKPACK) }
+    var devicePhoneNumber by remember { mutableStateOf("") }
+    var smsAllowlist by remember { mutableStateOf(listOf<String>()) }
 
     val pairedDevices by preferences.pairedDevices.collectAsState(initial = emptyList())
 
     LaunchedEffect(Unit) {
         preferences.activeModeName.collect { name ->
             activeMode = runCatching { PersonaMode.valueOf(name) }.getOrDefault(PersonaMode.BACKPACK)
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        preferences.devicePhoneNumber.collect { devicePhoneNumber = it }
+    }
+
+    LaunchedEffect(Unit) {
+        preferences.smsAllowlist.collect { smsAllowlist = it }
+    }
+
+    // Appends a real device->Guardian message, deduping against a
+    // near-identical one that just arrived seconds ago via the other
+    // channel - the firmware relays every reply over BOTH BLE notify and
+    // gateway SMS (see triggerGatewayReply() in SafeShadev21.ino), so a
+    // BLE-connected session can otherwise see the same reply twice: once
+    // from deviceReply below, once from the SMS observer.
+    fun appendIncomingDeviceMessage(text: String) {
+        val now = System.currentTimeMillis()
+        val isDuplicate = messageHistory.firstOrNull()?.let {
+            !it.fromGuardian && it.text == text && (now - it.timestamp) < 8000
+        } ?: false
+        if (isDuplicate) return
+        messageHistory = listOf(QuickMessage(text = text, fromGuardian = false, timestamp = now)) + messageHistory
+    }
+
+    // Guardian->device message send, made device-independent: BLE while
+    // connected (fast, free), automatic SMS fallback to the wearable's SIM
+    // otherwise - the EC200U gateway relays it back out over cellular even
+    // when the Guardian's phone has no BLE link to the device at all.
+    val onSendGuardianMessage: (String) -> Unit = { text ->
+        if (bleManager.isConnected()) {
+            bleManager.sendGuardianMessage(text)
+        } else if (devicePhoneNumber.isNotBlank()) {
+            sendSmsText(context, devicePhoneNumber, text, logTag = "GUARDIAN_MSG_SMS")
         }
     }
 
@@ -111,13 +152,24 @@ fun SafeShadeApp(
 
     LaunchedEffect(deviceReply) {
         deviceReply?.let { reply ->
-            val newMessage = QuickMessage(
-                text = reply,
-                fromGuardian = false,
-                timestamp = System.currentTimeMillis()
-            )
-            messageHistory = listOf(newMessage) + messageHistory
+            appendIncomingDeviceMessage(reply)
             bleManager.clearReply()
+        }
+    }
+
+    // ============================================
+    // SMS MESSAGE OBSERVER - real device-independent receive side. Matches
+    // incoming SMS senders against the configured device phone number (last
+    // 10 digits, so +91/0/no-prefix variants all match) since SmsReceiver
+    // has no reference to this state (see SmsMessageEventBus's doc comment).
+    // ============================================
+    LaunchedEffect(Unit) {
+        SmsMessageEventBus.events.collect { (sender, body) ->
+            val deviceDigits = devicePhoneNumber.filter { it.isDigit() }.takeLast(10)
+            val senderDigits = sender.filter { it.isDigit() }.takeLast(10)
+            if (deviceDigits.length == 10 && deviceDigits == senderDigits) {
+                appendIncomingDeviceMessage(body)
+            }
         }
     }
 
@@ -144,6 +196,11 @@ fun SafeShadeApp(
         if (connectionState == "Connected") {
             bleManager.sendHealthData(medicalId)
             bleManager.sendSettings(safetySettings)
+            // Allowlist lives phone-side (DataStore) but must be re-pushed to
+            // the device on every reconnect - the firmware only holds it in RAM.
+            if (smsAllowlist.isNotEmpty()) {
+                bleManager.sendSmsAllowlist(smsAllowlist)
+            }
         }
     }
 
@@ -152,10 +209,24 @@ fun SafeShadeApp(
     // ============================================
     LaunchedEffect(fallAlert) {
         if (fallAlert) {
+            val locationSnapshot = if (location.isValid) {
+                location.locationName.ifBlank { "%.4f, %.4f".format(location.lat, location.lon) }
+            } else null
+            val sensorSnapshot = if (liveSensorData.isRealData) {
+                "Battery ${liveSensorData.batteryLevel}% • accel %.2fg".format(
+                    kotlin.math.sqrt(
+                        liveSensorData.accelX * liveSensorData.accelX +
+                            liveSensorData.accelY * liveSensorData.accelY +
+                            liveSensorData.accelZ * liveSensorData.accelZ
+                    )
+                )
+            } else null
             val newEvent = FallAlertEvent(
                 eventType = "Fall detected",
                 action = "Awaiting dismissal",
-                wasEmergencyContacted = safetySettings.autoCallEmergency
+                wasEmergencyContacted = safetySettings.autoCallEmergency,
+                location = locationSnapshot,
+                note = sensorSnapshot
             )
             fallHistory = listOf(newEvent) + fallHistory
         }
@@ -231,7 +302,8 @@ fun SafeShadeApp(
                     onRequestPermissions = onRequestPermissions,
                     onSyncWeather = onSyncWeather,
                     activeMode = activeMode,
-                    liveSensorData = liveSensorData
+                    liveSensorData = liveSensorData,
+                    isSyncing = syncInProgress
                 )
             }
 
@@ -242,6 +314,7 @@ fun SafeShadeApp(
                     isGuardianMode = isGuardianMode,
                     onModeChange = { isGuardianMode = it },
                     messageHistory = messageHistory,
+                    onSendMessage = onSendGuardianMessage,
                     onMessageSent = { msg -> messageHistory = listOf(msg) + messageHistory },
                     onReply = { msgId, reply ->
                         bleManager.sendDeviceReply(reply)
@@ -255,7 +328,25 @@ fun SafeShadeApp(
                         geofenceManager.syncZones(zones)
                     },
                     location = location,
-                    onRequestSensitivePermissions = onRequestSensitivePermissions
+                    onRequestSensitivePermissions = onRequestSensitivePermissions,
+                    devicePhoneNumber = devicePhoneNumber,
+                    onDevicePhoneNumberChange = { number ->
+                        devicePhoneNumber = number
+                        coroutineScope.launch { preferences.setDevicePhoneNumber(number) }
+                        if (number.isNotBlank()) {
+                            onRequestSensitivePermissions(
+                                arrayOf(Manifest.permission.SEND_SMS, Manifest.permission.RECEIVE_SMS)
+                            )
+                        }
+                    },
+                    smsAllowlist = smsAllowlist,
+                    onAllowlistChange = { numbers ->
+                        smsAllowlist = numbers
+                        coroutineScope.launch { preferences.setSmsAllowlist(numbers) }
+                        if (bleManager.isConnected()) {
+                            bleManager.sendSmsAllowlist(numbers)
+                        }
+                    }
                 )
             }
 

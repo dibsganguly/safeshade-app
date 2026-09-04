@@ -180,6 +180,10 @@ class BleManager(private val context: Context) {
 
     private var connectionTime: Long = 0
 
+    // Set right before a user-initiated disconnect() so the
+    // STATE_DISCONNECTED branch below knows not to auto-reconnect.
+    private var userInitiatedDisconnect = false
+
     // ============================================
     // Scanning
     // ============================================
@@ -204,6 +208,16 @@ class BleManager(private val context: Context) {
             Log.d("BLE_SCAN", "Already connected/connecting, ignoring scan request")
             return
         }
+        // A prior disconnect() call synchronously closes the GATT client
+        // (see its comment) - Android frequently never delivers the async
+        // STATE_DISCONNECTED callback once close() has already been called,
+        // which is the only place this flag would otherwise get reset. Left
+        // stuck true, it would silently skip the auto-retry the very next
+        // failed connection attempt needs (Android's first connectGatt()
+        // commonly fails once and needs exactly that retry). Any explicit
+        // new scan means we're no longer in a "stay disconnected" state, so
+        // clear it here defensively.
+        userInitiatedDisconnect = false
 
         val adapter = bluetoothAdapter
         if (adapter == null || !adapter.isEnabled) {
@@ -294,6 +308,7 @@ class BleManager(private val context: Context) {
                 BluetoothProfile.STATE_CONNECTED -> {
                     _connectionState.value = "Connected"
                     connectionTime = System.currentTimeMillis()
+                    userInitiatedDisconnect = false
                     // Request a larger MTU first so subsequent writes (weather,
                     // health) aren't truncated to 20 bytes by the stack.
                     // discoverServices() is kicked off once the MTU callback
@@ -309,7 +324,11 @@ class BleManager(private val context: Context) {
                     opInFlight = false
                     gatt?.close()
                     bluetoothGatt = null
-                    startScanning()
+                    if (userInitiatedDisconnect) {
+                        userInitiatedDisconnect = false
+                    } else {
+                        startScanning()
+                    }
                 }
             }
         }
@@ -663,7 +682,14 @@ class BleManager(private val context: Context) {
             return
         }
 
-        val payload = "${medicalId.bloodType},${medicalId.emergencyContact},${medicalId.contactName},${medicalId.allergies},${medicalId.age}"
+        // Guard against commas in free-text fields corrupting the firmware's
+        // fixed-count comma-delimited parser, same as sendWeatherData() does.
+        val safeBloodType = medicalId.bloodType.replace(",", " ")
+        val safeEmergencyContact = medicalId.emergencyContact.replace(",", " ")
+        val safeContactName = medicalId.contactName.replace(",", " ")
+        val safeAllergies = medicalId.allergies.replace(",", " ")
+
+        val payload = "$safeBloodType,$safeEmergencyContact,$safeContactName,$safeAllergies,${medicalId.age}"
         writeCharacteristic(healthCharacteristic!!, payload)
         Log.d("BLE", "Sent health data: $payload")
     }
@@ -707,6 +733,15 @@ class BleManager(private val context: Context) {
         val value = if (payload.isEmpty()) tag else "$tag:$payload"
         writeCharacteristic(characteristic, value)
         Log.d("BLE_EXT", "Sent ext command: $value")
+    }
+
+    /**
+     * Send the SMS fallback allowlist (numbers eligible to receive the
+     * device's SMS fallback alerts) as a comma-separated list via the
+     * generic ext-command channel.
+     */
+    fun sendSmsAllowlist(numbers: List<String>) {
+        sendExtCommand("SMSALLOW", numbers.joinToString(","))
     }
 
     /**
@@ -794,6 +829,7 @@ class BleManager(private val context: Context) {
      */
     fun disconnect() {
         stopScanning()
+        userInitiatedDisconnect = true
         bluetoothGatt?.disconnect()
         bluetoothGatt?.close()
         bluetoothGatt = null

@@ -43,13 +43,22 @@ fun placeEmergencyCall(context: Context, contact: EmergencyContact) {
 }
 
 /** Sends a BLE-independent SMS fallback alert to [contact]. Requires SEND_SMS; silently no-ops (logged) if missing. */
-fun sendEmergencySms(context: Context, contact: EmergencyContact, message: String) {
+fun sendEmergencySms(context: Context, contact: EmergencyContact, message: String) =
+    sendSmsText(context, contact.phone, message, logTag = "EMERGENCY_SMS")
+
+/**
+ * Sends a plain SMS to [phoneNumber]. Requires SEND_SMS; silently no-ops
+ * (logged) if missing. Shared by the emergency-alert fallback
+ * ([sendEmergencySms]) and the Guardian<->device messaging fallback used
+ * when BLE isn't connected (see SafeShadeApp's onSendGuardianMessage).
+ */
+fun sendSmsText(context: Context, phoneNumber: String, message: String, logTag: String = "GUARDIAN_SMS") {
     val hasSmsPermission = ContextCompat.checkSelfPermission(
         context, Manifest.permission.SEND_SMS
     ) == PackageManager.PERMISSION_GRANTED
 
     if (!hasSmsPermission) {
-        Log.e("EMERGENCY_SMS", "SEND_SMS not granted, cannot send fallback SMS")
+        Log.e(logTag, "SEND_SMS not granted, cannot send SMS")
         return
     }
 
@@ -57,6 +66,6 @@ fun sendEmergencySms(context: Context, contact: EmergencyContact, message: Strin
         val smsManager = context.getSystemService(SmsManager::class.java)
             ?: @Suppress("DEPRECATION") SmsManager.getDefault()
         val parts = smsManager.divideMessage(message)
-        smsManager.sendMultipartTextMessage(contact.phone, null, parts, null, null)
-    }.onFailure { Log.e("EMERGENCY_SMS", "Failed to send SMS - likely no cellular signal", it) }
+        smsManager.sendMultipartTextMessage(phoneNumber, null, parts, null, null)
+    }.onFailure { Log.e(logTag, "Failed to send SMS - likely no cellular signal", it) }
 }

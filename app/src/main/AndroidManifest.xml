@@ -27,8 +27,9 @@
 
     <!-- Real auto-call-emergency on confirmed fall (user-confirmed, never silent-dialed) -->
     <uses-permission android:name="android.permission.CALL_PHONE" />
-    <!-- SMS fallback alert to primary emergency contact -->
+    <!-- SMS fallback: emergency alerts, and device-independent Guardian<->device messaging (SmsReceiver/EmergencyActions.sendSmsText) -->
     <uses-permission android:name="android.permission.SEND_SMS" />
+    <uses-permission android:name="android.permission.RECEIVE_SMS" />
 
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Geofence enter/exit and fall-alert notifications (Android 13+) -->
@@ -58,6 +59,21 @@
         <receiver
             android:name=".GeofenceBroadcastReceiver"
             android:exported="false" />
+
+        <!--
+            SMS_RECEIVED is a protected system broadcast, so exported="true"
+            here only lets the OS itself deliver it (android:permission
+            requires the sender to hold BROADCAST_SMS, which only the
+            platform does) - this does not open the receiver to other apps.
+        -->
+        <receiver
+            android:name=".SmsReceiver"
+            android:exported="true"
+            android:permission="android.permission.BROADCAST_SMS">
+            <intent-filter>
+                <action android:name="android.provider.Telephony.SMS_RECEIVED" />
+            </intent-filter>
+        </receiver>
     </application>
 
 </manifest>

@@ -27,19 +27,27 @@ package com.safeshade.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.DirectionsRun
+import androidx.compose.material.icons.automirrored.rounded.TrendingUp
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -49,18 +57,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.safeshade.BleManager
-import com.safeshade.BuildConfig
 import com.safeshade.data.DarkModePreference
 import com.safeshade.data.DeviceIconType
 import com.safeshade.data.DeviceSettings
+import com.safeshade.data.LedPattern
 import com.safeshade.data.MedicalId
 import com.safeshade.data.PairedDevice
 import com.safeshade.data.PersonaMode
 import com.safeshade.ui.components.*
 import com.safeshade.ui.theme.*
+import kotlinx.coroutines.delay
 
 /**
  * Profile screen - User profile and device management.
@@ -98,6 +108,8 @@ fun ProfileScreen(
     var showAddDevice by remember { mutableStateOf(false) }
 
     val connectedAddress by bleManager.deviceAddress.collectAsState()
+    val connectionState by bleManager.connectionState.collectAsState()
+    val isConnected = connectionState == "Connected"
 
     // ============================================
     // DIALOGS
@@ -187,7 +199,21 @@ fun ProfileScreen(
             bleManager = bleManager,
             activeMode = activeMode,
             geofenceZoneCount = geofenceZoneCount,
-            parentalControlsEnabled = parentalControlsEnabled
+            parentalControlsEnabled = parentalControlsEnabled,
+            medicalId = medicalId,
+            onMedicalIdChange = onMedicalIdChange
+        )
+
+        Spacer(modifier = Modifier.height(Spacing.lg))
+
+        // LED Pattern Card - relocated from DeviceScreen so remote LED
+        // control lives alongside the rest of the device/appearance
+        // customization on Profile, rather than the read-only telemetry
+        // screen.
+        LedControlCard(
+            bleManager = bleManager,
+            enabled = isConnected,
+            onPatternSelected = { bleManager.sendLedPattern(it) }
         )
 
         Spacer(modifier = Modifier.height(Spacing.lg))
@@ -219,10 +245,7 @@ fun ProfileScreen(
             onDarkModeChange = onDarkModeChange
         )
 
-        Spacer(modifier = Modifier.height(Spacing.lg))
-
-        // App Info Card
-        AppInfoCard()
+        Spacer(modifier = Modifier.height(Spacing.xl))
     }
 }
 
@@ -306,13 +329,16 @@ private fun PersonaModeChip(
     onClick: () -> Unit
 ) {
     val colors = MaterialTheme.safeShadeColors
+    // Each mode carries its own accentColor (PersonaMode.accentColor) so the
+    // 7 chips read as visually distinct at a glance, not just differently
+    // labeled instances of the same flat brand color.
     val bg by animateColorAsState(
-        targetValue = if (selected) colors.accentPrimary else colors.accentPrimary.copy(alpha = 0.08f),
+        targetValue = if (selected) mode.accentColor else mode.accentColor.copy(alpha = 0.10f),
         animationSpec = tween(Motion.fast),
         label = "personaChipBg"
     )
     val fg by animateColorAsState(
-        targetValue = if (selected) colors.surface else colors.accentPrimary,
+        targetValue = if (selected) colors.surface else mode.accentColor,
         animationSpec = tween(Motion.fast),
         label = "personaChipFg"
     )
@@ -352,7 +378,9 @@ private fun ModeControlsCard(
     bleManager: BleManager,
     activeMode: PersonaMode,
     geofenceZoneCount: Int,
-    parentalControlsEnabled: Boolean
+    parentalControlsEnabled: Boolean,
+    medicalId: MedicalId,
+    onMedicalIdChange: (MedicalId) -> Unit
 ) {
     val colors = MaterialTheme.safeShadeColors
     GlassCard(modifier = Modifier.fillMaxWidth()) {
@@ -370,63 +398,436 @@ private fun ModeControlsCard(
             Spacer(modifier = Modifier.height(Spacing.md))
 
             when (activeMode) {
-                PersonaMode.ELDERLY -> MedicationReminderControl(bleManager)
-                PersonaMode.HELMET -> CheckInIntervalControl(bleManager)
-                PersonaMode.KIDS -> KidsModeInfo(geofenceZoneCount, parentalControlsEnabled)
-                PersonaMode.BIKE -> ModeInfoText(
-                    "Crash detection combines impact strength with rotational " +
-                        "jerk (gyro-aware) - fewer false alarms from potholes/bumps " +
-                        "than impact alone. Ride distance/time show on the device's " +
-                        "Ride Stats screen."
-                )
-                PersonaMode.PET -> ModeInfoText(
-                    "Fall detection is off in Pet mode. Activity tracking and a " +
-                        "\"virtual leash\" are active instead - an unexpected " +
-                        "disconnect triggers a lost-pet alert (SMS + LED blink) " +
-                        "automatically."
-                )
-                PersonaMode.WRIST -> ModeInfoText(
-                    "Live heart-rate/SpO2 (simulated - no HR sensor on this board " +
-                        "yet) and real sleep-time tracking show on the device's " +
-                        "watch-face Home screen and Vitals screen."
-                )
-                PersonaMode.BACKPACK -> ModeInfoText(
-                    "Balanced default mode - all standard features active, no " +
-                        "mode-specific overrides. Every other mode is a deliberate " +
-                        "deviation from this baseline."
-                )
+                PersonaMode.ELDERLY -> ElderlyModeControls(bleManager, medicalId)
+                PersonaMode.HELMET -> HelmetModeControls(bleManager)
+                PersonaMode.KIDS -> KidsModeInfo(bleManager, geofenceZoneCount, parentalControlsEnabled)
+                PersonaMode.BIKE -> BikeModeInfo(bleManager)
+                PersonaMode.PET -> PetModeInfo(medicalId, onMedicalIdChange)
+                PersonaMode.WRIST -> WristModeInfo()
+                PersonaMode.BACKPACK -> BackpackModeInfo()
             }
         }
     }
 }
 
+/** Small label used above each mode's structured content, matching the
+ * weight/size the old ad hoc "Medication Reminder"/"Scheduled Check-In"
+ * labels already used. */
 @Composable
-private fun ModeInfoText(text: String) {
+private fun ModeSectionLabel(text: String) {
     Text(
         text,
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.safeShadeColors.onSurfaceMuted
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.safeShadeColors.onSurface,
+        fontWeight = FontWeight.Bold
     )
 }
 
+/** Icon-led bullet row for structured "what's different in this mode" copy -
+ * replaces the old wall-of-text ModeInfoText paragraphs. */
 @Composable
-private fun KidsModeInfo(geofenceZoneCount: Int, parentalControlsEnabled: Boolean) {
+private fun ModeBulletRow(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String, tint: Color) {
     val colors = MaterialTheme.safeShadeColors
+    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+        Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(18.dp))
+        Spacer(modifier = Modifier.width(Spacing.sm))
+        Text(
+            text,
+            style = MaterialTheme.typography.bodySmall,
+            color = colors.onSurfaceMuted,
+            modifier = Modifier.weight(1f)
+        )
+    }
+}
+
+/** Icon + big value + label stat tile, for at-a-glance numbers that are
+ * already available client-side (geofence zone count, lock state) rather
+ * than fabricated device telemetry. */
+@Composable
+private fun ModeStatRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    value: String,
+    label: String,
+    tint: Color,
+    modifier: Modifier = Modifier
+) {
+    val colors = MaterialTheme.safeShadeColors
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(Radius.sm))
+            .background(tint.copy(alpha = 0.08f))
+            .padding(Spacing.md),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .clip(RoundedCornerShape(Radius.sm))
+                .background(tint.copy(alpha = 0.15f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(18.dp))
+        }
+        Spacer(modifier = Modifier.width(Spacing.sm))
+        Column {
+            Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = colors.onSurface)
+            Text(label, style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceMuted)
+        }
+    }
+}
+
+/** Tinted note box for a short structured explanation (concussion-confirm
+ * flow, simulated-vitals honesty disclaimer, etc). */
+@Composable
+private fun InfoNoteBox(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String, tint: Color) {
+    val colors = MaterialTheme.safeShadeColors
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(Radius.sm))
+            .background(tint.copy(alpha = 0.08f))
+            .padding(Spacing.md),
+        verticalAlignment = Alignment.Top
+    ) {
+        Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(18.dp))
+        Spacer(modifier = Modifier.width(Spacing.sm))
+        Text(
+            text,
+            style = MaterialTheme.typography.bodySmall,
+            color = colors.onSurfaceMuted,
+            modifier = Modifier.weight(1f)
+        )
+    }
+}
+
+@Composable
+private fun ElderlyModeControls(bleManager: BleManager, medicalId: MedicalId) {
+    val colors = MaterialTheme.safeShadeColors
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.lg)) {
+        MedicationReminderControl(bleManager)
+        val hasContact = medicalId.contactName.isNotBlank() || medicalId.emergencyContact.isNotBlank()
+        if (hasContact) {
+            SettingsRow(
+                icon = Icons.Rounded.ContactEmergency,
+                title = medicalId.contactName.ifBlank { "Emergency Contact" },
+                subtitle = medicalId.emergencyContact.ifBlank { null },
+                iconTint = colors.accentDanger,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(Radius.sm))
+                    .background(colors.accentDanger.copy(alpha = 0.06f))
+                    .padding(horizontal = Spacing.sm)
+            )
+        }
+    }
+}
+
+@Composable
+private fun HelmetModeControls(bleManager: BleManager) {
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
+        CheckInIntervalControl(bleManager)
+        InfoNoteBox(
+            icon = Icons.Rounded.HealthAndSafety,
+            text = "Two-step concussion confirm: a detected impact first buzzes the " +
+                "device and waits for an on-device confirm. Only an unconfirmed " +
+                "impact escalates to a Guardian alert - fewer false alarms from a " +
+                "helmet just being bumped or set down.",
+            tint = MaterialTheme.safeShadeColors.accentDanger
+        )
+        NavigationControl(bleManager)
+    }
+}
+
+@Composable
+private fun KidsModeInfo(bleManager: BleManager, geofenceZoneCount: Int, parentalControlsEnabled: Boolean) {
+    val colors = MaterialTheme.safeShadeColors
+    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+        ModeStatRow(
+            icon = Icons.Rounded.Place,
+            value = geofenceZoneCount.toString(),
+            label = if (geofenceZoneCount == 1) "Safe Zone" else "Safe Zones",
+            tint = colors.accentPrimary,
+            modifier = Modifier.weight(1f)
+        )
+        ModeStatRow(
+            icon = if (parentalControlsEnabled) Icons.Rounded.Lock else Icons.Rounded.LockOpen,
+            value = if (parentalControlsEnabled) "ON" else "OFF",
+            label = "Parental Lock",
+            tint = if (parentalControlsEnabled) colors.accentSuccess else colors.onSurfaceMuted,
+            modifier = Modifier.weight(1f)
+        )
+    }
+    Spacer(modifier = Modifier.height(Spacing.sm))
     Text(
         if (geofenceZoneCount > 0)
-            "$geofenceZoneCount safe zone(s) configured - status shows on the device's Safe Zone screen."
+            "Live zone status shows on the device's Safe Zone screen."
         else
-            "No safe zones yet - add one from the Guardian tab to see live status on the device.",
+            "Add a safe zone from the Guardian tab to see live status on the device.",
         style = MaterialTheme.typography.bodySmall,
         color = colors.onSurfaceMuted
     )
-    Spacer(modifier = Modifier.height(Spacing.xs))
+    Spacer(modifier = Modifier.height(Spacing.lg))
+    QuietHoursControl(bleManager)
+}
+
+@Composable
+private fun QuietHoursControl(bleManager: BleManager) {
+    val colors = MaterialTheme.safeShadeColors
+    // rememberSaveable for the same reason as MedicationReminderControl -
+    // the device doesn't expose the currently-set window (no readback).
+    var startHour by rememberSaveable { mutableStateOf(22) }
+    var endHour by rememberSaveable { mutableStateOf(7) }
+    var sendSeq by remember { mutableStateOf(0) }
+
+    ModeSectionLabel("Quiet Hours")
+    Spacer(modifier = Modifier.height(4.dp))
     Text(
-        if (parentalControlsEnabled) "Parental lock: ON" else "Parental lock: OFF",
+        "Mutes the non-critical message chime during this window - fall/SOS alerts are never silenced.",
         style = MaterialTheme.typography.bodySmall,
-        color = if (parentalControlsEnabled) colors.accentSuccess else colors.onSurfaceMuted,
-        fontWeight = FontWeight.Bold
+        color = colors.onSurfaceMuted
     )
+    Spacer(modifier = Modifier.height(Spacing.sm))
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        NumberStepper(value = startHour, range = 0..23, onChange = { startHour = it })
+        Text(":00 to", style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceMuted)
+        NumberStepper(value = endHour, range = 0..23, onChange = { endHour = it })
+        Text(":00", style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceMuted)
+    }
+    Spacer(modifier = Modifier.height(Spacing.xs))
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        BouncyButton(
+            onClick = {
+                bleManager.sendExtCommand("QUIET", "$startHour:$endHour")
+                sendSeq++
+            },
+            color = colors.accentPrimary
+        ) {
+            Text("Set", color = Color.White, fontSize = 13.sp)
+        }
+        Spacer(modifier = Modifier.width(Spacing.sm))
+        AckBadge(bleManager = bleManager, tag = "QUIET", trigger = sendSeq.takeIf { it > 0 })
+        Spacer(modifier = Modifier.width(Spacing.sm))
+        TextButton(onClick = {
+            bleManager.sendExtCommand("QUIET", "")
+            sendSeq++
+        }) {
+            Text("Disable", fontSize = 12.sp, color = colors.onSurfaceMuted)
+        }
+    }
+}
+
+@Composable
+private fun BikeModeInfo(bleManager: BleManager) {
+    val colors = MaterialTheme.safeShadeColors
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+        ModeSectionLabel("What's Different")
+        ModeBulletRow(
+            Icons.Rounded.Vibration,
+            "Crash-signature detection combines impact strength with rotational jerk (gyro-aware), not accelerometer force alone.",
+            colors.accentPrimary
+        )
+        ModeBulletRow(
+            Icons.AutoMirrored.Rounded.TrendingUp,
+            "Sensitivity is tuned higher for cycling speeds and impact profiles.",
+            colors.accentPrimary
+        )
+        ModeBulletRow(
+            Icons.Rounded.CheckCircle,
+            "Fewer false alarms from potholes and bumps than impact-only detection. Ride distance/time show on the device's Ride Stats screen.",
+            colors.accentSuccess
+        )
+        Spacer(modifier = Modifier.height(Spacing.md))
+        NavigationControl(bleManager)
+    }
+}
+
+/**
+ * Real (not fabricated) navigation control - EXT "NAV:<lat>:<lon>:<label>"
+ * makes the firmware compute a live distance + compass bearing from the
+ * current GPS fix to this destination and show it on the device's Location
+ * screen. This is a distance/bearing readout, not turn-by-turn routing.
+ */
+@Composable
+private fun NavigationControl(bleManager: BleManager) {
+    val colors = MaterialTheme.safeShadeColors
+    var label by rememberSaveable { mutableStateOf("") }
+    var latText by rememberSaveable { mutableStateOf("") }
+    var lonText by rememberSaveable { mutableStateOf("") }
+    var sendSeq by remember { mutableStateOf(0) }
+
+    ModeSectionLabel("Navigation")
+    Spacer(modifier = Modifier.height(4.dp))
+    Text(
+        "Shows a live distance and compass bearing to this destination on the device's Location screen - not full turn-by-turn routing.",
+        style = MaterialTheme.typography.bodySmall,
+        color = colors.onSurfaceMuted
+    )
+    Spacer(modifier = Modifier.height(Spacing.sm))
+    OutlinedTextField(
+        value = label,
+        onValueChange = { if (it.length <= 20) label = it },
+        label = { Text("Destination label") },
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth()
+    )
+    Spacer(modifier = Modifier.height(Spacing.xs))
+    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+        OutlinedTextField(
+            value = latText,
+            onValueChange = { latText = it },
+            label = { Text("Latitude") },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            modifier = Modifier.weight(1f)
+        )
+        OutlinedTextField(
+            value = lonText,
+            onValueChange = { lonText = it },
+            label = { Text("Longitude") },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            modifier = Modifier.weight(1f)
+        )
+    }
+    Spacer(modifier = Modifier.height(Spacing.xs))
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        BouncyButton(
+            onClick = {
+                val lat = latText.toDoubleOrNull()
+                val lon = lonText.toDoubleOrNull()
+                if (lat != null && lon != null) {
+                    bleManager.sendExtCommand("NAV", "$lat:$lon:$label")
+                    sendSeq++
+                }
+            },
+            color = colors.accentPrimary
+        ) {
+            Text("Start Nav", color = Color.White, fontSize = 13.sp)
+        }
+        Spacer(modifier = Modifier.width(Spacing.sm))
+        AckBadge(bleManager = bleManager, tag = "NAV", trigger = sendSeq.takeIf { it > 0 })
+        Spacer(modifier = Modifier.width(Spacing.sm))
+        TextButton(onClick = {
+            bleManager.sendExtCommand("NAV", "")
+            sendSeq++
+        }) {
+            Text("Stop Nav", fontSize = 12.sp, color = colors.onSurfaceMuted)
+        }
+    }
+}
+
+@Composable
+private fun PetModeInfo(medicalId: MedicalId, onMedicalIdChange: (MedicalId) -> Unit) {
+    val colors = MaterialTheme.safeShadeColors
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+        ModeSectionLabel("What's Different")
+        ModeBulletRow(Icons.Rounded.Block, "Fall detection is off in Pet mode.", colors.onSurfaceMuted)
+        ModeBulletRow(
+            Icons.Rounded.LinkOff,
+            "Virtual leash: an unexpected disconnect triggers a distinct lost-pet alert (SMS + LED blink) automatically.",
+            colors.accentWarning
+        )
+        ModeBulletRow(Icons.AutoMirrored.Rounded.DirectionsRun, "Activity tracking stays active.", colors.accentPrimary)
+        Spacer(modifier = Modifier.height(Spacing.md))
+        OwnerDetailsControl(medicalId, onMedicalIdChange)
+    }
+}
+
+/**
+ * Editable owner-details UI for Pet mode. No new BLE tag - contactName/
+ * emergencyContact already sync to the device via the existing
+ * HEALTH_CHAR_UUID/sendHealthData() path (wired outside this file) and are
+ * already shown on the device's Pet-mode home screen as "Owner: {name} /
+ * {contact}". These are the same underlying fields shown as "Emergency
+ * Contact" in Elderly mode - genuinely dual-purpose.
+ */
+@Composable
+private fun OwnerDetailsControl(medicalId: MedicalId, onMedicalIdChange: (MedicalId) -> Unit) {
+    val colors = MaterialTheme.safeShadeColors
+    var ownerName by rememberSaveable(medicalId.contactName) { mutableStateOf(medicalId.contactName) }
+    var ownerContact by rememberSaveable(medicalId.emergencyContact) { mutableStateOf(medicalId.emergencyContact) }
+    var justSaved by remember { mutableStateOf(false) }
+
+    LaunchedEffect(justSaved) {
+        if (justSaved) {
+            delay(2000)
+            justSaved = false
+        }
+    }
+
+    ModeSectionLabel("Owner Details")
+    Spacer(modifier = Modifier.height(Spacing.sm))
+    OutlinedTextField(
+        value = ownerName,
+        onValueChange = { ownerName = it },
+        label = { Text("Owner Name") },
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth()
+    )
+    Spacer(modifier = Modifier.height(Spacing.xs))
+    OutlinedTextField(
+        value = ownerContact,
+        onValueChange = { ownerContact = it },
+        label = { Text("Owner Contact") },
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth()
+    )
+    Spacer(modifier = Modifier.height(Spacing.sm))
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        BouncyButton(
+            onClick = {
+                onMedicalIdChange(medicalId.copy(contactName = ownerName, emergencyContact = ownerContact))
+                justSaved = true
+            },
+            color = colors.accentPrimary
+        ) {
+            Text("Save", color = Color.White, fontSize = 13.sp)
+        }
+        Spacer(modifier = Modifier.width(Spacing.sm))
+        AnimatedVisibility(visible = justSaved) {
+            Text("Saved!", style = MaterialTheme.typography.labelMedium, color = colors.accentSuccess)
+        }
+    }
+}
+
+@Composable
+private fun WristModeInfo() {
+    val colors = MaterialTheme.safeShadeColors
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+        ModeSectionLabel("Watch Face")
+        ModeBulletRow(Icons.Rounded.Watch, "Home screen shows time, weather and battery at a glance.", colors.accentPrimary)
+        ModeBulletRow(Icons.Rounded.Bedtime, "Sleep-time tracking is real, motion-based.", colors.accentPrimary)
+        Spacer(modifier = Modifier.height(Spacing.xs))
+        InfoNoteBox(
+            icon = Icons.Rounded.Info,
+            text = "Heart-rate/SpO2 on the device's Vitals screen are simulated - " +
+                "approximated from motion patterns, not a real biometric sensor.",
+            tint = colors.accentWarning
+        )
+    }
+}
+
+@Composable
+private fun BackpackModeInfo() {
+    val colors = MaterialTheme.safeShadeColors
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(Radius.sm))
+            .background(colors.accentSuccess.copy(alpha = 0.06f))
+            .padding(Spacing.lg),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Icon(Icons.Rounded.Verified, contentDescription = null, tint = colors.accentSuccess, modifier = Modifier.size(32.dp))
+        Spacer(modifier = Modifier.height(Spacing.sm))
+        Text("Balanced Default", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = colors.onSurface)
+        Spacer(modifier = Modifier.height(Spacing.xs))
+        Text(
+            "All standard features are active - no mode-specific overrides. Every other mode is a deliberate deviation from this baseline.",
+            style = MaterialTheme.typography.bodySmall,
+            color = colors.onSurfaceMuted,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+        )
+    }
 }
 
 @Composable
@@ -545,6 +946,196 @@ private fun NumberStepper(value: Int, range: IntRange, step: Int = 1, onChange: 
         ) {
             Text("+", color = colors.accentPrimary, style = MaterialTheme.typography.titleMedium)
         }
+    }
+}
+
+/**
+ * Remote LED pattern control - relocated here from DeviceScreen so remote
+ * customization (LED, mode) lives together on Profile, leaving DeviceScreen
+ * as the read-only device/telemetry screen. An 8-chip grid: the 7 real
+ * firmware LedPattern values (LED_CHAR_UUID write + real AckBadge round
+ * trip) plus an "Auto" chip that's presentation-only - it updates local
+ * selection but performs no BLE write at all (product decision: no wire
+ * value exists for "auto" yet), so it shows a static "Default" subtitle
+ * instead of a "sent"/AckBadge indicator.
+ */
+@Composable
+private fun LedControlCard(
+    bleManager: BleManager,
+    enabled: Boolean,
+    onPatternSelected: (LedPattern) -> Unit
+) {
+    val colors = MaterialTheme.safeShadeColors
+    var selected by remember { mutableStateOf<LedPattern?>(null) }
+    var autoSelected by remember { mutableStateOf(false) }
+    var justSent by remember { mutableStateOf<LedPattern?>(null) }
+    var ackSeq by remember { mutableStateOf(0) }
+
+    LaunchedEffect(justSent) {
+        if (justSent != null) {
+            delay(900)
+            justSent = null
+        }
+    }
+
+    GlassCard(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(Spacing.xl)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Rounded.Lightbulb,
+                        contentDescription = null,
+                        tint = colors.accentWarning,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(Spacing.sm))
+                    Text("LED Pattern", style = MaterialTheme.typography.titleSmall, color = colors.onSurface)
+                }
+                // Value-qualified tag ("LED:TORCH" not just "LED") - with a
+                // generic tag, rapidly tapping two different patterns could
+                // let the first (slower) send's stale ack satisfy the second
+                // pattern's badge, showing "SYNCED" for the wrong value.
+                AckBadge(
+                    bleManager = bleManager,
+                    tag = selected?.let { "LED:${it.name}" } ?: "",
+                    trigger = ackSeq.takeIf { it > 0 && !autoSelected }
+                )
+            }
+            Spacer(modifier = Modifier.height(Spacing.lg))
+
+            val ledOptions: List<LedPattern?> = remember { LedPattern.entries + listOf(null) }
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(3),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+                modifier = Modifier.heightIn(max = 300.dp)
+            ) {
+                gridItems(ledOptions) { pattern ->
+                    if (pattern == null) {
+                        AutoLedChip(
+                            isSelected = autoSelected,
+                            enabled = enabled,
+                            onClick = {
+                                autoSelected = true
+                                selected = null
+                            }
+                        )
+                    } else {
+                        LedPatternChip(
+                            pattern = pattern,
+                            isSelected = !autoSelected && selected == pattern,
+                            justSent = justSent == pattern,
+                            enabled = enabled,
+                            onClick = {
+                                autoSelected = false
+                                selected = pattern
+                                justSent = pattern
+                                ackSeq++
+                                onPatternSelected(pattern)
+                            }
+                        )
+                    }
+                }
+            }
+
+            if (!enabled) {
+                Spacer(modifier = Modifier.height(Spacing.md))
+                Text(
+                    "Connect to the device to control the LED ring.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.onSurfaceMuted
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun LedPatternChip(
+    pattern: LedPattern,
+    isSelected: Boolean,
+    justSent: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit
+) {
+    val colors = MaterialTheme.safeShadeColors
+    val bgAlpha by animateFloatAsState(
+        targetValue = if (isSelected) 1f else 0f,
+        animationSpec = tween(200),
+        label = "ledChipBg"
+    )
+    val background = colors.accentPrimary.copy(alpha = 0.12f + 0.10f * bgAlpha)
+    val borderColor = if (isSelected) colors.accentPrimary else colors.borderGlass
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(Radius.sm))
+            .background(background)
+            .border(1.dp, borderColor, RoundedCornerShape(Radius.sm))
+            .clickable(enabled = enabled) { onClick() }
+            .padding(vertical = Spacing.md, horizontal = Spacing.sm),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            pattern.label,
+            style = MaterialTheme.typography.labelMedium,
+            color = if (isSelected) colors.accentPrimary else colors.onSurface,
+            fontWeight = FontWeight.Bold
+        )
+        AnimatedVisibility(visible = justSent) {
+            Text(
+                "sent",
+                style = MaterialTheme.typography.labelSmall,
+                color = colors.accentSuccess
+            )
+        }
+    }
+}
+
+/** The 8th, presentation-only chip: selectable local UI state, but never
+ * writes to LED_CHAR_UUID - there's no "auto" wire value in the firmware's
+ * RGBPattern enum yet, so this is an honest placeholder, not a fake sync. */
+@Composable
+private fun AutoLedChip(
+    isSelected: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit
+) {
+    val colors = MaterialTheme.safeShadeColors
+    val bgAlpha by animateFloatAsState(
+        targetValue = if (isSelected) 1f else 0f,
+        animationSpec = tween(200),
+        label = "autoChipBg"
+    )
+    val background = colors.accentSecondary.copy(alpha = 0.12f + 0.10f * bgAlpha)
+    val borderColor = if (isSelected) colors.accentSecondary else colors.borderGlass
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(Radius.sm))
+            .background(background)
+            .border(1.dp, borderColor, RoundedCornerShape(Radius.sm))
+            .clickable(enabled = enabled) { onClick() }
+            .padding(vertical = Spacing.md, horizontal = Spacing.sm),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            "Auto",
+            style = MaterialTheme.typography.labelMedium,
+            color = if (isSelected) colors.accentSecondary else colors.onSurface,
+            fontWeight = FontWeight.Bold
+        )
+        Text(
+            "Default",
+            style = MaterialTheme.typography.labelSmall,
+            color = colors.onSurfaceMuted
+        )
     }
 }
 
@@ -729,46 +1320,70 @@ private fun AppearanceCard(
     val colors = MaterialTheme.safeShadeColors
     GlassCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(Spacing.xl)) {
-            Text("Appearance", style = MaterialTheme.typography.titleSmall, color = colors.onSurface)
-            Spacer(modifier = Modifier.height(Spacing.sm))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Rounded.Palette,
+                    contentDescription = null,
+                    tint = colors.accentPrimary,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(Spacing.sm))
+                Text("Appearance", style = MaterialTheme.typography.titleSmall, color = colors.onSurface)
+            }
+            Spacer(modifier = Modifier.height(Spacing.md))
 
+            // iOS-style segmented control - three equal-width pill segments
+            // in one row, replacing the old vertical list of 3 SettingsRows.
+            // Custom Row rather than Material3's SegmentedButton since
+            // nothing else in this codebase opts into
+            // @ExperimentalMaterial3Api, and this reuses the exact
+            // animateColorAsState pattern PersonaModeChip already uses.
             val options = listOf(
                 Triple(DarkModePreference.SYSTEM, "System", Icons.Rounded.BrightnessAuto),
                 Triple(DarkModePreference.LIGHT, "Light", Icons.Rounded.LightMode),
                 Triple(DarkModePreference.DARK, "Dark", Icons.Rounded.DarkMode)
             )
 
-            options.forEach { (pref, label, icon) ->
-                SettingsRow(
-                    icon = icon,
-                    title = label,
-                    iconTint = colors.accentPrimary,
-                    onClick = { onDarkModeChange(pref) },
-                    trailingContent = {
-                        RadioButton(
-                            selected = darkModePreference == pref,
-                            onClick = { onDarkModeChange(pref) },
-                            colors = RadioButtonDefaults.colors(selectedColor = colors.accentPrimary)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(Radius.md))
+                    .background(colors.accentPrimary.copy(alpha = 0.06f))
+                    .padding(4.dp)
+            ) {
+                options.forEach { (pref, label, icon) ->
+                    val selected = darkModePreference == pref
+                    val segmentBg by animateColorAsState(
+                        targetValue = if (selected) colors.accentPrimary else Color.Transparent,
+                        animationSpec = tween(Motion.fast),
+                        label = "segmentBg"
+                    )
+                    val segmentFg by animateColorAsState(
+                        targetValue = if (selected) colors.surface else colors.onSurfaceMuted,
+                        animationSpec = tween(Motion.fast),
+                        label = "segmentFg"
+                    )
+                    Row(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(Radius.sm))
+                            .background(segmentBg)
+                            .clickable { onDarkModeChange(pref) }
+                            .padding(vertical = Spacing.sm),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(icon, contentDescription = label, tint = segmentFg, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            label,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = segmentFg,
+                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
                         )
                     }
-                )
+                }
             }
-        }
-    }
-}
-
-/**
- * App information card - real version/build info from BuildConfig.
- */
-@Composable
-private fun AppInfoCard() {
-    val colors = MaterialTheme.safeShadeColors
-    GlassCard(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(Spacing.xl)) {
-            Text("App Information", style = MaterialTheme.typography.titleSmall, color = colors.onSurface)
-            Spacer(modifier = Modifier.height(Spacing.md))
-            ProfileField("Version", BuildConfig.VERSION_NAME)
-            ProfileField("Build", BuildConfig.BUILD_TYPE)
         }
     }
 }

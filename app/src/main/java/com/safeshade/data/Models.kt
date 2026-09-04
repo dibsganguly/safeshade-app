@@ -14,6 +14,7 @@ package com.safeshade.data
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import java.util.*
 
@@ -142,6 +143,9 @@ enum class DeviceIconType(val icon: ImageVector, val label: String) {
  * @property defaultFallSensitivity Sensitivity preset applied on mode switch
  * @property simplifiedUi Whether screens should render in large-font, reduced-density layout
  * @property matchingDeviceIcon The DeviceIconType this mode is visually paired with
+ * @property accentColor Distinct per-mode brand color, used for its chip/badge/banner everywhere
+ *   the mode is shown (mode picker, Home screen banner) so each mode reads as visually distinct
+ *   rather than sharing one flat accent.
  */
 enum class PersonaMode(
     val label: String,
@@ -149,42 +153,50 @@ enum class PersonaMode(
     val description: String,
     val defaultFallSensitivity: FallSensitivity,
     val simplifiedUi: Boolean,
-    val matchingDeviceIcon: DeviceIconType
+    val matchingDeviceIcon: DeviceIconType,
+    val accentColor: Color
 ) {
     ELDERLY(
         "Elderly", Icons.Rounded.Elderly,
         "Large-font UI, sensitive fall detection",
-        FallSensitivity.HIGH, simplifiedUi = true, matchingDeviceIcon = DeviceIconType.CANE
+        FallSensitivity.HIGH, simplifiedUi = true, matchingDeviceIcon = DeviceIconType.CANE,
+        accentColor = Color(0xFF0984E3)
     ),
     KIDS(
         "Kids", Icons.Rounded.ChildCare,
         "Safe-zone alerts, colourful simplified UI",
-        FallSensitivity.MEDIUM, simplifiedUi = true, matchingDeviceIcon = DeviceIconType.BACKPACK
+        FallSensitivity.MEDIUM, simplifiedUi = true, matchingDeviceIcon = DeviceIconType.BACKPACK,
+        accentColor = Color(0xFFFF9F1C)
     ),
     BIKE(
         "Bike", Icons.Rounded.DirectionsBike,
         "Crash-tuned detection for cycling",
-        FallSensitivity.HIGH, simplifiedUi = false, matchingDeviceIcon = DeviceIconType.BIKE
+        FallSensitivity.HIGH, simplifiedUi = false, matchingDeviceIcon = DeviceIconType.BIKE,
+        accentColor = Color(0xFF00B894)
     ),
     PET(
         "Pet", Icons.Rounded.Pets,
         "Activity tracking, fall detection off",
-        FallSensitivity.LOW, simplifiedUi = false, matchingDeviceIcon = DeviceIconType.COLLAR
+        FallSensitivity.LOW, simplifiedUi = false, matchingDeviceIcon = DeviceIconType.COLLAR,
+        accentColor = Color(0xFFE84393)
     ),
     BACKPACK(
         "Backpack", Icons.Rounded.Backpack,
         "Balanced default profile",
-        FallSensitivity.MEDIUM, simplifiedUi = false, matchingDeviceIcon = DeviceIconType.BACKPACK
+        FallSensitivity.MEDIUM, simplifiedUi = false, matchingDeviceIcon = DeviceIconType.BACKPACK,
+        accentColor = Color(0xFF6C5CE7)
     ),
     HELMET(
         "Helmet", Icons.Rounded.School,
         "Higher-impact threshold for headwear",
-        FallSensitivity.LOW, simplifiedUi = false, matchingDeviceIcon = DeviceIconType.HAT
+        FallSensitivity.LOW, simplifiedUi = false, matchingDeviceIcon = DeviceIconType.HAT,
+        accentColor = Color(0xFFFF7675)
     ),
     WRIST(
         "Wrist", Icons.Rounded.FrontHand,
         "Everyday wristband profile",
-        FallSensitivity.MEDIUM, simplifiedUi = false, matchingDeviceIcon = DeviceIconType.WATCH
+        FallSensitivity.MEDIUM, simplifiedUi = false, matchingDeviceIcon = DeviceIconType.WATCH,
+        accentColor = Color(0xFF00CEC9)
     )
 }
 
@@ -200,13 +212,19 @@ enum class PersonaMode(
  * @property eventType Type of event (e.g., "Fall detected", "Impact detected")
  * @property action Action taken (e.g., "Dismissed by user", "Auto-dismissed")
  * @property wasEmergencyContacted Whether emergency contact was notified
+ * @property location Guardian phone's last-known location at the moment the event was logged
+ *   (from the app's [LocationState], not a live device GPS fix - null if no fix was available yet)
+ * @property note A short real-data snapshot captured at event time (e.g. from [LiveSensorData]) -
+ *   null for events logged before this field existed
  */
 data class FallAlertEvent(
     val id: String = UUID.randomUUID().toString(),
     val timestamp: Long = System.currentTimeMillis(),
     val eventType: String = "Fall detected",
     val action: String = "Auto-dismissed",
-    val wasEmergencyContacted: Boolean = false
+    val wasEmergencyContacted: Boolean = false,
+    val location: String? = null,
+    val note: String? = null
 )
 
 /**

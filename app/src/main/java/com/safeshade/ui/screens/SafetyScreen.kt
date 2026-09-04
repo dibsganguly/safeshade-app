@@ -175,8 +175,8 @@ fun SafetyScreen(
 
         Spacer(modifier = Modifier.height(Spacing.lg))
 
-        // Fall Alert History
-        FallHistoryCard(fallHistory = fallHistory)
+        // Alert History
+        AlertHistoryCard(fallHistory = fallHistory)
 
         Spacer(modifier = Modifier.height(Spacing.lg))
 
@@ -359,15 +359,17 @@ fun EmergencyContactRow(
 }
 
 /**
- * Fall alert history card.
+ * Alert history card — shows the full detail of each fall/SOS event recorded
+ * on this phone (detection, resolution, and whatever real-data context was
+ * captured at the time: last known location, sensor snapshot).
  */
 @Composable
-private fun FallHistoryCard(fallHistory: List<FallAlertEvent>) {
+private fun AlertHistoryCard(fallHistory: List<FallAlertEvent>) {
     val colors = MaterialTheme.safeShadeColors
     GlassCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(Spacing.xl)) {
             Text(
-                "Fall Alert History",
+                "Alert History",
                 style = MaterialTheme.typography.titleSmall,
                 color = colors.onSurface
             )
@@ -379,9 +381,14 @@ private fun FallHistoryCard(fallHistory: List<FallAlertEvent>) {
                     message = "No fall alerts recorded"
                 )
             } else {
-                fallHistory.take(10).forEach { event ->
+                fallHistory.take(10).forEachIndexed { index, event ->
                     key(event.id) {
                         AlertLogItem(event)
+                        if (index != fallHistory.take(10).lastIndex) {
+                            Spacer(modifier = Modifier.height(Spacing.sm))
+                            HorizontalDivider(color = colors.borderGlass, thickness = 1.dp)
+                            Spacer(modifier = Modifier.height(Spacing.sm))
+                        }
                     }
                 }
             }
@@ -390,49 +397,151 @@ private fun FallHistoryCard(fallHistory: List<FallAlertEvent>) {
 }
 
 /**
- * Single fall alert log item.
+ * Single alert log entry — a comprehensive, at-a-glance record of one event:
+ * what happened, when, how it was resolved, and (when the coordinator has
+ * populated them) where it happened and what the device's sensors were
+ * reporting at the time. [event.location]/[event.note] are null for
+ * older/synthetic events created before those fields existed, in which case
+ * their rows are simply omitted rather than showing an "N/A" placeholder.
  */
 @Composable
 fun AlertLogItem(event: FallAlertEvent) {
     val colors = MaterialTheme.safeShadeColors
     val dateFormat = remember { SimpleDateFormat("MMM dd, HH:mm", Locale.getDefault()) }
 
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = Spacing.sm),
-        verticalAlignment = Alignment.Top
-    ) {
-        // Status indicator
-        Box(
-            modifier = Modifier
-                .size(8.dp)
-                .offset(y = 5.dp)
-                .clip(CircleShape)
-                .background(
-                    when {
-                        event.wasEmergencyContacted -> colors.accentDanger
-                        event.action.contains("dismissed", ignoreCase = true) -> colors.accentWarning
-                        else -> colors.accentSuccess
-                    }
-                )
-        )
+    val wasDismissed = event.action.contains("dismissed", ignoreCase = true)
+    val statusColor = when {
+        event.wasEmergencyContacted -> colors.accentDanger
+        wasDismissed -> colors.accentWarning
+        else -> colors.accentSuccess
+    }
+    val resolutionIcon = if (event.wasEmergencyContacted) Icons.Rounded.PhoneInTalk else Icons.Rounded.CheckCircle
 
-        Spacer(modifier = Modifier.width(Spacing.md))
-
-        Column {
-            Text(event.eventType, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = colors.onSurface)
-            Text(
-                "${dateFormat.format(Date(event.timestamp))} • ${event.action}",
-                style = MaterialTheme.typography.bodySmall,
-                color = colors.onSurfaceMuted
+    Column(modifier = Modifier.animateContentSize(animationSpec = tween(Motion.normal))) {
+        Row(verticalAlignment = Alignment.Top) {
+            // Status indicator
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .offset(y = 5.dp)
+                    .clip(CircleShape)
+                    .background(statusColor)
             )
-            if (event.wasEmergencyContacted) {
-                Text(
-                    "Emergency contact notified",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = colors.accentDanger
-                )
+
+            Spacer(modifier = Modifier.width(Spacing.md))
+
+            Column(modifier = Modifier.weight(1f)) {
+                // Header: event type + timestamp
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        event.eventType,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                        color = colors.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                    Spacer(modifier = Modifier.width(Spacing.sm))
+                    Text(
+                        dateFormat.format(Date(event.timestamp)),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = colors.onSurfaceMuted
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(Spacing.xs))
+
+                // Compact 2-stage timeline: Detected -> resolution
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Rounded.Warning,
+                        contentDescription = null,
+                        tint = colors.onSurfaceMuted,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        "Detected",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = colors.onSurfaceMuted
+                    )
+                    Icon(
+                        Icons.Rounded.ArrowForward,
+                        contentDescription = null,
+                        tint = colors.onSurfaceFaint,
+                        modifier = Modifier
+                            .padding(horizontal = 4.dp)
+                            .size(12.dp)
+                    )
+                    Icon(
+                        resolutionIcon,
+                        contentDescription = null,
+                        tint = statusColor,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        event.action,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = statusColor,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                if (event.wasEmergencyContacted) {
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        "Emergency contact notified",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = colors.accentDanger
+                    )
+                }
+
+                if (event.location != null) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Rounded.LocationOn,
+                            contentDescription = null,
+                            tint = colors.accentInfo,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            event.location,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = colors.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+
+                if (event.note != null) {
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Rounded.Sensors,
+                            contentDescription = null,
+                            tint = colors.onSurfaceMuted,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            event.note,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = colors.onSurfaceMuted,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
             }
         }
     }
@@ -574,6 +683,11 @@ private fun AlertSettingsCard(
                         inactiveTrackColor = colors.accentPrimary.copy(alpha = 0.2f)
                     ),
                     modifier = Modifier.fillMaxWidth()
+                )
+                Text(
+                    "Applies to the alarm buzzer on the device itself.",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = colors.onSurfaceMuted
                 )
             }
 

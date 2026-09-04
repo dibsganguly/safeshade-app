@@ -25,6 +25,16 @@
  *  - Migrated off raw fontSize=/Color(0x..) literals onto
  *    MaterialTheme.typography.* / MaterialTheme.safeShadeColors.*, and onto
  *    GlassCard instead of plain Card+CardColor+explicit .shadow().
+ *  - Added a real `isSyncing` param driving the sync button's loading state.
+ *    NOTE for the wiring side (not done in this file): MainActivity.fetchAndSendWeather()
+ *    needs to set a real `syncInProgress` state to true right when the weather-fetch
+ *    coroutine starts, and back to false in BOTH the success path and the
+ *    failure/catch path - never leave it stuck true on error. That state then needs
+ *    to be threaded through SafeShadeApp.kt and passed into this composable's new
+ *    `isSyncing` parameter. This file only consumes `isSyncing`; it does not create it.
+ *  - Replaced the small ActiveModeChip pill with a full-width ActiveModeBanner card,
+ *    moved below the Sync button, using PersonaMode.accentColor for a distinct
+ *    per-mode look (icon chip + label + description).
  */
 
 package com.safeshade.ui.screens
@@ -77,6 +87,9 @@ import com.safeshade.data.LiveSensorData
  * @param onSyncWeather Callback to trigger weather sync
  * @param activeMode Currently active adaptive persona mode
  * @param liveSensorData Real telemetry from the device, used here for battery %
+ * @param isSyncing Whether a weather/GPS sync is currently in flight (drives the Sync
+ *   button's loading spinner + disabled state). Must be backed by a real upstream state -
+ *   see the FIXES doc comment at the top of this file.
  */
 @Composable
 fun HomeScreen(
@@ -87,7 +100,8 @@ fun HomeScreen(
     onRequestPermissions: () -> Unit = {},
     onSyncWeather: () -> Unit,
     activeMode: PersonaMode,
-    liveSensorData: LiveSensorData
+    liveSensorData: LiveSensorData,
+    isSyncing: Boolean = false
 ) {
     val colors = MaterialTheme.safeShadeColors
     val connectionState by bleManager.connectionState.collectAsState()
@@ -135,13 +149,6 @@ fun HomeScreen(
         Spacer(modifier = Modifier.height(Spacing.md))
 
         // ============================================
-        // ACTIVE MODE INDICATOR
-        // ============================================
-        ActiveModeChip(activeMode = activeMode)
-
-        Spacer(modifier = Modifier.height(Spacing.lg))
-
-        // ============================================
         // DEVICE CARD
         // ============================================
         DeviceStatusCard(
@@ -178,51 +185,103 @@ fun HomeScreen(
         // ============================================
         BouncyButton(
             onClick = onSyncWeather,
-            enabled = isConnected,
+            enabled = isConnected && !isSyncing,
             color = colors.accentWarning,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(if (simplifiedUi) 68.dp else 60.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Rounded.Sync, contentDescription = null, tint = Color.White)
+                if (isSyncing) {
+                    CircularProgressIndicator(
+                        color = Color.White,
+                        strokeWidth = 2.dp,
+                        modifier = Modifier.size(20.dp)
+                    )
+                } else {
+                    Icon(Icons.Rounded.Sync, contentDescription = null, tint = Color.White)
+                }
                 Spacer(modifier = Modifier.width(10.dp))
                 Text(
-                    text = "Sync Weather & GPS",
+                    text = if (isSyncing) "Syncing..." else "Sync Weather & GPS",
                     style = if (simplifiedUi) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleSmall,
                     color = Color.White
                 )
             }
         }
+
+        Spacer(modifier = Modifier.height(Spacing.lg))
+
+        // ============================================
+        // ACTIVE MODE BANNER
+        // ============================================
+        ActiveModeBanner(activeMode = activeMode)
     }
 }
 
 /**
- * Small chip surfacing the currently active adaptive persona mode. The full
- * mode-picker UI lives on ProfileScreen - this is just a visible indicator.
+ * Prominent card surfacing the currently active adaptive persona mode -
+ * icon chip + mode name + short description, accented in the mode's own
+ * distinct PersonaMode.accentColor so each mode reads as visually distinct
+ * (Elderly blue, Kids orange, Bike green, etc.) rather than sharing one flat
+ * accent like the old ActiveModeChip pill did. The full mode-picker UI still
+ * lives on ProfileScreen - this is just a visible indicator, sized to carry
+ * roughly the same visual weight as DeviceStatusCard.
  */
 @Composable
-private fun ActiveModeChip(activeMode: PersonaMode) {
+private fun ActiveModeBanner(activeMode: PersonaMode) {
     val colors = MaterialTheme.safeShadeColors
-    Row(
-        modifier = Modifier
-            .clip(RoundedCornerShape(20.dp))
-            .background(colors.accentPrimary.copy(alpha = 0.12f))
-            .padding(horizontal = Spacing.md, vertical = Spacing.xs + 2.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            imageVector = activeMode.icon,
-            contentDescription = null,
-            tint = colors.accentPrimary,
-            modifier = Modifier.size(16.dp)
-        )
-        Spacer(modifier = Modifier.width(6.dp))
-        Text(
-            text = "${activeMode.label} Mode",
-            style = MaterialTheme.typography.labelMedium,
-            color = colors.accentPrimary
-        )
+    val accent = activeMode.accentColor
+
+    GlassCard(shape = RoundedCornerShape(Radius.xl), modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            // Top-edge accent bar in the mode's own color.
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(5.dp)
+                    .background(accent)
+            )
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(Spacing.lg),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(52.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(accent.copy(alpha = 0.15f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = activeMode.icon,
+                        contentDescription = null,
+                        tint = accent,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(Spacing.md))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "${activeMode.label} Mode",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = colors.onSurface,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = activeMode.description,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colors.onSurfaceMuted
+                    )
+                }
+            }
+        }
     }
 }
 
