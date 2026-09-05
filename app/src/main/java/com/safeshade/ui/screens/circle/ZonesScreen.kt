@@ -121,7 +121,15 @@ fun ZonesScreen(
             onBack = onBack,
             backDescription = "Go back to the circle",
             tier = ScreenTier.PUSHED,
-            modifier = Modifier.padding(horizontal = Spacing.gutter)
+            // The `top` is not decoration and is not this screen's choice. Every
+            // sub-page outside this bank puts its header inside a LazyColumn
+            // whose top contentPadding is `inset + Spacing.sm`; this bank puts
+            // the header above the list, so without the same 8dp its content
+            // started 8dp higher than every other bank's. That was the whole of
+            // "inconsistent header-bottom paddings leading to different sub-page
+            // content starting points" - the gap below the header was already
+            // uniform; the gap above it was not.
+            modifier = Modifier.padding(start = Spacing.gutter, end = Spacing.gutter, top = Spacing.sm)
         )
 
         // The list's own top contentPadding supplies the other half of

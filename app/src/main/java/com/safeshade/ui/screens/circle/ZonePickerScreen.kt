@@ -54,6 +54,8 @@ import com.safeshade.ui.board.BoardButton
 import com.safeshade.ui.board.BoardPlate
 import com.safeshade.ui.board.ButtonWeight
 import com.safeshade.ui.board.Nameplate
+import com.safeshade.ui.board.ScreenHeader
+import com.safeshade.ui.board.ScreenTier
 import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.theme.Radius
 import com.safeshade.ui.theme.SafeShadeTheme
@@ -125,32 +127,28 @@ fun ZonePickerScreen(
             // route still works with no tiles.
             .imePadding()
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = Spacing.sm, vertical = Spacing.xs)
-        ) {
-            IconButton(onClick = onCancel) {
-                Icon(
-                    Icons.Outlined.Close,
-                    contentDescription = "Close the map without choosing a place",
-                    tint = colors.inkMuted
-                )
-            }
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "Choose the centre",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = colors.ink
-                )
-                Text(
-                    text = "Tap the map, or type the coordinates below",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colors.inkFaint
-                )
-            }
-        }
+        // ScreenHeader, not a hand-rolled row.
+        //
+        // This screen carried the fourth of the four header patterns the
+        // convergence was meant to remove, and it survived the whole rewrite of
+        // this file because replacing a WebView with a MapView never touched
+        // the top of it. Measured on the device it was visibly the odd one out:
+        // its title sat at `titleMedium` in a 51px box indented to x=154, where
+        // every other sub-page sits at `headlineMedium` in a 66px box indented
+        // to x=187.
+        //
+        // The control is a back arrow now rather than a close cross. This is a
+        // pushed destination on the nav stack like any other, so the arrow is
+        // the honest affordance; the spoken description keeps saying what
+        // leaving actually costs.
+        ScreenHeader(
+            title = "Choose the centre",
+            subtitle = "Tap the map, or type the coordinates below",
+            onBack = onCancel,
+            backDescription = "Close the map without choosing a place",
+            tier = ScreenTier.PUSHED,
+            modifier = Modifier.padding(start = Spacing.gutter, end = Spacing.gutter, top = Spacing.sm)
+        )
 
         // The map takes whatever height is left after the panel below has
         // taken what it needs. That ordering is deliberate: at a large font

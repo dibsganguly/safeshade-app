@@ -302,20 +302,21 @@ fun RangeStrip(
 
     BoardPlate(modifier = modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(Spacing.lg)) {
-            Row(verticalAlignment = Alignment.Bottom) {
-                Readout(
-                    label = label,
-                    value = formatClock(start) + " - " + formatClock(end),
-                    large = true
-                )
-                Spacer(Modifier.weight(1f))
-                Text(
-                    text = spanWords(start, end),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colors.inkFaint,
-                    modifier = Modifier.padding(bottom = Spacing.sm)
-                )
-            }
+            // The span caption sits under the readout, not beside it.
+            // "22:00 - 09:00" at readout size is most of a phone wide, so the
+            // weighted spacer between them collapsed to nothing and "11 hours"
+            // ended up touching the last digit. Seen on a device; a preview
+            // with a narrower value does not show it.
+            Readout(
+                label = label,
+                value = formatClock(start) + " - " + formatClock(end),
+                large = true
+            )
+            Text(
+                text = spanWords(start, end),
+                style = MaterialTheme.typography.bodySmall,
+                color = colors.inkFaint
+            )
             Spacer(Modifier.height(Spacing.md))
 
             Canvas(
@@ -342,7 +343,14 @@ fun RangeStrip(
 
                 // A fill, not two bare markers, because *this* control genuinely
                 // is choosing an extent rather than a point in the day.
-                val lit = tint.copy(alpha = 0.22f)
+                //
+                // 0.38, not the 0.22 this started at. The band is drawn on top
+                // of the night shading, and brass at low alpha over a warm
+                // recess came out so close to the night bands that the chosen
+                // span could not be told from the unchosen one - which is the
+                // only thing the control has to communicate. Checked against
+                // both a lit daytime span and one wrapping midnight.
+                val lit = tint.copy(alpha = 0.38f)
                 if (start <= end) {
                     band(start, end, lit)
                 } else {
