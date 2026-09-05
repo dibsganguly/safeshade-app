@@ -169,6 +169,20 @@ components:
     rounded: "{rounded.plate}"
     padding: "12dp 16dp"
     height: "56dp"
+  button-attention:
+    backgroundColor: "{colors.lamp-attention-glass}"
+    textColor: "{colors.brand-charcoal}"
+    typography: "{typography.nameplate}"
+    rounded: "{rounded.plate}"
+    padding: "12dp 16dp"
+    height: "56dp"
+  button-commit:
+    backgroundColor: "{colors.lamp-live-glass}"
+    textColor: "{colors.brand-charcoal}"
+    typography: "{typography.nameplate}"
+    rounded: "{rounded.plate}"
+    padding: "12dp 16dp"
+    height: "56dp"
   button-quiet:
     backgroundColor: "{colors.bone-ground}"
     textColor: "{colors.ink-light}"
@@ -200,6 +214,23 @@ components:
     typography: "{typography.nameplate-small}"
     rounded: "{rounded.tight}"
     padding: "1dp 5dp"
+  slider-track:
+    backgroundColor: "{colors.bone-recess}"
+    rounded: "{rounded.tight}"
+    height: "8dp"
+  slider-track-active:
+    backgroundColor: "{colors.ink-light}"
+    rounded: "{rounded.tight}"
+    height: "8dp"
+  slider-thumb:
+    backgroundColor: "{colors.ink-light}"
+    rounded: "{rounded.tight}"
+    width: "8dp"
+    height: "28dp"
+  snackbar:
+    backgroundColor: "{colors.night-plate}"
+    textColor: "{colors.bone-plate}"
+    rounded: "{rounded.plate}"
   section-plate:
     textColor: "{colors.ink-muted-light}"
     typography: "{typography.section-plate}"
@@ -287,9 +318,15 @@ Used at full strength for icons, section rules and identity type; at 0.10–0.18
 
 ### Named Rules
 
-**The Colour-Means-State Rule.** Teal, amber and red appear only in pilot lamps, bus ticks, seals, thrown switch chips, trip banners and state words. Grounds, plates, rules and body type are achromatic. There is deliberately no decorative accent token. Audit test: point at any saturated pixel and name the circuit it reports; if you cannot, it does not belong.
+**The Colour-Means-State Rule.** Teal, amber and red appear in pilot lamps, bus ticks, seals, thrown switch chips, trip banners and state words. Grounds, plates, rules and body type are achromatic. Audit test: point at any saturated pixel and name what it reports; if you cannot, it does not belong.
+
+The rule was once "colour means circuit state and nothing else", and it is now one step weaker on purpose. A hued **action** is permitted where a screen has exactly one thing worth doing and every plate on it looked identical — an amber Connect, a teal Save, a red Emergency numbers. Three exceptions exist, all of them buttons, all of them stating their action in words as well. The saturation rule still separates these from the twelve decorative accents, and nothing else may take a hue on this argument: a hued row, a hued heading or a hued icon that is not reporting something is still wrong.
+
+Two glyphs carry a state hue while reporting nothing: the back chevron (amber) and the Circle screen's location-refresh control (red). Both were asked for, both take an **ink** token rather than a lamp glass, and both are listed here so that finding one in the source is not mistaken for a licence.
 
 **The Two-Form Rule.** Every state token ships as a lamp glass and as an ink. Glass fills, ink speaks. Never set text in a glass colour, and never fill a lamp with an ink colour.
+
+This is what settles every "make it amber" request. Brand amber on the bone panel measures about 1.9:1, which is not a contrast a glyph or a word can be drawn at; `inkAttention` is the same hue family darkened for exactly this and clears 7:1 in both themes. A hued *button* is the mirror case: the glass is the fill and charcoal is the only ink that measures on it, in both themes, because the glasses do not darken for the night panel.
 
 **The No-Dynamic-Colour Rule.** Material You is declined outright. Dynamic colour would repaint the pilot lamps from the user's wallpaper, which destroys the one rule the system is built on. Android's guidance to prefer dynamic colour assumes hue is decorative; here it is load-bearing.
 
@@ -310,7 +347,7 @@ Both families are bundled as `.ttf` rather than pulled through Downloadable Font
 ### Hierarchy
 
 - **Display** (700, 40 / 32 / 28sp, tight negative tracking): rare, for full-frame moments.
-- **Headline** (600–700, 26 / 22 / 19sp): screen titles and the mains plate headline.
+- **Headline** (600–700, 32 / 22 / 19sp): screen titles and the mains plate headline. The largest step is the Board masthead alone, sized against a 52dp emblem rather than against a paragraph.
 - **Title** (600, 20 / 17 / 15sp): plate headings inside a card.
 - **Body** (400, 16 / 15 / 13sp): explanatory copy, used heavily and on purpose — every switch on a safety screen changes what happens to a person, and a toggle whose consequence is not spelled out is a toggle nobody dares touch.
 - **Nameplate** (600, 15sp, +0.12em, uppercase): the engraved circuit label. Uppercasing happens inside the component, not at the call site.
@@ -325,7 +362,11 @@ Both families are bundled as `.ttf` rather than pulled through Downloadable Font
 
 **The Engraving Rule.** Uppercase plus tracking is reserved for **section plates and state words**, and for nothing else. Caps mean something here precisely because they are rare.
 
-Row titles and button labels were uppercase condensed through v2.0 and are now sentence case in the body voice at zero tracking. Caps on every row read as shouting across a whole app, which is a real cost on a product people open when they are worried. The one survivor of the old micro-caps voice is the seal on a guardian-managed way, because a seal is a stamped physical object and reads as one.
+Row titles were uppercase condensed through v2.0 and are now sentence case in the body voice at zero tracking. Caps on every row read as shouting across a whole app, which is a real cost on a product people open when they are worried. The one survivor of the old micro-caps voice is the seal on a guardian-managed way, because a seal is a stamped physical object and reads as one.
+
+**Prominent buttons take Title Case.** A full-width button that is the point of its screen — Connect to the Device, Save and Send to the Device, Pair Another Device, Emergency Numbers — is a named action rather than a sentence, and title case is what separates it from the row titles around it. Title case in the ordinary sense: principal words capitalised, articles and short prepositions left alone unless they lead. Row titles, section headings and small inline buttons stay sentence case.
+
+**An em dash in prose is an en dash.** The long dash was set throughout and reads as a gap in a column of 15sp type. The exception is the standalone dash a gauge shows where it has no reading, which is a glyph standing in for a value and not punctuation at all.
 
 **The Digits-Are-Mono Rule.** Any number a person reads one character at a time is set in Azeret Mono. Prose containing a number is not.
 
@@ -376,7 +417,10 @@ Silhouettes are rectangular and wide. Buttons are square-shouldered plates, wide
 - **Shape:** milled 4dp corners, minimum height 56dp, label uppercase in the nameplate voice with an optional 18dp leading icon and an optional supporting line beneath.
 - **Primary:** ink container, plate-coloured label — an engraved plate, not a coloured pill.
 - **Secondary:** plate container with a hairline border and ink label. **Quiet:** ground container with a hairline border.
-- **Danger:** trip-red container. The only variant carrying a hue, reserved for actions that place a real call or fire a real alert.
+- **Attention:** amber container, charcoal label. The one thing on this screen to do next, where there is exactly one — connecting a wearable, pairing a second.
+- **Commit:** teal container, charcoal label. This writes something down. Saving was previously indistinguishable from navigating.
+- **Danger:** trip-red container. Actions that place a real call or fire a real alert.
+- All three hued weights carry **charcoal** ink, which is not a style choice: the three glasses are light hues that do not darken for the night panel, so charcoal is the only pairing that measures in both themes.
 - **Disabled:** recess container, faint ink.
 - **Press:** a 0.985 scale-down over 120ms with the ripple indication removed.
 
@@ -411,7 +455,29 @@ A setting that is genuinely continuous gets **`DialControl`**: a large `Readout`
 
 A time of day gets **`TimeStrip`**, and a period gets **`RangeStrip`**: the whole day drawn as a strip, shaded through night, so 7am and 7pm are told apart by where the marker sits rather than by reading am/pm. `RangeStrip` wraps past midnight, because for quiet hours an end earlier than its start is the normal case rather than an invalid range.
 
-**Small fixed sets do not get a slider.** Three named behaviours on a track read as a continuum with two invisible stops. Fall sensitivity, fall countdown and check-in interval stay `OptionWay` rows, where each option states its own consequence.
+The slider itself is drawn in this panel's material and not Material's. Stock `Slider` was the last piece of another design system on screen — a wide pill thumb with three dots milled into it, a lavender inactive track from a colour role nothing else here uses, tick pips in a fourth tone, and a stop-indicator dot parked at the far end that reads as a value sitting there. It is a **square-shouldered slug seated in a channel**: 8 by 28dp at the tight radius, an ink active track, and the same recess every text field is routed into. A round thumb reads as a bead on a wire; this panel has no beads.
+
+**Small fixed sets do not get a slider — but a set that is only small because nobody offered more does.** Fall sensitivity stays `OptionWay` rows: Low, Medium and High are three named behaviours, not three points on a scale, and each states its own consequence. The Silent SOS staged-call delay stays too — 10s, 30s, 1m and 5m are spaced logarithmically and each option explains what staging means.
+
+The fall countdown and the check-in interval have moved the other way, to `DialControl`. Both were genuinely quantities the whole time. The countdown was four rows offering 15/30/45/60 seconds, which is a linear ramp drawn as a menu; the interval was a row of four small buttons **duplicated across two screens with two separate constant lists**. Both now offer every stop the underlying system can honour — the interval eight where it had four — and that is the test: a fixed set that exists because the value is genuinely categorical stays a row, and one that exists because somebody picked four numbers becomes a track.
+
+### Screen header
+
+One treatment on every screen. A back chevron, the title beside it, and the subtitle **below both, at the gutter** — level with the chevron rather than indented under the title, because the chevron belongs to the title it sits beside and the subtitle belongs to the screen. Indented, the two lines read as one block hanging off the arrow, and the subtitle lost a touch target's width on every pushed screen.
+
+The chevron reserves 28dp of layout while keeping a 48dp touch target, so it reads as next to the word rather than a thumb's width from it. An offset alone cannot do this: an offset moves what is drawn and not what is measured, so the title stays put and the trailing slot loses the same width at the other end.
+
+The header-to-content gap is **20dp**, assembled the same way everywhere: 4dp emitted by the header, 16dp of rhythm supplied by whatever holds it. **No call site places its own spacer after a header.** The number was documented as 28dp and measured as 28, 44 and 12 depending on the screen; three screens took a `Column` adapter's spacer inside a list that already carried the rhythm, and a first section carried the gap that separates one section from the next. A screen that needs the 16dp and has no list rhythm to source it from is a screen whose container is missing something.
+
+### Icons
+
+The app draws its own icons. They are generated from the SVGs in `docs/Icons` into a single Kotlin object of `ImageVector`s — values, not `@Composable` calls, because icons travel as plain data on `BoardWay` and are built outside composition.
+
+**Chrome is in scope.** Back chevron, expander chevron, tick, info, help, search, add, map pin, the four navigation tabs. An earlier revision scoped the set to feature icons only, on the honest ground that it then contained no back arrow; the back chevron is the most repeated glyph in the app and was the most visible seam left.
+
+What is still Material is what the set genuinely has no answer for: the eight mode personas and eight device shapes. Sixteen distinguishable glyphs are needed and the set covers one of them. **Do not reuse one glyph for N distinct things** — that would destroy the only thing telling those modes apart, which is worse than the mixture it replaced.
+
+Two mechanical rules live in the generator rather than in anyone's head. A slug whose name starts with a digit has the numeric run moved to the end, because a Kotlin identifier cannot start with one. And an **optical scale table** corrects a glyph whose artwork fills more of its 24-unit viewBox than its neighbours: a declared size is not a perceived size, and one glyph spanning 20 units among peers spanning 18 is visibly the largest thing in a column at an identical `size()`. The correction is a scaled group in the generated Kotlin, never an edit to the source SVG, so redropping the file cannot silently undo it.
 
 ### Chips
 
@@ -428,6 +494,10 @@ A selected tab is a **filled glyph in its own accent** inside a soft accent disc
 A tab item must carry a **fixed height**, never `fillMaxHeight`. `Scaffold` measures its `bottomBar` with the whole screen height as the maximum constraint, so a child that fills it drags the bar to full height and leaves it floating in the middle of a blank screen. This has been introduced twice.
 
 Motion is Material's three patterns applied consistently: fade-through between the four peer destinations (they have no spatial relationship, so nothing slides), shared-axis X from a destination into its sub-screens, and shared-axis Z for overlays that sit above everything. Durations are asymmetric — 90ms out, 90ms hold, 210ms in — so nothing cross-dissolves into mush, and every transition is short enough that none of them delays reaching an emergency control. The pop specs are written to look correct when scrubbed at an arbitrary fraction, because predictive back seeks them as the user drags.
+
+### Transient messages
+
+A snackbar is a plate, not a floating card: night ground in both themes, hairline, 4dp corner, no elevation, its action in amber ink. Material's default was floating, rounded, elevated and in `inverseSurface` — four of this system's stated don'ts at once — and it survived every visual sweep because it is only on screen for two seconds. It keeps the night plate in the light theme deliberately: a bone card on a bone panel with no shadow is invisible, and the tonal step is what says "this arrived over the panel" without casting one.
 
 ### Trip Banner
 
@@ -477,6 +547,7 @@ Everything else in this document was read off the built system.
 - **Do** let a switch throw and a lamp warm up; the overshoot and the asymmetry are what make the panel feel mechanical.
 - **Do** mark representative data with a stub mark, and draw a device-only setting as a value with no control.
 - **Do** route the mascot through its host so the emergency suppression rule holds by construction.
+- **Do** measure a proportion off the artwork before typing it. The intro lockup was wrong three times running because its numbers were chosen rather than read; every one of them is now a fraction of the emblem's height taken from the supplied logo's alpha channel, and the wordmark is fitted to a measured width rather than set at a guessed size.
 
 ### Don't:
 
@@ -490,7 +561,9 @@ Everything else in this document was read off the built system.
 - **Don't** enable Material You dynamic colour; it would repaint the pilot lamps from the wallpaper.
 - **Don't** use pill corners (20–28dp) or pill-shaped controls.
 - **Don't** use a ripple; this surface emits no light, so a press is a small scale-down.
-- **Don't** set body copy in the condensed width or in uppercase, and don't uppercase a row title or a button label — those are sentence case now.
+- **Don't** set body copy in the condensed width or in uppercase, and don't uppercase a row title. Row titles are sentence case; a prominent button is Title Case.
+- **Don't** explain what the label above already says. Two hundred lines of supporting copy were audited against that one question and about sixty failed it. The test is whether the sentence states a consequence, a cost or a limitation a reader could not have assumed — not whether it is true.
+- **Don't** hedge. "This is a help, not a guarantee" and its relatives were deleted outright: a person setting up fall detection for their parent is not reassured by the app doubting itself, and the honest limitations are already stated where they apply.
 - **Don't** set text in a lamp-glass colour, or reach for the raw colour constants instead of the theme's semantic accessor.
 - **Don't** draw a control for a setting the app cannot actually write, and don't show representative data without its stub mark.
 - **Don't** place Shady inside a `Way` row, beside a pilot lamp, or on any emergency surface — and never give it a speech bubble.
