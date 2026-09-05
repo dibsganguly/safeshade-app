@@ -77,6 +77,17 @@ import java.time.format.FormatStyle
  * why the tier can be inferred from it rather than asked for: in this bank,
  * having nowhere to go back to and being a tab root are the same fact, so a
  * separate tier argument would only be a second chance to get it wrong.
+ *
+ * This is also where this bank supplies its half of [ScreenHeader]'s
+ * documented 28dp header gap. The five pushed screens in this bank scroll a
+ * plain `Column`, not a list rhythmed with `Arrangement.spacedBy`, so nothing
+ * else here would ever contribute the other 16dp — which is exactly how those
+ * five screens ended up each hand-placing their own `Spacer` and drifting to
+ * different values. Putting the `Spacer` here instead means the five call
+ * sites do not get to choose again, and the hub, which already scrolls a
+ * `spacedBy(Spacing.lg)` list, works out to the same 28dp by the same
+ * arithmetic pattern-A screens use — see [SafetyScreen], which calls
+ * [ScreenHeader] directly for that reason rather than through this adapter.
  */
 @Composable
 internal fun PanelHeader(
@@ -92,6 +103,7 @@ internal fun PanelHeader(
         onBack = onBack,
         tier = if (onBack == null) ScreenTier.ROOT else ScreenTier.PUSHED
     )
+    Spacer(Modifier.height(Spacing.lg))
 }
 
 // ============================================

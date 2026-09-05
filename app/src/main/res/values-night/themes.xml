@@ -14,7 +14,6 @@
 
     <style name="Theme.SafeShade.Splash" parent="Theme.SplashScreen">
         <item name="windowSplashScreenBackground">@color/brand_night</item>
-        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_emblem</item>
         <item name="postSplashScreenTheme">@style/Theme.SafeShade</item>
     </style>
 </resources>

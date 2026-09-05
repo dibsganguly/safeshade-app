@@ -179,7 +179,10 @@ fun BoardScreen(
                 Image(
                     painter = painterResource(R.drawable.splash_emblem),
                     contentDescription = null,
-                    modifier = Modifier.size(56.dp)
+                    // Height, not size. The drawable is the mark itself now
+                    // rather than a mark inside a square of transparency, so a
+                    // square box would letterbox it back down again.
+                    modifier = Modifier.height(52.dp)
                 )
                 Spacer(Modifier.weight(1f))
                 Text(

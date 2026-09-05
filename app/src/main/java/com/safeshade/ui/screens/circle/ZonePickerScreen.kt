@@ -1,9 +1,5 @@
 package com.safeshade.ui.screens.circle
 
-import android.annotation.SuppressLint
-import android.webkit.WebResourceRequest
-import android.webkit.WebView
-import android.webkit.WebViewClient
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -26,6 +22,23 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import java.io.File
+import org.osmdroid.views.overlay.Polygon
+import org.osmdroid.views.overlay.Marker
+import org.osmdroid.views.overlay.MapEventsOverlay
+import org.osmdroid.views.MapView
+import org.osmdroid.views.CustomZoomButtonsController
+import org.osmdroid.util.GeoPoint
+import org.osmdroid.tileprovider.tilesource.TileSourceFactory
+import org.osmdroid.events.MapEventsReceiver
+import org.osmdroid.config.Configuration
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.Lifecycle
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -76,11 +89,11 @@ data class ZonePickerUiState(
  * The safe-zone map picker.
  *
  * This is a **full route**, not a section of the editor, and that is a
- * structural requirement rather than a layout preference. A `WebView` inside a
+ * structural requirement rather than a layout preference. A map inside a
  * scrolling parent fights the parent for every vertical drag — panning the map
  * scrolls the page instead — and any parent that recycles its children throws
- * the WebView away and reloads the map, losing the user's position. Giving it
- * its own route with a fixed-size slot removes both problems by construction.
+ * the map away and rebuilds it, losing the user's position. Giving it its own
+ * route with a fixed-size slot removes both problems by construction.
  *
  * The coordinate fields below the map are **always visible**. They are not an
  * error state and not a fallback the user has to discover: on a phone with no
@@ -217,15 +230,25 @@ fun ZonePickerScreen(
 }
 
 /**
- * The WebView, and every decision about it that is easy to get wrong.
+ * The map.
  *
- * `loadUrl` is called in `factory` and nowhere else. Calling it from `update`
- * — the obvious place, because that is where the current state is — reloads
- * the page on every recomposition, which resets the map's centre and zoom
- * every time an unrelated field changes. State reaches the loaded page through
- * `evaluateJavascript` instead.
+ * Native osmdroid, replacing a `WebView` that loaded Leaflet **from a CDN** and
+ * tiled from OpenStreetMap. That arrangement had a failure mode worth
+ * describing, because it is why this screen was reported as doing nothing: when
+ * the CDN script failed to load — no data, a captive portal, a blocked host —
+ * the page's own guard returned early, *before* registering the tap handler. So
+ * the screen still opened, still drew its chrome, and simply could not be
+ * tapped. Silent, and indistinguishable from a dead button.
+ *
+ * The native map removes the JavaScript dependency entirely and caches tiles on
+ * disk, so a second visit to a place works with no connection at all. Tiles
+ * still need the network the first time; nothing can change that, which is why
+ * the coordinate fields below stay.
+ *
+ * The `MapView` is built in `remember`, not in `factory`, so it survives
+ * recomposition — `update` then only swaps the overlays rather than rebuilding
+ * the map and losing the user's centre and zoom.
  */
-@SuppressLint("SetJavaScriptEnabled")
 @Composable
 private fun MapSurface(
     state: ZonePickerUiState,
@@ -233,96 +256,111 @@ private fun MapSurface(
     modifier: Modifier = Modifier
 ) {
     val colors = MaterialTheme.board
+    val context = LocalContext.current
 
-    // A WebView cannot render in the preview renderer, and an empty grey box
-    // is a worse thing to look at than the panel it sits above. Skipping it in
-    // inspection mode also makes the preview show what an offline phone shows.
+    // No MapView in the preview renderer, and a grey rectangle is a worse thing
+    // to look at than the panel below it. Skipping it in inspection mode also
+    // shows what a phone with no tiles yet shows.
     if (LocalInspectionMode.current) {
         MapPlaceholder(modifier = modifier)
         return
     }
 
-    // Callbacks captured by the factory would otherwise be frozen at the
-    // values they had on first composition.
+    // Callbacks captured by the factory would otherwise be frozen at the values
+    // they held on first composition.
     val currentOnPointPicked by rememberUpdatedState(onPointPicked)
 
-    // Built once. The initial coordinates ride in on the query string because
-    // evaluateJavascript before onPageFinished is silently dropped, so the
-    // first point has to be part of the load itself. The theme travels the
-    // same way: prefers-color-scheme inside a WebView needs API 33+ or the
-    // deprecated forceDark, and minSdk here is 26.
-    val dark = colors.isDark
-    val initialUrl = remember {
-        buildString {
-            append("file:///android_asset/map/map.html")
-            append("?lat=").append(state.lat ?: DEFAULT_LAT)
-            append("&lon=").append(state.lon ?: DEFAULT_LON)
-            append("&radius=").append(state.radiusMeters.toInt())
-            append("&dark=").append(if (dark) "1" else "0")
+    // osmdroid keeps its tile cache and user agent in a process-wide singleton
+    // and will refuse to fetch without the agent set. Done once, here, because
+    // this is the only screen that draws a map.
+    LaunchedEffect(Unit) {
+        Configuration.getInstance().apply {
+            userAgentValue = context.packageName
+            osmdroidBasePath = File(context.cacheDir, "osmdroid")
+            osmdroidTileCache = File(osmdroidBasePath, "tiles")
+        }
+    }
+
+    val mapView = remember {
+        MapView(context).apply {
+            setTileSource(TileSourceFactory.MAPNIK)
+            setMultiTouchControls(true)
+            zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
+            controller.setZoom(16.0)
+            controller.setCenter(GeoPoint(state.lat ?: DEFAULT_LAT, state.lon ?: DEFAULT_LON))
+
+            // A single tap sets the centre. `MapEventsOverlay` is the supported
+            // way in: attaching a raw touch listener would fight the map's own
+            // pan and zoom gestures.
+            overlays.add(
+                MapEventsOverlay(object : MapEventsReceiver {
+                    override fun singleTapConfirmedHelper(p: GeoPoint?): Boolean {
+                        if (p != null) currentOnPointPicked(p.latitude, p.longitude)
+                        return true
+                    }
+
+                    override fun longPressHelper(p: GeoPoint?): Boolean = false
+                })
+            )
+        }
+    }
+
+    // The map is a View with its own lifecycle. Without these it keeps its tile
+    // threads running while the app is in the background.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_RESUME -> mapView.onResume()
+                Lifecycle.Event.ON_PAUSE -> mapView.onPause()
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            mapView.onDetach()
         }
     }
 
     AndroidView(
         modifier = modifier,
-        // A WebView that outlives its composition keeps a renderer process and
-        // its own timers alive; destroy() is the only thing that stops both.
-        // onRelease is the hook that runs when the node leaves the tree.
-        onRelease = { it.destroy() },
-        factory = { context ->
-            WebView(context).apply {
-                settings.javaScriptEnabled = true // Leaflet
-                // Not enabled: file access, content access, geolocation. The
-                // page reads one bundled asset and needs none of them, and a
-                // picker screen is not a place to widen a WebView's reach.
-                setBackgroundColor(android.graphics.Color.TRANSPARENT)
-                isVerticalScrollBarEnabled = false
-                isHorizontalScrollBarEnabled = false
-
-                webViewClient = object : WebViewClient() {
-                    override fun shouldOverrideUrlLoading(
-                        view: WebView,
-                        request: WebResourceRequest
-                    ): Boolean {
-                        val url = request.url
-                        // The page reports a picked point by navigating to a
-                        // custom scheme. That is used instead of
-                        // addJavascriptInterface so no Kotlin object is
-                        // injected into the page at all.
-                        if (url.scheme == "safeshade" && url.host == "pick") {
-                            val pickedLat = url.getQueryParameter("lat")?.toDoubleOrNull()
-                            val pickedLon = url.getQueryParameter("lon")?.toDoubleOrNull()
-                            if (pickedLat != null && pickedLon != null) {
-                                currentOnPointPicked(pickedLat, pickedLon)
-                            }
-                            return true
-                        }
-                        // Anything else is refused. This WebView shows one
-                        // local page; it must not turn into a browser because
-                        // a tile host answered with a redirect.
-                        return true
-                    }
-                }
-
-                loadUrl(initialUrl)
-            }
-        },
+        factory = { mapView },
         update = { view ->
             val lat = state.lat
             val lon = state.lon
+
+            view.overlays.removeAll { it is Marker || it is Polygon }
             if (lat != null && lon != null) {
-                // Guarded on the function existing: if Leaflet never loaded,
-                // the page defines nothing and this is a no-op rather than a
-                // console error on every keystroke.
-                view.evaluateJavascript(
-                    "window.safeshadeSetPoint && window.safeshadeSetPoint($lat, $lon, ${state.radiusMeters});",
-                    null
+                val point = GeoPoint(lat, lon)
+
+                // The radius circle, drawn as a polygon because osmdroid has no
+                // circle primitive that follows the projection. Filled at low
+                // alpha so the map underneath still reads - the point of a map
+                // here is to recognise the place, not to admire the circle.
+                view.overlays.add(
+                    Polygon(view).apply {
+                        points = Polygon.pointsAsCircle(point, state.radiusMeters.toDouble())
+                        fillPaint.color = colors.accentSky.copy(alpha = 0.18f).toArgb()
+                        outlinePaint.color = colors.accentSky.toArgb()
+                        outlinePaint.strokeWidth = 4f
+                    }
                 )
+                view.overlays.add(
+                    Marker(view).apply {
+                        position = point
+                        setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                        title = "Zone centre"
+                    }
+                )
+                view.controller.animateTo(point)
             }
+            view.invalidate()
         }
     )
 }
 
-/** What the map slot shows where a WebView cannot run. */
+/** What the map slot shows where a MapView cannot run. */
 @Composable
 private fun MapPlaceholder(modifier: Modifier = Modifier) {
     val colors = MaterialTheme.board

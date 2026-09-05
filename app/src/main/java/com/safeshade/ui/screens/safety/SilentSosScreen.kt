@@ -106,7 +106,6 @@ fun SilentSosScreen(
             onBack = onBack
         )
 
-        Spacer(Modifier.height(Spacing.xl))
         SectionPlate(title = "Alert without a sound")
         Spacer(Modifier.height(Spacing.sm))
 

@@ -37,6 +37,8 @@ import com.safeshade.ui.board.ButtonWeight
 import com.safeshade.ui.board.Hairline
 import com.safeshade.ui.board.LampState
 import com.safeshade.ui.board.Readout
+import com.safeshade.ui.board.ScreenHeader
+import com.safeshade.ui.board.ScreenTier
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.Way
 import com.safeshade.ui.theme.SafeShadeTheme
@@ -102,19 +104,24 @@ fun ZoneEditorScreen(
             // when the keyboard opens: without this inset a focused field would sit behind it.
             .imePadding()
     ) {
-        CircleTopRow(
+        ScreenHeader(
             title = if (state.isNew) "New safe zone" else state.name.ifBlank { "Safe zone" },
             subtitle = if (state.isNew) "It starts alerting as soon as it is saved" else null,
             onBack = onBack,
-            backDescription = "Go back to the zone list without saving"
+            backDescription = "Go back to the zone list without saving",
+            tier = ScreenTier.PUSHED,
+            modifier = Modifier.padding(horizontal = Spacing.gutter)
         )
 
+        // The list's own top contentPadding supplies the other half of
+        // ScreenHeader's documented 28dp gap, same as every pattern-A screen
+        // — see ScreenHeader's KDoc.
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(
                 start = Spacing.gutter,
                 end = Spacing.gutter,
-                top = Spacing.sm,
+                top = Spacing.lg,
                 bottom = Spacing.xxl
             ),
             verticalArrangement = Arrangement.spacedBy(Spacing.lg)

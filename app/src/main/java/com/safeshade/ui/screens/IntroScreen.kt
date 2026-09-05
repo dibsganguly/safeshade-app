@@ -27,12 +27,10 @@ import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import com.safeshade.R
 import com.safeshade.ui.theme.BoardSans
@@ -87,8 +85,12 @@ fun IntroScreen(
     }
 
     // Stage windows, in fractions of the whole.
-    val emblemIn = window(t, 0.00f, 0.26f, Settle)
-    val slide = window(t, 0.30f, 0.58f, Glide)
+    //
+    // There is no entrance window for the emblem any more. It is simply there
+    // from the first frame, at full size and centred, and holds while the eye
+    // lands - which is what the system splash used to spend its time doing,
+    // twice over. The hold is the gap before `slide` opens.
+    val slide = window(t, 0.26f, 0.56f, Glide)
     // The two words are staggered rather than simultaneous. "Safe" then "Shade"
     // is how the name is read, and letting the second follow the first by a
     // beat makes the lockup assemble in reading order.
@@ -97,9 +99,9 @@ fun IntroScreen(
     // An earlier version overlapped them with the travel, and the mark passed
     // straight through the letters on its way past — the one thing a logo
     // animation must not do to its own logotype.
-    val safeIn = window(t, 0.52f, 0.72f, Rise)
-    val shadeIn = window(t, 0.58f, 0.78f, Rise)
-    val tagline = window(t, 0.70f, 0.88f, FastOutSlowInEasing)
+    val safeIn = window(t, 0.50f, 0.70f, Rise)
+    val shadeIn = window(t, 0.56f, 0.76f, Rise)
+    val tagline = window(t, 0.68f, 0.88f, FastOutSlowInEasing)
     val exit = window(t, 0.92f, 1.00f, LinearEasing)
 
     Box(
@@ -120,9 +122,7 @@ fun IntroScreen(
                     contentDescription = null,
                     modifier = Modifier
                         .offset(x = ((WORDMARK_W + Spacing.md) / 2) * (1f - slide))
-                        .size(112.dp)
-                        .scale(0.80f + 0.20f * emblemIn)
-                        .alpha(emblemIn)
+                        .size(width = EMBLEM_W, height = EMBLEM_H)
                 )
 
                 Spacer(Modifier.width(Spacing.md * slide))
@@ -188,7 +188,12 @@ private fun WordmarkLine(
             fontWeight = FontWeight.W800,
             fontSize = 38.sp,
             lineHeight = 40.sp,
-            letterSpacing = (-0.03).em
+            // No negative tracking. The family and weight were already right -
+            // this is the same Archivo as the Board masthead, one step heavier
+            // - and the thing that made the wordmark read badly was -0.03em
+            // squeezing 38sp letterforms into each other. The masthead the
+            // user likes carries no tracking at all, so neither does this.
+            letterSpacing = 0.sp
         ),
         color = color,
         maxLines = 1,
@@ -209,8 +214,31 @@ private val Glide: Easing = CubicBezierEasing(0.65f, 0f, 0.20f, 1f)
 /** How each word comes up into its slot. */
 private val Rise: Easing = CubicBezierEasing(0.22f, 1f, 0.36f, 1f)
 
+/**
+ * The emblem, sized to the mark itself rather than to a square box.
+ *
+ * `splash_emblem` used to be a 432px canvas carrying a 169x259 glyph, so
+ * `size(112.dp)` drew a 44dp mark surrounded by 68dp of nothing - which is why
+ * the emblem looked small and the gap to the wordmark looked enormous, and why
+ * the lockup could never match the supplied logo. The drawable is cropped to
+ * its content now, so these numbers mean what they say. The 0.6536 ratio is
+ * the artwork's own.
+ */
+private val EMBLEM_H = 112.dp
+private val EMBLEM_W = 73.dp
+
 private val WORDMARK_W = 152.dp
-private val TAGLINE_W = 260.dp
+
+/**
+ * The tagline plate spans the whole lockup, as it does in the supplied logo.
+ *
+ * Derived, not typed. It was an independent 260.dp literal against a lockup
+ * that measures 276 - so the plate sat 16dp narrower than the mark above it,
+ * for no reason other than that the two numbers had never been related to each
+ * other. Anything that changes the emblem or the wordmark now carries the
+ * tagline with it.
+ */
+private val TAGLINE_W = EMBLEM_W + Spacing.md + WORDMARK_W
 
 /** Maps the global clock onto one stage's own 0..1, eased. */
 private fun window(t: Float, from: Float, to: Float, easing: Easing): Float {

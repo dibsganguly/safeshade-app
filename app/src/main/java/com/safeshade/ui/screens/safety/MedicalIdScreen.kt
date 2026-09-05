@@ -123,7 +123,6 @@ fun MedicalIdScreen(
             onBack = onBack
         )
 
-        Spacer(Modifier.height(Spacing.lg))
         Note(text = "A stranger helping $subject reads this off the device, unlocked.")
         Spacer(Modifier.height(Spacing.xs))
         WhyDisclosure(

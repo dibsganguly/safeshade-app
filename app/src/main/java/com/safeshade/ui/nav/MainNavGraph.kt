@@ -211,7 +211,10 @@ fun MainNavGraph(
     // through a `State` instead means the builder captures only
     // identity-stable references, so the graph is built once and each entry
     // still recomposes on its own when what it reads changes.
+    val connectedAddress by viewModel.connectedAddress.collectAsStateWithLifecycle()
+
     val liveState = rememberUpdatedState(state)
+    val liveConnectedAddress = rememberUpdatedState(connectedAddress)
     val liveWeather = rememberUpdatedState(weather)
     val liveLocation = rememberUpdatedState(location)
     val liveSyncing = rememberUpdatedState(isSyncing)
@@ -251,8 +254,8 @@ fun MainNavGraph(
         zoneDraftLon = zone?.lon
         zoneDraftExit = zone?.alertOnExit ?: true
         zoneDraftEnter = zone?.alertOnEnter ?: false
-        pickLatField = zone?.lat?.toString().orEmpty()
-        pickLonField = zone?.lon?.toString().orEmpty()
+        pickLatField = zone?.lat?.let { coordinate(it) }.orEmpty()
+        pickLonField = zone?.lon?.let { coordinate(it) }.orEmpty()
         pickError = null
     }
 
@@ -640,8 +643,8 @@ fun MainNavGraph(
             // asking the fused provider a second time from the UI layer.
             LaunchedEffect(pickLocating, location) {
                 if (pickLocating && location.isValid) {
-                    pickLatField = location.lat.toString()
-                    pickLonField = location.lon.toString()
+                    pickLatField = coordinate(location.lat)
+                    pickLonField = coordinate(location.lon)
                     pickLocating = false
                 }
             }
@@ -669,8 +672,8 @@ fun MainNavGraph(
                     }
                 },
                 onPointPicked = { lat, lon ->
-                    pickLatField = lat.toString()
-                    pickLonField = lon.toString()
+                    pickLatField = coordinate(lat)
+                    pickLonField = coordinate(lon)
                 },
                 onConfirm = {
                     zoneDraftLat = parsedLat
@@ -1390,15 +1393,19 @@ fun MainNavGraph(
         composable(Routes.DEVICE_PAIRED) {
             val state = liveState.value
             val permissionsGranted = livePermissions.value
+            val connectedAddress = liveConnectedAddress.value
             var confirmingForget by rememberSaveable { mutableStateOf<String?>(null) }
 
             PairedDevicesScreen(
                 state = PairedDevicesUiState(
                     connection = state.connection,
                     devices = state.pairedDevices,
-                    // Nothing in the model records *which* address the current
-                    // link is to, only that there is one.
-                    connectedAddress = null,
+                    // The real address, not null. This used to be hardcoded
+                    // null with a comment saying the model did not record which
+                    // device the link was to - so `isConnected` was false for
+                    // every row forever, and a device you were actively
+                    // connected to still showed "Saved" and a Connect button.
+                    connectedAddress = connectedAddress.takeIf { it.isNotBlank() },
                     isScanning = state.connection is ConnectionState.Scanning,
                     permissionsGranted = permissionsGranted,
                     confirmingForget = confirmingForget,
@@ -1408,10 +1415,7 @@ fun MainNavGraph(
                 ),
                 onPairNew = { viewModel.connect() },
                 onRequestPermissions = requestPermissions,
-                // The link connects to whatever advertises the service UUID;
-                // there is no connect-by-address on the view model, so this
-                // starts the same scan.
-                onConnect = { viewModel.connect() },
+                onConnect = { address -> viewModel.connectTo(address) },
                 onDisconnect = { viewModel.disconnect() },
                 onForgetRequested = { address -> confirmingForget = address },
                 onConfirmForget = { address ->
@@ -2051,3 +2055,14 @@ private fun ComingSoonPlate(modifier: Modifier = Modifier) {
         }
     }
 }
+
+/**
+ * A coordinate as a person should see it.
+ *
+ * Six decimal places is about 11cm, which is far finer than any consumer GPS
+ * and far finer than a safe zone measured in hundreds of metres. A raw
+ * `Double.toString` put "22.575875335849915" in a text field the user is meant
+ * to be able to read and correct - seventeen digits of false precision from a
+ * single tap on a map.
+ */
+private fun coordinate(value: Double): String = "%.6f".format(value).trimEnd('0').trimEnd('.')

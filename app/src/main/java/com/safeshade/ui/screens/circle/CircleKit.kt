@@ -16,10 +16,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -28,7 +24,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
@@ -267,57 +262,13 @@ internal fun ChannelBadge(
     }
 }
 
-/**
- * The header every Circle detail route draws for itself.
- *
- * Not a Material `TopAppBar`: that brings its own surface, elevation and
- * insets, and the board has no floating bars — the Board screen already draws
- * its title as an ordinary first row, and these screens match it. The back
- * control is an icon button and therefore carries a spoken name; "Back" alone
- * is uselessly vague when a screen reader announces it out of context, so
- * callers pass what is being left.
- */
-@Composable
-internal fun CircleTopRow(
-    title: String,
-    onBack: () -> Unit,
-    modifier: Modifier = Modifier,
-    subtitle: String? = null,
-    backDescription: String = "Go back",
-    trailing: (@Composable () -> Unit)? = null
-) {
-    val colors = MaterialTheme.board
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = Spacing.sm, vertical = Spacing.xs)
-    ) {
-        IconButton(onClick = onBack) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                contentDescription = backDescription,
-                tint = colors.inkMuted
-            )
-        }
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                color = colors.ink,
-                modifier = Modifier.semantics { heading() }
-            )
-            if (subtitle != null) {
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colors.inkFaint
-                )
-            }
-        }
-        trailing?.invoke()
-    }
-}
+// CircleTopRow used to live here: a hand-rolled header at titleMedium with
+// 8dp/4dp padding, drawn only by this bank's six detail routes. That is why
+// Circle opened at a visibly smaller heading and a tighter top margin than
+// every other bank's sub-pages — nothing was wrong with the row itself, it
+// just meant Circle was never in the pool that Safety and Device converged
+// on. Its six call sites now build on the shared board header, and this bank
+// carries no header of its own any more.
 
 // ============================================
 // Role-aware copy

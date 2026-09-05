@@ -15,7 +15,14 @@
     -->
     <style name="Theme.SafeShade.Splash" parent="Theme.SplashScreen">
         <item name="windowSplashScreenBackground">@color/brand_bone</item>
-        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_emblem</item>
+        <!--
+            No windowSplashScreenAnimatedIcon. The OS drew the emblem here,
+            large and centred, and then IntroScreen drew the same asset again
+            a moment later - so the user watched one emblem vanish and a
+            second appear before the animation had started. The intro owns the
+            whole performance now; this theme supplies only the ground it
+            begins on, so there is exactly one emblem and it never restarts.
+        -->
         <item name="postSplashScreenTheme">@style/Theme.SafeShade</item>
     </style>
 </resources>

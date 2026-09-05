@@ -31,6 +31,8 @@ import com.safeshade.ui.board.ButtonWeight
 import com.safeshade.ui.board.EmptyBay
 import com.safeshade.ui.board.Hairline
 import com.safeshade.ui.board.Nameplate
+import com.safeshade.ui.board.ScreenHeader
+import com.safeshade.ui.board.ScreenTier
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
@@ -113,11 +115,13 @@ fun MessagesScreen(
             // behind it, hiding the very field being typed into.
             .imePadding()
     ) {
-        CircleTopRow(
+        ScreenHeader(
             title = "Messages",
             subtitle = "With $other",
             onBack = onBack,
-            backDescription = "Go back to the circle"
+            backDescription = "Go back to the circle",
+            tier = ScreenTier.PUSHED,
+            modifier = Modifier.padding(horizontal = Spacing.gutter)
         )
 
         // A thread that opens at its oldest message is not a thread. The list
@@ -135,10 +139,13 @@ fun MessagesScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f),
+            // Top contentPadding supplies the other half of ScreenHeader's
+            // documented 28dp gap, same as every pattern-A screen — see
+            // ScreenHeader's KDoc.
             contentPadding = PaddingValues(
                 start = Spacing.gutter,
                 end = Spacing.gutter,
-                top = Spacing.sm,
+                top = Spacing.lg,
                 bottom = Spacing.lg
             ),
             verticalArrangement = Arrangement.spacedBy(Spacing.md)

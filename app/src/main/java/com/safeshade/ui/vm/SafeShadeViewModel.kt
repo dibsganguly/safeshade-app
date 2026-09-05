@@ -128,6 +128,27 @@ class SafeShadeViewModel(
         container.deviceRepository.startScan()
     }
 
+    /**
+     * The address of the device currently on the other end of the link.
+     *
+     * Blank when there is none. `AppState` records only *that* there is a link,
+     * not which device it is to, which is why the paired-devices list marked
+     * every saved device "Saved" even while connected to one of them.
+     */
+    val connectedAddress: StateFlow<String> = container.deviceRepository.deviceAddress
+
+    /**
+     * Connects, preferring a specific saved device.
+     *
+     * The scan is narrowed to that one address, so tapping Connect on a saved
+     * device joins *that* device rather than whichever one answers first. Both
+     * rows in a two-device household used to do the identical thing.
+     */
+    fun connectTo(address: String) {
+        if (!hasLinkPermissions()) return
+        container.deviceRepository.startScan(preferredAddress = address)
+    }
+
     fun disconnect() = container.deviceRepository.disconnect()
 
     /**

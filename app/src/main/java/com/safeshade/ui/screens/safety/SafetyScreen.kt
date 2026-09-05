@@ -36,6 +36,8 @@ import com.safeshade.ui.board.BoardPlate
 import com.safeshade.ui.board.ButtonWeight
 import com.safeshade.ui.board.Hairline
 import com.safeshade.ui.board.LampState
+import com.safeshade.ui.board.ScreenHeader
+import com.safeshade.ui.board.ScreenTier
 import com.safeshade.ui.board.Seal
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.Way
@@ -139,13 +141,19 @@ fun SafetyScreen(
         verticalArrangement = Arrangement.spacedBy(Spacing.lg)
     ) {
         item("header") {
-            PanelHeader(
+            // Direct call, not the bank's PanelHeader adapter: this list
+            // already scrolls at Arrangement.spacedBy(Spacing.lg), so that
+            // rhythm supplies the header's other 16dp the same way every
+            // pattern-A screen gets it. Going through PanelHeader here would
+            // add its own Spacer(Spacing.lg) on top and double the gap.
+            ScreenHeader(
                 title = "Safety",
                 subtitle = if (state.role == UserRole.GUARDIAN) {
                     "What happens if something happens to $subject."
                 } else {
                     "What happens if something happens to you."
-                }
+                },
+                tier = ScreenTier.ROOT
             )
         }
 

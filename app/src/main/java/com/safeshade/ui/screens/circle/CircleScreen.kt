@@ -171,6 +171,10 @@ fun CircleScreen(
                     UserRole.GUARDIAN -> "Circle"
                     UserRole.COMPANION -> "Your guardian"
                 },
+                subtitle = when (state.role) {
+                    UserRole.GUARDIAN -> "Messages, location and safe zones for $other."
+                    UserRole.COMPANION -> "Messages, location and safe zones with $other."
+                },
                 tier = ScreenTier.ROOT
             )
         }

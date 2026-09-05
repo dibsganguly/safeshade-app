@@ -143,20 +143,23 @@ fun FallSettingsScreen(
             onBack = onBack
         )
 
-        if (locked) {
-            Spacer(Modifier.height(Spacing.lg))
-            LockPlate(mode = mode, subject = subject)
+        // PanelHeader already places the full header gap, so neither branch
+        // below may open with a Spacer of its own — whichever one renders
+        // first would otherwise double up. The Spacer stays only between
+        // LockPlate and the sync note, and only when both are on screen.
+        val syncNoteText = if (state.linkLive) {
+            "Sending these settings to the device."
+        } else {
+            "Saved on this phone. They reach the device the next time it connects."
         }
-
-        if (!state.settingsSynced) {
-            Spacer(Modifier.height(Spacing.lg))
-            Note(
-                text = if (state.linkLive) {
-                    "Sending these settings to the device."
-                } else {
-                    "Saved on this phone. They reach the device the next time it connects."
-                }
-            )
+        if (locked) {
+            LockPlate(mode = mode, subject = subject)
+            if (!state.settingsSynced) {
+                Spacer(Modifier.height(Spacing.lg))
+                Note(text = syncNoteText)
+            }
+        } else if (!state.settingsSynced) {
+            Note(text = syncNoteText)
         }
 
         Spacer(Modifier.height(Spacing.xl))

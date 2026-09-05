@@ -113,8 +113,6 @@ fun TripDetailScreen(
             onBack = onBack
         )
 
-        Spacer(Modifier.height(Spacing.lg))
-
         MainsPlate(
             state = trip.outcome.lamp,
             headline = trip.outcome.label,

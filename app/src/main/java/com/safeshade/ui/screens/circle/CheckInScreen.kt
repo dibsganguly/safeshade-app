@@ -33,6 +33,8 @@ import com.safeshade.ui.board.Hairline
 import com.safeshade.ui.board.LampState
 import com.safeshade.ui.board.PilotLamp
 import com.safeshade.ui.board.Readout
+import com.safeshade.ui.board.ScreenHeader
+import com.safeshade.ui.board.ScreenTier
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.Way
 import com.safeshade.ui.icons.SafeShadeIcons
@@ -121,22 +123,27 @@ fun CheckInScreen(
             .fillMaxSize()
             .background(colors.ground)
     ) {
-        CircleTopRow(
+        ScreenHeader(
             title = "Check in",
             subtitle = when (state.role) {
                 UserRole.GUARDIAN -> "Ask $other whether they are all right"
                 UserRole.COMPANION -> "$other can ask whether you are all right"
             },
             onBack = onBack,
-            backDescription = "Go back to the circle"
+            backDescription = "Go back to the circle",
+            tier = ScreenTier.PUSHED,
+            modifier = Modifier.padding(horizontal = Spacing.gutter)
         )
 
+        // The list's own top contentPadding supplies the other half of
+        // ScreenHeader's documented 28dp gap, same as every pattern-A screen
+        // — see ScreenHeader's KDoc.
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(
                 start = Spacing.gutter,
                 end = Spacing.gutter,
-                top = Spacing.sm,
+                top = Spacing.lg,
                 bottom = Spacing.xxl
             ),
             verticalArrangement = Arrangement.spacedBy(Spacing.lg)

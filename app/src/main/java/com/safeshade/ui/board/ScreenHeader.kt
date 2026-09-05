@@ -44,6 +44,25 @@ import com.safeshade.ui.theme.board
  * complaint; leaving it to call sites is how it comes back on one screen in
  * six months.
  *
+ * ## The header-to-content gap
+ *
+ * The trailing [Spacing.md] below the title is fixed and not a parameter, for
+ * the same reason the top margin isn't: it used to be a call site's choice,
+ * three different banks made three different choices, and sub-pages ended up
+ * starting their content at three different distances from the header. The
+ * fix is not "emit the whole gap here" — a header sitting as the first item
+ * of a list already rhythmed with `Arrangement.spacedBy(Spacing.lg)` would
+ * double up if it also emitted that much itself, and roughly nineteen screens
+ * already depend on exactly that combination. Instead the gap is one number
+ * decided in one place and assembled the same way everywhere: this trailing
+ * [Spacing.md], plus [Spacing.lg] of rhythm supplied by whatever holds the
+ * header — a list's `spacedBy`, the Safety bank's header adapter, or a body
+ * list's top `contentPadding` — for a fixed total of 28dp. The rule that makes
+ * this hold is: **no call site ever places its own `Spacer` after a header.**
+ * A screen that needs the 16dp and has no natural list rhythm to source it
+ * from is a screen whose container is missing something, not a screen that
+ * gets to invent its own number.
+ *
  * @param onBack null means no back control — correct for a tab root, which has
  *   nowhere to go. Every pushed screen passes one. It is nullable rather than
  *   defaulted-to-empty so a call site that forgets shows a visibly absent
@@ -123,6 +142,8 @@ fun ScreenHeader(
                 }
             }
         }
+        // Half of the 28dp header gap described above — the other half comes
+        // from whatever holds this header. Not a parameter: see that note.
         Spacer(Modifier.height(Spacing.md))
     }
 }

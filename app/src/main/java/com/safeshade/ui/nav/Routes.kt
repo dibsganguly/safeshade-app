@@ -110,8 +110,10 @@ object Routes {
     fun zoneEdit(zoneId: String?): String =
         if (zoneId == null) "$CIRCLE_ZONE_EDIT?${Args.ZONE_ID}=" else "$CIRCLE_ZONE_EDIT?${Args.ZONE_ID}=$zoneId"
 
-    fun zonePick(lat: Double, lon: Double, radius: Float): String =
-        "$CIRCLE_ZONE_PICK?${Args.LAT}=$lat&${Args.LON}=$lon&${Args.RADIUS}=$radius"
+    // `zonePick(lat, lon, radius)` used to live here and was never called: the
+    // picker is registered as an argument-less destination and navigated to by
+    // the bare constant. A builder nobody uses is a trap for whoever tries it
+    // next, because its arguments would have been silently dropped.
 
     fun tripDetail(tripId: String): String = "$SAFETY_TRIP_DETAIL/$tripId"
 

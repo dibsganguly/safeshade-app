@@ -128,8 +128,6 @@ fun EmergencyCardScreen(
             onBack = onBack
         )
 
-        Spacer(Modifier.height(Spacing.xl))
-
         if (!state.medicalId.isUsable) {
             // Nothing worth encoding, so nothing is encoded. A QR that decodes
             // to a header and no details is worse than no card at all — it
