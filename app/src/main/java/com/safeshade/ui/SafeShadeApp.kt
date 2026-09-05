@@ -220,6 +220,7 @@ fun SafeShadeApp(viewModel: SafeShadeViewModel) {
                     circleListState = circleListState,
                     safetyListState = safetyListState,
                     deviceListState = deviceListState,
+                    snackbarHostState = snackbarHostState,
                     // The full inset set, not just the bottom: edge-to-edge
                     // means the status bar overlaps content otherwise, and the
                     // header row is the first thing it eats.

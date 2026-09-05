@@ -16,9 +16,6 @@ import com.safeshade.WeatherService
 import com.safeshade.data.DarkModePreference
 import com.safeshade.data.DeviceSettings
 import com.safeshade.data.EmergencyContact
-import com.safeshade.emergencyAlertText
-import com.safeshade.sendEmergencySms
-import com.safeshade.service.LastKnownLocation
 import com.safeshade.data.FallAlertEvent
 import com.safeshade.data.GeofenceZone
 import com.safeshade.data.LedPattern
@@ -35,7 +32,18 @@ import com.safeshade.data.WeatherUiState
 import com.safeshade.device.ConnectionState
 import com.safeshade.device.DeviceProtocol
 import com.safeshade.di.AppContainer
+import com.safeshade.emergencyAlertText
 import com.safeshade.repo.AppState
+import com.safeshade.repo.SendResult
+import com.safeshade.sendEmergencySms
+import com.safeshade.service.LastKnownLocation
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
+import kotlin.coroutines.resume
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -43,11 +51,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
-import java.text.SimpleDateFormat
-import java.util.Calendar
-import java.util.Date
-import java.util.Locale
-import kotlin.coroutines.resume
 
 /**
  * The single view model for the app.
@@ -403,11 +406,31 @@ class SafeShadeViewModel(
     // Messaging
     // ============================================
 
-    fun sendGuardianMessage(text: String) =
-        launchIo { container.messagingRepository.sendGuardianMessage(text) }
-
-    fun sendCompanionReply(text: String) =
-        launchIo { container.messagingRepository.sendCompanionReply(text) }
+    /**
+     * Sends a message as [role], and hands back what actually happened.
+     *
+     * The two `launchIo` calls this replaces threw away a [SendResult] whose
+     * `Failed.reason` is written to be read by a person, so a send that
+     * reached nobody was indistinguishable at the call site from one that
+     * arrived - and the UI above them had just started drawing a tick for it.
+     * `MessagingRepository` itself says a message that reports success and
+     * reaches nobody is worse than one that reports failure; every caller was
+     * making it do exactly that.
+     *
+     * The coroutine belongs to the view model rather than to the caller, and
+     * that is the point of returning a [Deferred] instead of taking a
+     * `suspend` shape. The repository writes the message into history *after*
+     * the transport has taken it, so a screen that owned the job and was then
+     * navigated away from would send the message and lose the record of it.
+     * Awaiting this can be cancelled freely; the send underneath it cannot.
+     */
+    fun sendMessage(role: UserRole, text: String): Deferred<SendResult> =
+        viewModelScope.async {
+            when (role) {
+                UserRole.GUARDIAN -> container.messagingRepository.sendGuardianMessage(text)
+                UserRole.COMPANION -> container.messagingRepository.sendCompanionReply(text)
+            }
+        }
 
     // ============================================
     // Zones and journeys

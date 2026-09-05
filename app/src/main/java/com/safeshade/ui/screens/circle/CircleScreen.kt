@@ -28,8 +28,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -64,6 +66,7 @@ import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.board
 import com.safeshade.ui.theme.boardType
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /**
  * A summary row on the hub, in the shape a `Way` needs.
@@ -104,7 +107,6 @@ data class CircleUiState(
     val recentMessages: List<CircleMessagePreview> = emptyList(),
     val unreadCount: Int = 0,
     val quickMessages: List<String> = emptyList(),
-    val isSendingQuickMessage: Boolean = false,
     /** How a quick message would travel if sent right now. */
     val outboundChannel: MessageChannel = MessageChannel.BLE,
 
@@ -139,7 +141,7 @@ data class CircleUiState(
 fun CircleScreen(
     state: CircleUiState,
     onOpenThread: () -> Unit,
-    onSendQuickMessage: (String) -> Unit,
+    onSendQuickMessage: suspend (String) -> Boolean,
     onRefreshLocation: () -> Unit,
     onOpenZones: () -> Unit,
     onOpenJourney: () -> Unit,
@@ -256,8 +258,7 @@ fun CircleScreen(
                             if (index > 0) Hairline()
                             QuickMessageRow(
                                 text = message,
-                                enabled = !state.isSendingQuickMessage,
-                                onClick = { onSendQuickMessage(message) }
+                                onSend = { onSendQuickMessage(message) }
                             )
                         }
                     }
@@ -682,7 +683,7 @@ private fun CircleGuardianLightPreview() {
                 sms = CircleWay(LampState.LIVE, "Ready", "2 numbers allowed")
             ),
             onOpenThread = {},
-            onSendQuickMessage = {},
+            onSendQuickMessage = { true },
             onRefreshLocation = {},
             onOpenZones = {},
             onOpenJourney = {},
@@ -716,7 +717,7 @@ private fun CircleCompanionDarkPreview() {
                 sms = CircleWay(LampState.ATTENTION, "Anyone", "No allowlist, every sender accepted")
             ),
             onOpenThread = {},
-            onSendQuickMessage = {},
+            onSendQuickMessage = { true },
             onRefreshLocation = {},
             onOpenZones = {},
             onOpenJourney = {},
@@ -736,24 +737,34 @@ private fun CircleCompanionDarkPreview() {
 @Composable
 private fun QuickMessageRow(
     text: String,
-    enabled: Boolean,
-    onClick: () -> Unit
+    onSend: suspend () -> Boolean
 ) {
     val colors = MaterialTheme.board
-    // Which row was tapped, held by the row itself.
+    val scope = rememberCoroutineScope()
+
+    // In-flight and acknowledged, both held by the row itself.
     //
-    // The screen already knows a send is in flight, but only as one flag for
-    // the whole list, so it can dim every row and cannot say which one was
-    // pressed. Sending a quick message otherwise produced no acknowledgement
-    // at all: the row dimmed for a moment along with its neighbours, and that
-    // was the whole feedback for an action that reaches another person.
-    var justSent by remember { mutableStateOf(false) }
-    LaunchedEffect(justSent) {
-        if (justSent) {
+    // The screen carried one `isSendingQuickMessage` flag for the whole list,
+    // which could only ever dim all four rows and never say which was pressed
+    // - and nothing in the app ever set it, so it did not even do that.
+    //
+    // The tick was worse. It was set on the tap, before anything had been
+    // written anywhere, so it appeared just as readily for a send that failed:
+    // with no wearable in range and no device SIM number stored, every quick
+    // message failed and every one of them drew a tick. It waits for the real
+    // result now.
+    var sending by remember { mutableStateOf(false) }
+    // A timestamp rather than a flag, so a second send inside the window
+    // restarts the mark instead of inheriting the first one's expiry.
+    var sentAt by remember { mutableLongStateOf(0L) }
+    val justSent = sentAt > 0L
+    LaunchedEffect(sentAt) {
+        if (sentAt > 0L) {
             delay(SENT_MARK_MS)
-            justSent = false
+            sentAt = 0L
         }
     }
+    val enabled = !sending
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -763,8 +774,12 @@ private fun QuickMessageRow(
                 enabled = enabled,
                 role = Role.Button,
                 onClick = {
-                    justSent = true
-                    onClick()
+                    sending = true
+                    scope.launch {
+                        val sent = onSend()
+                        sending = false
+                        if (sent) sentAt = System.currentTimeMillis()
+                    }
                 }
             )
             .defaultMinSize(minHeight = Spacing.touchTarget)
@@ -780,11 +795,15 @@ private fun QuickMessageRow(
         )
         // A send arrow that becomes a tick and goes back.
         //
-        // A crossfade rather than a swap, and the tick keeps the live ink even
-        // while the row is dimmed - the row is disabled because a send is in
-        // flight, which is exactly when the tick is the thing worth seeing.
-        // This is a confirmation on a control rather than a lamp on a circuit,
-        // and it is gone again inside two seconds.
+        // A crossfade rather than a swap. The row dims while the send is in
+        // flight and the tick follows it, so the sequence reads arrow ->
+        // dimmed arrow -> tick: pressed, working, gone. A failure stops at the
+        // dimmed arrow and puts its reason in a snackbar, which is the whole
+        // reason the tick is worth anything.
+        //
+        // It still means the transport took the message, not that anybody read
+        // it - an SMS is `Sent` when the send call returns. Nothing in this
+        // system carries a delivery receipt, so that is the honest ceiling.
         Crossfade(
             targetState = justSent,
             animationSpec = tween(Motion.normal),

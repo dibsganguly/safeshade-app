@@ -10,15 +10,16 @@ import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
-import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.DirectionsWalk
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -28,6 +29,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -59,6 +61,7 @@ import com.safeshade.data.UserRole
 import com.safeshade.device.ConnectionState
 import com.safeshade.platform.PhoneNumbers
 import com.safeshade.repo.AppState
+import com.safeshade.repo.SendResult
 import com.safeshade.repo.SyncStatus
 import com.safeshade.ui.board.BoardPlate
 import com.safeshade.ui.board.KitGallery
@@ -141,11 +144,12 @@ import com.safeshade.ui.screens.settings.SettingsUiState
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.board
 import com.safeshade.ui.vm.SafeShadeViewModel
-import kotlinx.coroutines.delay
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /**
  * The app proper.
@@ -187,6 +191,10 @@ fun MainNavGraph(
     circleListState: LazyListState,
     safetyListState: LazyListState,
     deviceListState: LazyListState,
+    // Hoisted from the host for the same reason the list states are: the three
+    // message send paths live in here, and a failed send has a reason written
+    // to be shown to somebody.
+    snackbarHostState: SnackbarHostState,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -367,6 +375,7 @@ fun MainNavGraph(
         // ============================================
 
         composable(Routes.CIRCLE) {
+            val circleScope = rememberCoroutineScope()
             val state = liveState.value
             val location = liveLocation.value
             val isSyncing = liveSyncing.value
@@ -440,7 +449,17 @@ fun MainNavGraph(
                     )
                 ),
                 onOpenThread = { navController.navigate(Routes.CIRCLE_THREAD) },
-                onSendQuickMessage = { text -> sendAsRole(viewModel, state.role, text) },
+                onSendQuickMessage = { text ->
+                    val result = sendAsRole(viewModel, state.role, text)
+                    // Launched rather than awaited: `showSnackbar` suspends
+                    // until the snackbar is dismissed, and awaiting it here
+                    // would hold the row in its sending state for the whole
+                    // two seconds the message is on screen.
+                    if (result is SendResult.Failed) {
+                        circleScope.launch { snackbarHostState.showSnackbar(result.reason) }
+                    }
+                    result is SendResult.Sent
+                },
                 onRefreshLocation = { viewModel.syncWeather() },
                 onOpenZones = { navController.navigate(Routes.CIRCLE_ZONES) },
                 onOpenJourney = { navController.navigate(Routes.CIRCLE_JOURNEY) },
@@ -452,7 +471,13 @@ fun MainNavGraph(
 
         composable(Routes.CIRCLE_THREAD) {
             val state = liveState.value
+            val threadScope = rememberCoroutineScope()
             var draft by rememberSaveable { mutableStateOf("") }
+            // `MessagesUiState.isSending` has existed since the screen was
+            // written and nothing ever set it, so the field stayed enabled,
+            // the button stayed pressable and its "Sending" label had never
+            // once appeared. It is real state now.
+            var sending by remember { mutableStateOf(false) }
 
             MessagesScreen(
                 state = MessagesUiState(
@@ -482,17 +507,40 @@ fun MainNavGraph(
                     draft = draft,
                     outboundChannel = outboundChannel(state),
                     deviceInRange = state.connection.isUsable,
-                    smsConfigured = state.devicePhoneNumber.isNotBlank()
+                    smsConfigured = state.devicePhoneNumber.isNotBlank(),
+                    isSending = sending
                 ),
                 onDraftChange = { draft = it },
                 onSend = {
                     // Directionality is the historical bug in this codebase:
                     // a companion's reply written to the guardian channel makes
                     // the firmware buzz the wearer with their own message.
-                    sendAsRole(viewModel, state.role, draft)
-                    draft = ""
+                    val text = draft
+                    threadScope.launch {
+                        sending = true
+                        val result = sendAsRole(viewModel, state.role, text)
+                        sending = false
+                        when (result) {
+                            // The draft is cleared only once the message is
+                            // away. A failed send used to empty the box and
+                            // say nothing, so the words were gone and so was
+                            // the message.
+                            is SendResult.Sent -> if (draft == text) draft = ""
+                            is SendResult.Failed ->
+                                snackbarHostState.showSnackbar(result.reason)
+                        }
+                    }
                 },
-                onSendQuick = { text -> sendAsRole(viewModel, state.role, text) },
+                onSendQuick = { text ->
+                    threadScope.launch {
+                        sending = true
+                        val result = sendAsRole(viewModel, state.role, text)
+                        sending = false
+                        if (result is SendResult.Failed) {
+                            snackbarHostState.showSnackbar(result.reason)
+                        }
+                    }
+                },
                 onOpenSim = { navController.navigate(Routes.CIRCLE_SIM) },
                 onBack = { navController.popBackStack() }
             )
@@ -1922,13 +1970,22 @@ private fun quickPhrases(role: UserRole): List<String> = when (role) {
  * the message characteristic reaches the wearer as a brand-new message from
  * themselves, which is a bug this codebase has shipped before.
  */
-private fun sendAsRole(viewModel: SafeShadeViewModel, role: UserRole, text: String) {
+/**
+ * Sends as the current role and reports the outcome.
+ *
+ * This used to be fire-and-forget, which is how a screen came to draw a
+ * confirmation tick for a send that had failed. It suspends now; the view
+ * model owns the coroutine underneath, so a caller that is cancelled loses
+ * only its own acknowledgement.
+ */
+private suspend fun sendAsRole(
+    viewModel: SafeShadeViewModel,
+    role: UserRole,
+    text: String
+): SendResult {
     val clean = text.trim()
-    if (clean.isEmpty()) return
-    when (role) {
-        UserRole.GUARDIAN -> viewModel.sendGuardianMessage(clean)
-        UserRole.COMPANION -> viewModel.sendCompanionReply(clean)
-    }
+    if (clean.isEmpty()) return SendResult.Failed("Nothing to send")
+    return viewModel.sendMessage(role, clean).await()
 }
 
 private val MedicalIdSaver = listSaver<MedicalId, Any>(

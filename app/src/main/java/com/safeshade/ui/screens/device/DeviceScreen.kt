@@ -30,7 +30,6 @@ import com.safeshade.ui.board.MainsPlate
 import com.safeshade.ui.board.Nameplate
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.Way
-import com.safeshade.ui.board.icon
 import com.safeshade.ui.board.ScreenHeader
 import com.safeshade.ui.board.ScreenTier
 import com.safeshade.ui.icons.SafeShadeIcons
@@ -287,7 +286,17 @@ fun DeviceScreen(
                     state = if (state.connection.isUsable) LampState.LIVE else LampState.UNKNOWN,
                     stateLabel = state.mode.label,
                     detail = state.mode.blurb,
-                    icon = state.mode.icon,
+                    // The row's own glyph, not the selected persona's.
+                    //
+                    // This was `state.mode.icon`, which made it the one row in
+                    // the bank whose icon changed shape with its value: a row
+                    // called "Adaptive mode" showed a backpack, or a helmet, or
+                    // a cane. An icon in this column is an identity - it says
+                    // which way you are looking at, the way "Lights" and
+                    // "Reminders" do - and what the row is set to is already
+                    // stated twice to the right of it, in the state word and in
+                    // the blurb underneath.
+                    icon = SafeShadeIcons.AdaptiveMode,
                     // The seal is the honest signal that this mode has taken
                     // the wearable's own Mode and Safety menus away from the
                     // person wearing it.
