@@ -1,5 +1,6 @@
 package com.safeshade.ui.screens.safety
 
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -231,7 +232,9 @@ internal fun PlateField(
     singleLine: Boolean = true,
     enabled: Boolean = true,
     keyboardType: KeyboardType = KeyboardType.Text,
-    imeAction: ImeAction = ImeAction.Next
+    imeAction: ImeAction = ImeAction.Next,
+    /** Formats the displayed text without changing what is stored. */
+    visualTransformation: VisualTransformation = VisualTransformation.None
 ) {
     val colors = MaterialTheme.board
     val shape = RoundedCornerShape(Radius.plate)
@@ -256,6 +259,7 @@ internal fun PlateField(
                 keyboardType = keyboardType,
                 imeAction = imeAction
             ),
+            visualTransformation = visualTransformation,
             modifier = Modifier.fillMaxWidth(),
             decorationBox = { innerTextField ->
                 Box(

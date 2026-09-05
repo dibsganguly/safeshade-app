@@ -89,6 +89,15 @@ data class BoardTypography(
     val readout: TextStyle,
     /** The one big number on a mains plate. */
     val readoutLarge: TextStyle,
+    /**
+     * Supporting text under a row's nameplate.
+     *
+     * Its own style rather than bodySmall because a wrapped detail line needs
+     * tighter leading than running prose: at bodySmall's ratio two wrapped
+     * lines drift so far apart that the second reads as belonging to the row
+     * below it.
+     */
+    val rowDetail: TextStyle,
     /** Countdown digits on a trip banner. */
     val countdown: TextStyle
 )
@@ -136,6 +145,13 @@ val BoardType = BoardTypography(
         fontSize = 34.sp,
         lineHeight = 38.sp,
         letterSpacing = (-0.03).em
+    ),
+    rowDetail = TextStyle(
+        fontFamily = BoardSans,
+        fontWeight = FontWeight.W400,
+        fontSize = 13.sp,
+        lineHeight = 16.sp,
+        letterSpacing = 0.sp
     ),
     countdown = TextStyle(
         fontFamily = BoardMono,

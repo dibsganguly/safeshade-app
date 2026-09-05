@@ -7,6 +7,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -98,11 +100,11 @@ fun Way(
                 if (onClick != null) Modifier.clickable(role = Role.Button, onClick = onClick)
                 else Modifier
             )
-            // 48dp is the floor for anything tappable, and the elderly persona
-            // is real enough that non-tappable rows get it too — a row you can
-            // read at arm's length needs the same vertical room.
-            .defaultMinSize(minHeight = Spacing.touchTarget)
-            .padding(horizontal = Spacing.lg, vertical = Spacing.md)
+            .padding(start = Spacing.lg, end = Spacing.md, top = Spacing.md, bottom = Spacing.md)
+            // Intrinsic height so the bus tick can match whatever the text
+            // actually occupies, rather than being a fixed stub that looks
+            // right on one line and stunted on three.
+            .height(IntrinsicSize.Min)
             .clearAndSetSemantics {
                 contentDescription = spoken
                 if (checked != null) {
@@ -110,9 +112,6 @@ fun Way(
                 }
             }
     ) {
-        BusTick(state = state)
-        Spacer(Modifier.width(Spacing.md))
-
         if (icon != null) {
             Icon(
                 imageVector = icon,
@@ -123,7 +122,14 @@ fun Way(
             Spacer(Modifier.width(Spacing.md))
         }
 
-        Column(modifier = Modifier.weight(1f)) {
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                // 48dp touch target, kept by the column rather than the row so
+                // the tick measures content and not padding.
+                .defaultMinSize(minHeight = 24.dp),
+            verticalArrangement = Arrangement.Center
+        ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Nameplate(name)
                 if (sealed) {
@@ -132,9 +138,14 @@ fun Way(
                 }
             }
             if (detail != null) {
+                // A real gap under the title, and a tighter leading inside the
+                // detail itself. Previously the two were flush while wrapped
+                // detail lines sat far apart, which read as the subtitle
+                // belonging to the row below.
+                Spacer(Modifier.height(Spacing.xs))
                 Text(
                     text = detail,
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.boardType.rowDetail,
                     color = colors.inkFaint
                 )
             }
@@ -144,22 +155,26 @@ fun Way(
 
         if (checked != null && onCheckedChange != null && !deviceOnly) {
             WaySwitch(checked = checked, onCheckedChange = onCheckedChange)
+            Spacer(Modifier.width(Spacing.sm))
         } else {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = stateLabel.uppercase(),
-                    style = MaterialTheme.boardType.stateLabel,
-                    color = when (state) {
-                        LampState.LIVE -> colors.inkLive
-                        LampState.ATTENTION -> colors.inkAttention
-                        LampState.TRIP -> colors.inkTrip
-                        LampState.OFF, LampState.UNKNOWN -> colors.inkFaint
-                    }
-                )
-                Spacer(Modifier.width(Spacing.sm))
-                PilotLamp(state = state)
-            }
+            Text(
+                text = stateLabel.uppercase(),
+                style = MaterialTheme.boardType.stateLabel,
+                color = when (state) {
+                    LampState.LIVE -> colors.inkLive
+                    LampState.ATTENTION -> colors.inkAttention
+                    LampState.TRIP -> colors.inkTrip
+                    LampState.OFF, LampState.UNKNOWN -> colors.inkFaint
+                }
+            )
+            Spacer(Modifier.width(Spacing.md))
         }
+
+        // The tick moved from the left edge to the right, taking over from the
+        // pilot lamp that used to sit here. The lamp and the state word said
+        // the same thing twice; one coloured edge carries it, and dropping the
+        // lamp buys the content real room on the left.
+        BusTick(state = state, modifier = Modifier.fillMaxHeight())
     }
 }
 

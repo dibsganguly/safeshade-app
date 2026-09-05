@@ -60,18 +60,19 @@ fun MainsPlate(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(Spacing.lg)
         ) {
-            PilotLamp(state = state, size = 22.dp)
-            Spacer(Modifier.width(Spacing.md))
-
+            // No lamp here. The headline already says the state in words, and
+            // a 22dp lamp beside a two-word status was the same information
+            // twice at the top of the most-read screen.
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = headline,
                     style = MaterialTheme.typography.headlineSmall,
                     color = colors.ink
                 )
+                Spacer(Modifier.height(Spacing.xs))
                 Text(
                     text = subline,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.boardType.rowDetail,
                     color = colors.inkMuted
                 )
             }
@@ -113,12 +114,14 @@ fun MainsPlate(
                         else -> null
                     }
                 },
+                horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.weight(1f)
             )
             Readout(
                 label = "Signal",
                 value = signalDbm?.let { "$it" } ?: "—",
                 state = signalDbm?.let { if (it < -90) LampState.ATTENTION else null },
+                horizontalAlignment = Alignment.End,
                 modifier = Modifier.weight(1f)
             )
         }

@@ -70,7 +70,16 @@ fun BoardBottomBar(
                 NavigationBarItem(
                     selected = selected,
                     onClick = {
-                        if (!selected) {
+                        if (selected) {
+                            // Already on this tab. If the user is somewhere
+                            // beneath its root, the tap means "take me back up"
+                            // - which is what every Android app does and what
+                            // this bar previously ignored, leaving the bar
+                            // apparently dead on every sub-page.
+                            if (currentRoute != destination.route) {
+                                navController.popBackStack(destination.route, inclusive = false)
+                            }
+                        } else {
                             navController.navigate(destination.route) {
                                 // Anchored to the graph's real start destination
                                 // rather than a hardcoded route: the previous

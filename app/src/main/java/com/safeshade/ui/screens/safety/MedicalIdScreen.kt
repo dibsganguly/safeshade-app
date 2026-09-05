@@ -1,5 +1,6 @@
 package com.safeshade.ui.screens.safety
 
+import com.safeshade.platform.IndianPhoneTransformation
 import android.content.res.Configuration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
@@ -255,6 +256,7 @@ fun MedicalIdScreen(
             },
             maxLength = MAX_CONTACT_PHONE,
             keyboardType = KeyboardType.Phone,
+            visualTransformation = IndianPhoneTransformation(),
             imeAction = ImeAction.Next
         )
 
@@ -283,6 +285,7 @@ fun MedicalIdScreen(
             },
             maxLength = MAX_CONTACT_PHONE,
             keyboardType = KeyboardType.Phone,
+            visualTransformation = IndianPhoneTransformation(),
             imeAction = ImeAction.Done
         )
 

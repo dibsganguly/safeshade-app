@@ -31,6 +31,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -122,10 +123,15 @@ fun BoardButton(
             )
         }
         if (supporting != null) {
+            // A real gap, and centred under the label. Flush against the
+            // nameplate the two read as one wrapped line rather than a label
+            // and its explanation.
+            Spacer(Modifier.height(Spacing.xs))
             Text(
                 text = supporting,
-                style = MaterialTheme.typography.bodySmall,
-                color = content.copy(alpha = 0.75f)
+                style = MaterialTheme.boardType.rowDetail,
+                color = content.copy(alpha = 0.75f),
+                textAlign = TextAlign.Center
             )
         }
     }
@@ -144,7 +150,9 @@ fun Readout(
     modifier: Modifier = Modifier,
     label: String? = null,
     large: Boolean = false,
-    state: LampState? = null
+    state: LampState? = null,
+    /** Lets a row of readouts distribute rather than all left-packing. */
+    horizontalAlignment: Alignment.Horizontal = Alignment.Start
 ) {
     val colors = MaterialTheme.board
     val tint = when (state) {
@@ -153,7 +161,7 @@ fun Readout(
         LampState.TRIP -> colors.inkTrip
         else -> colors.ink
     }
-    Column(modifier = modifier) {
+    Column(modifier = modifier, horizontalAlignment = horizontalAlignment) {
         if (label != null) Nameplate(label, small = true, muted = true)
         Text(
             text = value,

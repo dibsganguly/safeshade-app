@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -94,7 +95,14 @@ fun SectionPlate(
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
-            modifier = Modifier.fillMaxWidth()
+            // A fixed header height, so a section with a trailing icon button
+            // and one without land their rule at the same place. Previously the
+            // button's 48dp touch target inflated only those headers, and the
+            // rule sat noticeably further from the label on Conditions and
+            // Where than everywhere else.
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(40.dp)
         ) {
             Text(
                 text = title.uppercase(),
@@ -106,7 +114,6 @@ fun SectionPlate(
         }
         Box(
             modifier = Modifier
-                .padding(top = Spacing.xs)
                 .fillMaxWidth()
                 .height(Stroke.brass)
                 .background(colors.brass)
@@ -144,9 +151,12 @@ fun BusTick(
         LampState.OFF, LampState.UNKNOWN -> colors.hairline
     }
     Box(
+        // No fixed height. Callers pass fillMaxHeight() inside an
+        // IntrinsicSize.Min row so the tick grows with the text beside it; a
+        // hardcoded stub looked right on one line and stunted on three.
         modifier = modifier
             .width(Stroke.heavy)
-            .height(28.dp)
+            .heightIn(min = 20.dp)
             .clip(RoundedCornerShape(Radius.tight))
             .background(tint)
     )

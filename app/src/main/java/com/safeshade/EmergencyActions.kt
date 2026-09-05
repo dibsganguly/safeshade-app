@@ -9,6 +9,7 @@ import android.telephony.SmsManager
 import android.util.Log
 import androidx.core.content.ContextCompat
 import com.safeshade.data.EmergencyContact
+import com.safeshade.platform.PhoneNumbers
 
 /**
  * Real phone-call and SMS actions.
@@ -58,9 +59,14 @@ fun dialNumber(context: Context, number: String, allowDirectCall: Boolean = fals
         context, Manifest.permission.CALL_PHONE
     ) == PackageManager.PERMISSION_GRANTED
 
+    // Normalised at the point of use, not at the point of storage. A number
+    // typed as "+91 98765 43210" is correct to display and wrong to hand to a
+    // tel: URI, where the spaces percent-encode and some dialers refuse it.
+    // Short service numbers (112, 108) contain no spaces and pass through.
+    val dialable = PhoneNumbers.dialable(number)
     val intent = Intent(
         if (canCallDirectly) Intent.ACTION_CALL else Intent.ACTION_DIAL,
-        Uri.parse("tel:${Uri.encode(number)}")
+        Uri.parse("tel:${Uri.encode(dialable)}")
     ).apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK }
 
     return runCatching {
@@ -104,7 +110,7 @@ fun sendSmsText(
         // link routinely exceeds one 160-character segment, and losing the tail
         // would lose the coordinates.
         val parts = smsManager.divideMessage(message)
-        smsManager.sendMultipartTextMessage(phoneNumber, null, parts, null, null)
+        smsManager.sendMultipartTextMessage(PhoneNumbers.dialable(phoneNumber), null, parts, null, null)
         ActionResult.Sent
     }.getOrElse {
         Log.e(logTag, "Failed to send SMS - likely no cellular signal", it)

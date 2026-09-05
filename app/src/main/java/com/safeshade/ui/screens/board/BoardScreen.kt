@@ -1,6 +1,11 @@
 package com.safeshade.ui.screens.board
 
 import androidx.compose.foundation.Image
+import androidx.compose.ui.draw.clip
+import androidx.compose.runtime.remember
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -43,6 +48,10 @@ import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.Way
 import com.safeshade.ui.shady.ShadyHost
 import com.safeshade.ui.shady.shadyMoodFor
+import com.safeshade.ui.shady.ReactionStyle
+import com.safeshade.ui.shady.ShadyStage
+import com.safeshade.ui.shady.rememberShadyReactor
+import com.safeshade.ui.theme.Radius
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.board
 
@@ -109,13 +118,20 @@ fun BoardScreen(
     val colors = MaterialTheme.board
     val lamp = state.connection.toLampState()
 
+    // The card's Shady reacts subtly; the one on the stage at the foot of the
+    // page reacts boldly. Two reactors, because a beat of personality inside a
+    // status card and a full tumble on an empty stage are not the same gesture.
+    val cardReactor = rememberShadyReactor(ReactionStyle.SUBTLE)
+
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(
             start = Spacing.gutter,
             end = Spacing.gutter,
             top = contentPadding.calculateTopPadding() + Spacing.sm,
-            bottom = contentPadding.calculateBottomPadding() + Spacing.xxl
+            // No bottom padding: the stage below is meant to sit flush against
+            // the navigation bar, so Shady stands on its top rule.
+            bottom = contentPadding.calculateBottomPadding()
         ),
         verticalArrangement = Arrangement.spacedBy(Spacing.lg)
     ) {
@@ -129,9 +145,9 @@ fun BoardScreen(
                 Image(
                     painter = painterResource(R.drawable.splash_emblem),
                     contentDescription = null,
-                    modifier = Modifier.size(30.dp)
+                    modifier = Modifier.size(44.dp)
                 )
-                Spacer(Modifier.width(Spacing.sm))
+                Spacer(Modifier.width(Spacing.md))
                 Text(
                     text = "SafeShade",
                     style = MaterialTheme.typography.titleLarge,
@@ -168,7 +184,15 @@ fun BoardScreen(
                             hasUnresolvedTrip = state.hasUnresolvedTrip
                         ),
                         emergencyActive = state.hasUnresolvedTrip,
-                        size = 56.dp
+                        size = 72.dp,
+                        pose = cardReactor.pose,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(Radius.card))
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                                onClickLabel = "Play with Shady"
+                            ) { cardReactor.poke() }
                     )
                 }
             )
@@ -275,6 +299,13 @@ fun BoardScreen(
             }
         }
 
+        item("shady-stage") {
+            // Below everything that matters, on purpose. You reach it only by
+            // scrolling past the whole board, which is why it never competes
+            // with the status above and why the card's Shady has left the
+            // screen by the time this one arrives.
+            ShadyStage()
+        }
     }
 }
 

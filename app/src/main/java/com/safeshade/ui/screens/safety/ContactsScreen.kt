@@ -1,5 +1,6 @@
 package com.safeshade.ui.screens.safety
 
+import com.safeshade.platform.IndianPhoneTransformation
 import android.content.res.Configuration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -283,6 +284,7 @@ private fun ContactEditor(
             error = phoneError,
             maxLength = 20,
             keyboardType = KeyboardType.Phone,
+            visualTransformation = IndianPhoneTransformation(),
             imeAction = ImeAction.Done
         )
 

@@ -1,5 +1,6 @@
 package com.safeshade.ui.screens.circle
 
+import com.safeshade.platform.IndianPhoneTransformation
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -166,6 +167,7 @@ fun SimScreen(
                     label = "SIM number in the device",
                     placeholder = "+91 90000 00000",
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+            visualTransformation = IndianPhoneTransformation(),
                     supporting = whoseNumber,
                     enabled = !state.isSaving
                 )
@@ -234,6 +236,7 @@ fun SimScreen(
                         label = "Add a number",
                         placeholder = "+91 90000 00000",
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+            visualTransformation = IndianPhoneTransformation(),
                         supporting = when {
                             state.isFull -> "The list is full at ${state.maxEntries}. Remove one to add another."
                             else -> "Up to ${state.maxEntries} numbers, ${state.maxNumberLength} characters each."

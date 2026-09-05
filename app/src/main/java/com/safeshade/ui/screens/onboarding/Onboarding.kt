@@ -1,5 +1,6 @@
 package com.safeshade.ui.screens.onboarding
 
+import com.safeshade.platform.IndianPhoneTransformation
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -409,6 +410,7 @@ fun MedicalStartScreen(
             label = { Text("Emergency contact number") },
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+            visualTransformation = IndianPhoneTransformation(),
             modifier = Modifier.fillMaxWidth()
         )
     }

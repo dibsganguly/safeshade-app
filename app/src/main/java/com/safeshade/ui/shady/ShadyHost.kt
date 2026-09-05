@@ -32,7 +32,9 @@ fun ShadyHost(
     mood: ShadyMood,
     emergencyActive: Boolean,
     modifier: Modifier = Modifier,
-    size: Dp = 96.dp
+    size: Dp = 96.dp,
+    /** A momentary reaction layered over the mood; see [ShadyPose]. */
+    pose: ShadyPose = ShadyPose.Neutral
 ) {
     // Not merely hidden: when an emergency is live Shady is removed from the
     // composition entirely, so it cannot animate, cannot be read out by a
@@ -43,7 +45,7 @@ fun ShadyHost(
         exit = fadeOut(tween(Motion.fast)) + scaleOut(targetScale = 0.92f, animationSpec = tween(Motion.fast)),
         modifier = modifier
     ) {
-        Shady(mood = mood, size = size)
+        Shady(mood = mood, size = size, pose = pose)
     }
 }
 

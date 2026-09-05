@@ -1655,7 +1655,7 @@ private fun boardHeadline(
         is ConnectionState.Scanning -> "Looking for the device"
         is ConnectionState.BluetoothUnavailable -> "Bluetooth is off"
         is ConnectionState.ScanFailed -> "The scan did not start"
-        is ConnectionState.Disconnected -> "The device is not connected"
+        is ConnectionState.Disconnected -> "Not connected"
     }
 }
 
@@ -1738,7 +1738,7 @@ private fun boardWays(state: AppState.Ready): List<BoardWay> {
             // nothing in it is the single most common reason the whole product
             // does nothing when it matters.
             state = if (contacts.isEmpty()) LampState.ATTENTION else LampState.LIVE,
-            stateLabel = if (contacts.isEmpty()) "None set" else "${contacts.size} set",
+            stateLabel = if (contacts.isEmpty()) "None" else "${contacts.size} set",
             icon = Icons.Outlined.Contacts,
             route = Routes.SAFETY_CONTACTS
         ),

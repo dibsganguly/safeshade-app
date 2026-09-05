@@ -1,5 +1,6 @@
 package com.safeshade.ui.screens.circle
 
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -79,6 +80,8 @@ internal fun BoardField(
     enabled: Boolean = true,
     singleLine: Boolean = true,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
+    /** Formats the displayed text without changing what is stored. */
+    visualTransformation: VisualTransformation = VisualTransformation.None,
     trailing: (@Composable () -> Unit)? = null
 ) {
     val colors = MaterialTheme.board
@@ -113,6 +116,7 @@ internal fun BoardField(
                     enabled = enabled,
                     singleLine = singleLine,
                     keyboardOptions = keyboardOptions,
+                visualTransformation = visualTransformation,
                     textStyle = MaterialTheme.typography.bodyMedium.copy(color = colors.ink),
                     cursorBrush = SolidColor(colors.ink),
                     // No contentDescription here, deliberately. On an editable

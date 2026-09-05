@@ -12,6 +12,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.rememberNavController
@@ -22,6 +25,7 @@ import com.safeshade.ui.board.TripBanner
 import com.safeshade.ui.nav.BoardBottomBar
 import com.safeshade.ui.nav.MainNavGraph
 import com.safeshade.ui.nav.OnboardingNavGraph
+import com.safeshade.ui.screens.IntroScreen
 import com.safeshade.ui.theme.board
 import com.safeshade.ui.vm.SafeShadeViewModel
 
@@ -45,11 +49,20 @@ fun SafeShadeApp(viewModel: SafeShadeViewModel) {
     val state by viewModel.appState.collectAsStateWithLifecycle()
     val colors = MaterialTheme.board
 
+    // Cold start only: rememberSaveable so a rotation does not replay it, and
+    // so it never sits between a worried person and the board more than once.
+    var introDone by rememberSaveable { mutableStateOf(false) }
+
     val ready = state as? AppState.Ready
     if (ready == null) {
         // Deliberately empty. The splash screen is still up at this point, and
         // a spinner here would only ever be seen as a flicker.
         Box(Modifier.fillMaxSize().background(colors.ground))
+        return
+    }
+
+    if (!introDone) {
+        IntroScreen(onFinished = { introDone = true })
         return
     }
 

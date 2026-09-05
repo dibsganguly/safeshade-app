@@ -22,15 +22,17 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import kotlin.math.PI
-import kotlin.math.sin
 import com.safeshade.ui.theme.board
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
 
 /**
  * Shady — the SafeShade mascot.
@@ -42,21 +44,18 @@ import com.safeshade.ui.theme.board
  *
  * This evolves the 8-bit Shady the firmware draws on a 128x64 monochrome OLED
  * rather than porting it. The hardware version is pixel-limited; none of those
- * limits apply here, so this one gets curves, colour and a much wider emotional
- * range while staying recognisably the same character.
+ * limits apply here.
  *
  * Two rules carried over from the firmware deliberately:
  *
- *  - **No speech or thought bubbles.** The hardware's bubble takeover is a
- *    different medium's answer to a different problem, and text emerging from a
- *    mascot competes with the copy that actually matters on a safety screen.
+ *  - **No speech or thought bubbles.** Text emerging from a mascot competes
+ *    with the copy that actually matters on a safety screen.
  *  - **Absent during emergencies.** Enforced once in [ShadyHost], never per
  *    screen, so a new emergency surface cannot forget the rule.
  *
  * A note on the colour system: everywhere else in this app saturated colour
  * means circuit state. Shady is the single exception — it is a character, not
- * an indicator — so it never sits inside a `Way` row or beside a pilot lamp
- * where the two could be read as the same language.
+ * an indicator — so it never sits inside a `Way` row or beside a pilot lamp.
  */
 enum class ShadyMood {
     /** Link up, everything armed. Bright and attentive, waving. */
@@ -93,19 +92,17 @@ private val NubDim = Color(0xFF6B7480)
 fun Shady(
     mood: ShadyMood,
     modifier: Modifier = Modifier,
-    size: Dp = 96.dp
+    size: Dp = 96.dp,
+    /** A momentary action layered over the mood. See [ShadyPose]. */
+    pose: ShadyPose = ShadyPose.Neutral
 ) {
     val isStatic = LocalInspectionMode.current
 
-    // The antenna is the one part of Shady drawn OUTSIDE the amber body, so it
-    // sits on the app's ground rather than on the character. In charcoal that
-    // is invisible against the dark scheme's ground, which left the nub
-    // floating detached above the head - and the nub is the one element allowed
-    // to carry state colour, so losing its stalk is not cosmetic.
+    // The antenna is the one part drawn OUTSIDE the amber body, so it sits on
+    // the app's ground. In charcoal it vanishes against the dark scheme and
+    // leaves the nub floating detached.
     val stalkInk = if (MaterialTheme.board.isDark) Color(0xFFECEFF1) else Feature
 
-    // One shared clock. Every animated property is a cheap function of this
-    // single phase rather than half a dozen infinite transitions competing.
     val transition = rememberInfiniteTransition(label = "shady")
     val phaseAnim by transition.animateFloat(
         initialValue = 0f,
@@ -124,11 +121,8 @@ fun Shady(
         ),
         label = "shady-phase"
     )
-    // Held mid-breath in previews and screenshots so captured evidence is
-    // identical from run to run.
     val phase = if (isStatic) 0.2f else phaseAnim
 
-    // Posture. A few degrees is plenty; more reads as a toy falling over.
     val tiltTarget = when (mood) {
         ShadyMood.WATCHING -> -2f
         ShadyMood.SEARCHING -> -4f
@@ -136,7 +130,7 @@ fun Shady(
         ShadyMood.RESTING -> 5f
         else -> 0f
     }
-    val tilt by animateFloatAsState(tiltTarget, tween(600), label = "shady-tilt")
+    val moodTilt by animateFloatAsState(tiltTarget, tween(600), label = "shady-tilt")
 
     val breath = sin(phase * 2f * PI).toFloat()
     val bob = when (mood) {
@@ -147,35 +141,46 @@ fun Shady(
         else -> 3f
     }
 
-    val description = when (mood) {
-        ShadyMood.WATCHING -> "Shady is watching. The device is connected."
-        ShadyMood.CALM -> "Shady is calm."
-        ShadyMood.SEARCHING -> "Shady is looking for the device."
-        ShadyMood.RESTING -> "Shady is resting."
-        ShadyMood.CONCERNED -> "Shady is concerned. Something needs attention."
-        ShadyMood.OFFLINE -> "Shady is offline. No connection to the device."
-    }
-
     Canvas(
         modifier = modifier
             .size(size)
-            .clearAndSetSemantics { contentDescription = description }
+            .clearAndSetSemantics { contentDescription = describe(mood) }
     ) {
         val s = this.size.minDimension
-        translate(top = breath * bob) {
-            rotate(degrees = tilt, pivot = Offset(s * 0.5f, s * 0.88f)) {
-                drawShady(s, mood, phase, breath, stalkInk)
+        val pivot = Offset(s * 0.5f, s * 0.88f)
+
+        translate(left = pose.offsetX * s, top = breath * bob + pose.offsetY * s) {
+            rotate(degrees = moodTilt + pose.rotation, pivot = pivot) {
+                // Squash and stretch anchors at the feet, so a hop lifts the
+                // body rather than scaling it about its middle.
+                scale(scaleX = pose.scaleX, scaleY = pose.scaleY, pivot = pivot) {
+                    if (pose.facingLeft) {
+                        scale(scaleX = -1f, scaleY = 1f, pivot = Offset(s * 0.5f, s * 0.5f)) {
+                            drawShady(s, mood, phase, breath, stalkInk, pose)
+                        }
+                    } else {
+                        drawShady(s, mood, phase, breath, stalkInk, pose)
+                    }
+                }
             }
         }
     }
 }
 
+private fun describe(mood: ShadyMood) = when (mood) {
+    ShadyMood.WATCHING -> "Shady is watching. The device is connected."
+    ShadyMood.CALM -> "Shady is calm."
+    ShadyMood.SEARCHING -> "Shady is looking for the device."
+    ShadyMood.RESTING -> "Shady is resting."
+    ShadyMood.CONCERNED -> "Shady is concerned. Something needs attention."
+    ShadyMood.OFFLINE -> "Shady is offline. No connection to the device."
+}
+
 /**
  * Layout, in fractions of the square canvas.
  *
- * The body is 0.76 wide by 0.66 tall — a little wider than square, which is
- * what stops it reading as a plain rounded box and gives it a settled,
- * sat-down posture. Antenna and legs occupy the margin that leaves.
+ * The body is 0.76 wide by 0.66 tall — a little wider than square, which stops
+ * it reading as a plain rounded box and gives it a settled, sat-down posture.
  */
 private object L {
     const val BODY_W = 0.76f
@@ -199,22 +204,21 @@ private fun DrawScope.drawShady(
     mood: ShadyMood,
     phase: Float,
     breath: Float,
-    stalkInk: Color
+    stalkInk: Color,
+    pose: ShadyPose
 ) {
     val dim = mood == ShadyMood.OFFLINE
     val skin = if (dim) SkinDim else Skin
     val shade = if (dim) SkinDimShade else SkinShade
 
-    // Draw order matters: antenna and legs sit behind the body so they read as
-    // attached rather than pasted on top.
     drawAntenna(s, mood, phase, stalkInk)
     if (mood != ShadyMood.OFFLINE) drawLegs(s, mood, phase, skin, shade)
-    drawHands(s, mood, phase, skin, shade)
+    drawHands(s, mood, phase, skin, shade, pose)
     drawBody(s, skin, shade)
-    drawFace(s, mood, phase, breath)
+    drawFace(s, mood, phase, breath, pose)
+    drawFlourish(s, pose.flourish, phase, stalkInk)
 }
 
-/** The rounded, slightly wide body. */
 private fun DrawScope.drawBody(s: Float, skin: Color, shade: Color) {
     val x = s * L.BODY_X
     val y = s * L.BODY_Y
@@ -222,18 +226,12 @@ private fun DrawScope.drawBody(s: Float, skin: Color, shade: Color) {
     val h = s * L.BODY_H
     val r = CornerRadius(s * L.CORNER, s * L.CORNER)
 
-    // A darker plate offset downward gives the character weight without a drop
-    // shadow, which this flat world does not permit anywhere.
+    // A darker plate offset downward gives weight without a drop shadow, which
+    // this flat world does not permit anywhere.
     drawRoundRect(color = shade, topLeft = Offset(x, y + s * 0.025f), size = Size(w, h), cornerRadius = r)
     drawRoundRect(color = skin, topLeft = Offset(x, y), size = Size(w, h), cornerRadius = r)
 }
 
-/**
- * One curved antenna with a signal nub.
- *
- * The nub is the only part of Shady that reports anything real: teal and
- * pulsing while the link is live or being searched for, dark when it is not.
- */
 private fun DrawScope.drawAntenna(s: Float, mood: ShadyMood, phase: Float, stalkInk: Color) {
     val baseX = s * 0.355f
     val baseY = s * 0.25f
@@ -242,8 +240,6 @@ private fun DrawScope.drawAntenna(s: Float, mood: ShadyMood, phase: Float, stalk
 
     val stalk = Path().apply {
         moveTo(baseX, baseY)
-        // A single curve leaning left, so the silhouette is asymmetric and the
-        // character reads as tilted slightly toward the viewer.
         cubicTo(s * 0.345f, s * 0.17f, s * 0.30f, s * 0.115f, tipX, tipY)
     }
     drawPath(stalk, stalkInk, style = Stroke(width = s * 0.030f, cap = StrokeCap.Round))
@@ -263,32 +259,42 @@ private fun DrawScope.drawAntenna(s: Float, mood: ShadyMood, phase: Float, stalk
     drawCircle(nub, radius = s * 0.040f, center = Offset(tipX, tipY))
 }
 
-/**
- * Little side hands.
- *
- * The right one lifts and waves when the link comes up or while searching. One
- * moving limb is enough — two reads as flailing.
- */
-private fun DrawScope.drawHands(s: Float, mood: ShadyMood, phase: Float, skin: Color, shade: Color) {
-    if (mood == ShadyMood.RESTING || mood == ShadyMood.OFFLINE) return
+private fun DrawScope.drawHands(
+    s: Float,
+    mood: ShadyMood,
+    phase: Float,
+    skin: Color,
+    shade: Color,
+    pose: ShadyPose
+) {
+    if (!pose.handsUp && (mood == ShadyMood.RESTING || mood == ShadyMood.OFFLINE)) return
 
-    val y = s * 0.62f
+    val rest = s * 0.62f
     val r = s * 0.055f
     val leftX = s * 0.10f
     val rightX = s * 0.90f
 
+    if (pose.handsUp) {
+        // Both up, for a wave or a celebration.
+        val lift = rest - s * 0.20f
+        val flap = sin(phase * 12f * PI).toFloat() * s * 0.03f
+        listOf(leftX to -flap, rightX to flap).forEach { (x, dy) ->
+            drawCircle(shade, radius = r, center = Offset(x, lift + dy + s * 0.014f))
+            drawCircle(skin, radius = r, center = Offset(x, lift + dy))
+        }
+        return
+    }
+
     val waving = mood == ShadyMood.WATCHING || mood == ShadyMood.SEARCHING
     val wave = if (waving) sin(phase * 8f * PI).toFloat() * s * 0.045f else 0f
-    val rightY = if (waving) y - s * 0.10f else y
+    val rightY = if (waving) rest - s * 0.10f else rest
 
-    drawCircle(shade, radius = r, center = Offset(leftX, y + s * 0.014f))
-    drawCircle(skin, radius = r, center = Offset(leftX, y))
-
+    drawCircle(shade, radius = r, center = Offset(leftX, rest + s * 0.014f))
+    drawCircle(skin, radius = r, center = Offset(leftX, rest))
     drawCircle(shade, radius = r, center = Offset(rightX, rightY + wave + s * 0.014f))
     drawCircle(skin, radius = r, center = Offset(rightX, rightY + wave))
 }
 
-/** Two stubby legs that kick a little when Shady is pleased with itself. */
 private fun DrawScope.drawLegs(s: Float, mood: ShadyMood, phase: Float, skin: Color, shade: Color) {
     val kick = if (mood == ShadyMood.WATCHING) sin(phase * 4f * PI).toFloat() * s * 0.020f else 0f
     val w = s * 0.115f
@@ -301,64 +307,76 @@ private fun DrawScope.drawLegs(s: Float, mood: ShadyMood, phase: Float, skin: Co
     }
 }
 
-/**
- * Eyes, mouth, and — only when the mood calls for it — eyebrows.
- *
- * Eyes are a light oval with a solid pupil rather than a bare dot, which is
- * what gives them somewhere to look. Gaze direction does most of the expressive
- * work; the mouth confirms it.
- */
-private fun DrawScope.drawFace(s: Float, mood: ShadyMood, phase: Float, breath: Float) {
+private fun DrawScope.drawFace(
+    s: Float,
+    mood: ShadyMood,
+    phase: Float,
+    breath: Float,
+    pose: ShadyPose
+) {
     val eyeY = s * L.EYE_Y
     val outer = s * L.EYE_OUTER
     val pupil = s * L.PUPIL
 
-    val gaze = when (mood) {
-        ShadyMood.SEARCHING -> sin(phase * 2f * PI).toFloat() * outer * 0.6f
-        ShadyMood.CONCERNED -> -outer * 0.28f
+    val gaze = when {
+        pose.eyes != null -> 0f
+        mood == ShadyMood.SEARCHING -> sin(phase * 2f * PI).toFloat() * outer * 0.6f
+        mood == ShadyMood.CONCERNED -> -outer * 0.28f
         else -> breath * outer * 0.12f
     }
 
-    // A blink near the end of each half-cycle. Skipped while resting, where the
-    // eyes are already shut.
-    val blinking = mood != ShadyMood.RESTING && (phase % 0.5f) > 0.475f
+    val blinking = pose.eyes == null &&
+        mood != ShadyMood.RESTING &&
+        (phase % 0.5f) > 0.475f
 
-    listOf(s * L.EYE_L, s * L.EYE_R).forEach { cx ->
-        if (mood == ShadyMood.RESTING || blinking) {
-            // A closed eye is a shallow downward arc, not a flat line: a line
-            // reads as switched off, an arc reads as content.
-            val lid = Path().apply {
-                moveTo(cx - outer * 0.9f, eyeY)
-                quadraticTo(cx, eyeY + outer * 0.6f, cx + outer * 0.9f, eyeY)
+    val style = pose.eyes ?: when {
+        mood == ShadyMood.RESTING || blinking -> EyeStyle.CLOSED
+        else -> EyeStyle.NORMAL
+    }
+
+    listOf(s * L.EYE_L, s * L.EYE_R).forEachIndexed { index, cx ->
+        when (style) {
+            EyeStyle.CLOSED -> {
+                // A shallow downward arc, not a flat line: a line reads as
+                // switched off, an arc reads as content.
+                val lid = Path().apply {
+                    moveTo(cx - outer * 0.9f, eyeY)
+                    quadraticTo(cx, eyeY + outer * 0.6f, cx + outer * 0.9f, eyeY)
+                }
+                drawPath(lid, Feature, style = Stroke(width = s * 0.022f, cap = StrokeCap.Round))
             }
-            drawPath(lid, Feature, style = Stroke(width = s * 0.022f, cap = StrokeCap.Round))
-        } else {
-            drawOval(
-                color = EyeWhite,
-                topLeft = Offset(cx - outer, eyeY - outer * 1.2f),
-                size = Size(outer * 2f, outer * 2.4f)
-            )
-            drawCircle(
-                color = Feature,
-                radius = pupil,
-                center = Offset(
-                    cx + gaze,
-                    eyeY + if (mood == ShadyMood.CONCERNED) outer * 0.25f else 0f
+            EyeStyle.SQUINT -> {
+                val lid = Path().apply {
+                    moveTo(cx - outer * 0.9f, eyeY + outer * 0.25f)
+                    quadraticTo(cx, eyeY - outer * 0.45f, cx + outer * 0.9f, eyeY + outer * 0.25f)
+                }
+                drawPath(lid, Feature, style = Stroke(width = s * 0.022f, cap = StrokeCap.Round))
+            }
+            EyeStyle.STAR -> drawStarEye(cx, eyeY, outer)
+            EyeStyle.DIZZY -> drawSpiralEye(cx, eyeY, outer, s)
+            EyeStyle.WIDE, EyeStyle.NORMAL -> {
+                val scale = if (style == EyeStyle.WIDE) 1.22f else 1f
+                val pupilScale = if (style == EyeStyle.WIDE) 0.72f else 1f
+                drawOval(
+                    color = EyeWhite,
+                    topLeft = Offset(cx - outer * scale, eyeY - outer * 1.2f * scale),
+                    size = Size(outer * 2f * scale, outer * 2.4f * scale)
                 )
-            )
-            // A single specular dot. Cheap, and it is most of the difference
-            // between "eye" and "hole".
-            drawCircle(
-                color = EyeWhite,
-                radius = pupil * 0.32f,
-                center = Offset(cx + gaze + pupil * 0.35f, eyeY - pupil * 0.35f)
-            )
+                val py = eyeY + if (mood == ShadyMood.CONCERNED && pose.eyes == null) outer * 0.25f else 0f
+                drawCircle(Feature, radius = pupil * pupilScale, center = Offset(cx + gaze, py))
+                drawCircle(
+                    EyeWhite,
+                    radius = pupil * 0.32f,
+                    center = Offset(cx + gaze + pupil * 0.35f, py - pupil * 0.35f)
+                )
+            }
         }
+        if (index == 0) Unit
     }
 
     // Eyebrows appear only for concern. They are the strongest signal on the
     // face, so they stay rare — used everywhere they would stop meaning anything.
-    if (mood == ShadyMood.CONCERNED) {
+    if (mood == ShadyMood.CONCERNED && pose.eyes == null) {
         val browY = eyeY - outer * 1.85f
         drawLine(
             Feature,
@@ -374,50 +392,136 @@ private fun DrawScope.drawFace(s: Float, mood: ShadyMood, phase: Float, breath: 
         )
     }
 
-    drawMouth(s, mood)
+    drawMouth(s, pose.mouth ?: defaultMouth(mood))
+}
+
+private fun DrawScope.drawStarEye(cx: Float, cy: Float, outer: Float) {
+    val path = Path()
+    repeat(10) { i ->
+        val r = if (i % 2 == 0) outer * 1.05f else outer * 0.42f
+        val a = (-PI / 2 + i * PI / 5).toFloat()
+        val x = cx + cos(a) * r
+        val y = cy + sin(a) * r
+        if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+    }
+    path.close()
+    drawPath(path, Feature)
+}
+
+private fun DrawScope.drawSpiralEye(cx: Float, cy: Float, outer: Float, s: Float) {
+    val path = Path()
+    val turns = 2.2f
+    val steps = 40
+    repeat(steps + 1) { i ->
+        val t = i / steps.toFloat()
+        val a = (t * turns * 2f * PI).toFloat()
+        val r = outer * 1.0f * t
+        val x = cx + cos(a) * r
+        val y = cy + sin(a) * r
+        if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+    }
+    drawPath(path, Feature, style = Stroke(width = s * 0.016f, cap = StrokeCap.Round))
+}
+
+private fun defaultMouth(mood: ShadyMood) = when (mood) {
+    ShadyMood.WATCHING, ShadyMood.CALM -> MouthStyle.SMILE
+    ShadyMood.SEARCHING -> MouthStyle.OPEN
+    ShadyMood.RESTING -> MouthStyle.FLAT
+    ShadyMood.CONCERNED -> MouthStyle.FROWN
+    ShadyMood.OFFLINE -> MouthStyle.FLAT
 }
 
 /** The mouth is always present — a face without one reads as unfinished. */
-private fun DrawScope.drawMouth(s: Float, mood: ShadyMood) {
+private fun DrawScope.drawMouth(s: Float, style: MouthStyle) {
     val cx = s * 0.5f
     val y = s * L.MOUTH_Y
     val w = s * 0.10f
     val stroke = Stroke(width = s * 0.024f, cap = StrokeCap.Round)
 
-    when (mood) {
-        ShadyMood.WATCHING, ShadyMood.CALM -> {
-            val smile = Path().apply {
+    when (style) {
+        MouthStyle.SMILE -> drawPath(
+            Path().apply {
                 moveTo(cx - w, y)
                 quadraticTo(cx, y + s * 0.055f, cx + w, y)
+            }, Feature, style = stroke
+        )
+        MouthStyle.BIG_SMILE -> {
+            val p = Path().apply {
+                moveTo(cx - w * 1.35f, y - s * 0.006f)
+                quadraticTo(cx, y + s * 0.095f, cx + w * 1.35f, y - s * 0.006f)
+                close()
             }
-            drawPath(smile, Feature, style = stroke)
+            drawPath(p, Feature)
         }
-        ShadyMood.SEARCHING -> {
-            // A small open mouth: mid-thought rather than mid-smile.
-            drawCircle(Feature, radius = s * 0.028f, center = Offset(cx, y + s * 0.014f))
-        }
-        ShadyMood.RESTING -> {
-            drawLine(
-                Feature,
-                Offset(cx - w * 0.5f, y + s * 0.012f),
-                Offset(cx + w * 0.5f, y + s * 0.012f),
-                strokeWidth = s * 0.022f, cap = StrokeCap.Round
-            )
-        }
-        ShadyMood.CONCERNED -> {
-            val frown = Path().apply {
+        MouthStyle.OPEN -> drawCircle(Feature, radius = s * 0.028f, center = Offset(cx, y + s * 0.014f))
+        MouthStyle.FLAT -> drawLine(
+            Feature,
+            Offset(cx - w * 0.5f, y + s * 0.012f),
+            Offset(cx + w * 0.5f, y + s * 0.012f),
+            strokeWidth = s * 0.022f, cap = StrokeCap.Round
+        )
+        MouthStyle.FROWN -> drawPath(
+            Path().apply {
                 moveTo(cx - w, y + s * 0.030f)
                 quadraticTo(cx, y - s * 0.022f, cx + w, y + s * 0.030f)
+            }, Feature, style = stroke
+        )
+        MouthStyle.WOBBLE -> drawPath(
+            Path().apply {
+                moveTo(cx - w, y + s * 0.012f)
+                quadraticTo(cx - w * 0.33f, y - s * 0.020f, cx, y + s * 0.012f)
+                quadraticTo(cx + w * 0.33f, y + s * 0.044f, cx + w, y + s * 0.012f)
+            }, Feature, style = stroke
+        )
+    }
+}
+
+/** Small marks above the head. Never text, never a bubble. */
+private fun DrawScope.drawFlourish(s: Float, flourish: Flourish, phase: Float, ink: Color) {
+    when (flourish) {
+        Flourish.NONE -> Unit
+        Flourish.SLEEP -> {
+            val drift = sin(phase * 2f * PI).toFloat() * s * 0.012f
+            listOf(0.70f to 0.16f, 0.79f to 0.08f).forEachIndexed { i, (fx, fy) ->
+                val size = if (i == 0) s * 0.055f else s * 0.038f
+                drawZ(Offset(s * fx, s * fy + drift), size, ink, s)
             }
-            drawPath(frown, Feature, style = stroke)
         }
-        ShadyMood.OFFLINE -> {
-            drawLine(
-                Feature.copy(alpha = 0.5f),
-                Offset(cx - w * 0.65f, y + s * 0.012f),
-                Offset(cx + w * 0.65f, y + s * 0.012f),
-                strokeWidth = s * 0.022f, cap = StrokeCap.Round
+        Flourish.SPARK -> {
+            listOf(0.72f to 0.14f, 0.84f to 0.22f, 0.66f to 0.06f).forEach { (fx, fy) ->
+                val c = Offset(s * fx, s * fy)
+                val r = s * 0.030f
+                drawLine(ink, c.copy(y = c.y - r), c.copy(y = c.y + r), s * 0.016f, StrokeCap.Round)
+                drawLine(ink, c.copy(x = c.x - r), c.copy(x = c.x + r), s * 0.016f, StrokeCap.Round)
+            }
+        }
+        Flourish.THINK -> repeat(3) { i ->
+            drawCircle(
+                ink.copy(alpha = 0.35f + 0.22f * i),
+                radius = s * (0.014f + 0.004f * i),
+                center = Offset(s * (0.70f + 0.055f * i), s * (0.15f - 0.030f * i))
             )
         }
+        Flourish.SWIRL -> {
+            val path = Path()
+            repeat(28) { i ->
+                val t = i / 27f
+                val a = (t * 1.8f * 2f * PI + phase * 2f * PI).toFloat()
+                val r = s * 0.055f * t
+                val x = s * 0.76f + cos(a) * r
+                val y = s * 0.12f + sin(a) * r
+                if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+            }
+            drawPath(path, ink, style = Stroke(width = s * 0.014f, cap = StrokeCap.Round))
+        }
     }
+}
+
+private fun DrawScope.drawZ(at: Offset, size: Float, ink: Color, s: Float) {
+    val w = size
+    val h = size
+    val sw = s * 0.016f
+    drawLine(ink, at, at.copy(x = at.x + w), sw, StrokeCap.Round)
+    drawLine(ink, at.copy(x = at.x + w), at.copy(x = at.x, y = at.y + h), sw, StrokeCap.Round)
+    drawLine(ink, at.copy(x = at.x, y = at.y + h), at.copy(x = at.x + w, y = at.y + h), sw, StrokeCap.Round)
 }
