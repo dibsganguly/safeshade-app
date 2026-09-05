@@ -17,6 +17,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
@@ -25,6 +26,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.takeOrElse
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
@@ -32,10 +34,13 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
+import com.safeshade.ui.theme.BoardColors
 import com.safeshade.ui.theme.Radius
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.board
 import com.safeshade.ui.theme.boardType
+import kotlin.math.abs
+import kotlin.math.min
 import kotlin.math.roundToInt
 
 /**
@@ -202,62 +207,16 @@ fun TimeStrip(
                         stateDescription = formatClock(minutes)
                     }
             ) {
-                val w = size.width
-                val h = size.height
-
-                drawRect(color = colors.recess, size = Size(w, h))
-
-                // Night is drawn, not labelled. The two bands are why a glance
-                // at the marker tells morning from evening without reading the
-                // clock above it.
-                val nightEnd = w * (NIGHT_END_HOUR / 24f)
-                val nightStart = w * (NIGHT_START_HOUR / 24f)
-                val night = colors.ink.copy(alpha = if (colors.isDark) 0.10f else 0.06f)
-                drawRect(color = night, size = Size(nightEnd, h))
-                drawRect(
-                    color = night,
-                    topLeft = Offset(nightStart, 0f),
-                    size = Size(w - nightStart, h)
-                )
-
-                // Hour ticks, with the quarter-day marks drawn full height so
-                // the strip has landmarks to aim between.
-                for (hour in 1 until 24) {
-                    val x = w * (hour / 24f)
-                    val major = hour % 6 == 0
-                    drawLine(
-                        color = if (major) colors.hairline else colors.hairline.copy(alpha = 0.5f),
-                        start = Offset(x, if (major) 0f else h * 0.62f),
-                        end = Offset(x, h),
-                        strokeWidth = 1f
-                    )
-                }
+                dayStripBackground(colors)
 
                 // The marker is a bar, not a filled track. A time is a point in
                 // the day, and filling everything before it would read as a
                 // magnitude - "more time" - which is not what is being chosen.
-                val thumbX = w * (minutes / MINUTES_IN_DAY.toFloat())
-                val barWidth = 3.dp.toPx()
-                drawRect(
-                    color = tint,
-                    topLeft = Offset((thumbX - barWidth / 2f).coerceIn(0f, w - barWidth), 0f),
-                    size = Size(barWidth, h)
-                )
+                marker(minutes, tint)
             }
 
             Spacer(Modifier.height(Spacing.xs))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                for (mark in DAY_MARKS) {
-                    Text(
-                        text = mark,
-                        style = MaterialTheme.boardType.rowDetail,
-                        color = colors.inkFaint
-                    )
-                }
-            }
+            DayMarks(colors)
 
             if (advice != null) {
                 Spacer(Modifier.height(Spacing.sm))
@@ -268,6 +227,234 @@ fun TimeStrip(
                 )
             }
         }
+    }
+}
+
+/**
+ * Two times of day at once, on the same strip, with the span between them lit.
+ *
+ * Quiet hours is the setting this exists for, and it is the reason the span has
+ * to wrap: quiet hours almost always cross midnight, so the band is drawn as
+ * the two pieces it really is when the end is earlier than the start, rather
+ * than being treated as an invalid range. Two separate hour fields - which is
+ * what ships today - make "22:00 to 07:00" something the user has to hold in
+ * their head; here it is simply the lit part of the night.
+ *
+ * Snapped to the hour by default, because the underlying setting is stored as
+ * two whole hours (`quietStartHour` / `quietEndHour`), and offering minutes the
+ * model cannot hold would be a control that silently rounds what it was told.
+ *
+ * The handle that moves is whichever is nearer the touch, measured *around* the
+ * clock rather than along the strip - so a grab just after midnight picks up a
+ * 23:00 handle, which is the one visually closest even though it sits at the
+ * far end of the pixels.
+ */
+@Composable
+fun RangeStrip(
+    label: String,
+    startMinutes: Int,
+    endMinutes: Int,
+    onChange: (start: Int, end: Int) -> Unit,
+    modifier: Modifier = Modifier,
+    snapMinutes: Int = 60,
+    accent: Color = Color.Unspecified,
+    advice: ((Int, Int) -> String)? = null
+) {
+    val colors = MaterialTheme.board
+    val tint = accent.takeOrElse { colors.brass }
+    val start = startMinutes.coerceIn(0, MINUTES_IN_DAY - 1)
+    val end = endMinutes.coerceIn(0, MINUTES_IN_DAY - 1)
+
+    val latestOnChange by rememberUpdatedState(onChange)
+    val width = remember { mutableFloatStateOf(0f) }
+    // Which handle the current drag owns. Decided once on the way down and held
+    // for the whole gesture: recomputing it per movement lets a fast drag past
+    // the other handle hand the gesture over mid-stroke, which feels like the
+    // control fighting back.
+    val grabbed = remember { mutableIntStateOf(GRAB_START) }
+
+    fun minutesAt(x: Float): Int? {
+        val w = width.floatValue
+        if (w <= 0f) return null
+        val fraction = (x / w).coerceIn(0f, 1f)
+        val step = snapMinutes.coerceAtLeast(1)
+        val snapped = ((fraction * MINUTES_IN_DAY) / step).roundToInt() * step
+        return snapped % MINUTES_IN_DAY
+    }
+
+    fun grabNearest(x: Float) {
+        val at = minutesAt(x) ?: return
+        grabbed.intValue =
+            if (aroundTheClock(at, start) <= aroundTheClock(at, end)) GRAB_START else GRAB_END
+    }
+
+    fun moveGrabbed(x: Float) {
+        val at = minutesAt(x) ?: return
+        if (grabbed.intValue == GRAB_START) latestOnChange(at, end) else latestOnChange(start, at)
+    }
+
+    BoardPlate(modifier = modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(Spacing.lg)) {
+            Row(verticalAlignment = Alignment.Bottom) {
+                Readout(
+                    label = label,
+                    value = formatClock(start) + " - " + formatClock(end),
+                    large = true
+                )
+                Spacer(Modifier.weight(1f))
+                Text(
+                    text = spanWords(start, end),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.inkFaint,
+                    modifier = Modifier.padding(bottom = Spacing.sm)
+                )
+            }
+            Spacer(Modifier.height(Spacing.md))
+
+            Canvas(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(STRIP_HEIGHT)
+                    .clip(RoundedCornerShape(Radius.plate))
+                    .onSizeChanged { width.floatValue = it.width.toFloat() }
+                    .pointerInput(Unit) {
+                        detectTapGestures { grabNearest(it.x); moveGrabbed(it.x) }
+                    }
+                    .pointerInput(Unit) {
+                        detectHorizontalDragGestures(
+                            onDragStart = { grabNearest(it.x) },
+                            onHorizontalDrag = { change, _ -> moveGrabbed(change.position.x) }
+                        )
+                    }
+                    .semantics {
+                        contentDescription = label
+                        stateDescription = formatClock(start) + " to " + formatClock(end)
+                    }
+            ) {
+                dayStripBackground(colors)
+
+                // A fill, not two bare markers, because *this* control genuinely
+                // is choosing an extent rather than a point in the day.
+                val lit = tint.copy(alpha = 0.22f)
+                if (start <= end) {
+                    band(start, end, lit)
+                } else {
+                    band(start, MINUTES_IN_DAY, lit)
+                    band(0, end, lit)
+                }
+                marker(start, tint)
+                marker(end, tint)
+            }
+
+            Spacer(Modifier.height(Spacing.xs))
+            DayMarks(colors)
+
+            if (advice != null) {
+                Spacer(Modifier.height(Spacing.sm))
+                Text(
+                    text = advice(start, end),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.inkMuted
+                )
+            }
+        }
+    }
+}
+
+/**
+ * The strip itself: the recess, the two night bands and the hour ticks.
+ *
+ * Shared by both strips so the day always looks like the same day.
+ */
+private fun DrawScope.dayStripBackground(colors: BoardColors) {
+    val w = size.width
+    val h = size.height
+
+    drawRect(color = colors.recess, size = Size(w, h))
+
+    val nightEnd = w * (NIGHT_END_HOUR / 24f)
+    val nightStart = w * (NIGHT_START_HOUR / 24f)
+    val night = colors.ink.copy(alpha = if (colors.isDark) 0.10f else 0.06f)
+    drawRect(color = night, size = Size(nightEnd, h))
+    drawRect(color = night, topLeft = Offset(nightStart, 0f), size = Size(w - nightStart, h))
+
+    // Hour ticks, with the quarter-day marks drawn full height so the strip has
+    // landmarks to aim between.
+    for (hour in 1 until 24) {
+        val x = w * (hour / 24f)
+        val major = hour % 6 == 0
+        drawLine(
+            color = if (major) colors.hairline else colors.hairline.copy(alpha = 0.5f),
+            start = Offset(x, if (major) 0f else h * 0.62f),
+            end = Offset(x, h),
+            strokeWidth = 1f
+        )
+    }
+}
+
+/** One handle: a full-height bar, kept inside the strip at either extreme. */
+private fun DrawScope.marker(minutes: Int, color: Color) {
+    val w = size.width
+    val barWidth = 3.dp.toPx()
+    val x = w * (minutes / MINUTES_IN_DAY.toFloat())
+    drawRect(
+        color = color,
+        topLeft = Offset((x - barWidth / 2f).coerceIn(0f, w - barWidth), 0f),
+        size = Size(barWidth, size.height)
+    )
+}
+
+/** A lit span between two minute-of-day positions. */
+private fun DrawScope.band(fromMinutes: Int, toMinutes: Int, color: Color) {
+    val w = size.width
+    val x0 = w * (fromMinutes / MINUTES_IN_DAY.toFloat())
+    val x1 = w * (toMinutes / MINUTES_IN_DAY.toFloat())
+    if (x1 <= x0) return
+    drawRect(color = color, topLeft = Offset(x0, 0f), size = Size(x1 - x0, size.height))
+}
+
+/** The strip's captions. Five marks, because midnight appears at both ends. */
+@Composable
+private fun DayMarks(colors: BoardColors) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        for (mark in DAY_MARKS) {
+            Text(
+                text = mark,
+                style = MaterialTheme.boardType.rowDetail,
+                color = colors.inkFaint
+            )
+        }
+    }
+}
+
+private const val GRAB_START = 0
+private const val GRAB_END = 1
+
+/**
+ * The shorter way round a 24-hour clock face between two times.
+ *
+ * Plain subtraction would call 23:30 and 00:30 twenty-three hours apart, which
+ * would hand a drag near midnight to the wrong handle.
+ */
+private fun aroundTheClock(a: Int, b: Int): Int {
+    val d = abs(a - b) % MINUTES_IN_DAY
+    return min(d, MINUTES_IN_DAY - d)
+}
+
+/** How long the lit span lasts, in words, wrapping past midnight. */
+private fun spanWords(start: Int, end: Int): String {
+    val span = ((end - start) + MINUTES_IN_DAY) % MINUTES_IN_DAY
+    if (span == 0) return "nothing selected"
+    val hours = span / 60
+    val minutes = span % 60
+    return when {
+        hours == 0 -> minutes.toString() + " min"
+        minutes == 0 && hours == 1 -> "1 hour"
+        minutes == 0 -> hours.toString() + " hours"
+        else -> hours.toString() + "h " + minutes + "m"
     }
 }
 
