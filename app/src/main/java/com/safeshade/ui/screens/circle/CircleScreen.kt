@@ -400,21 +400,27 @@ private fun PersonPlate(state: CircleUiState, name: String, modifier: Modifier =
                 .fillMaxWidth()
                 .padding(horizontal = Spacing.lg, vertical = Spacing.md)
         ) {
-            Readout(
-                label = "Link",
-                value = state.linkLabel,
-                state = state.linkState,
-                modifier = Modifier.weight(1.2f)
-            )
+            // Two readouts, not three, and there is no "Link" one.
+            //
+            // The link state is already the lamp and the word in the corner
+            // above, so a third readout repeating it said the same thing twice
+            // on one card - the same redundancy that got the sync time deleted
+            // from the Board. Removing it also fixed a real layout fault:
+            // three columns of monospace readout across a phone left the last
+            // one about 300dp wide, and "None waiting" wrapped onto a second
+            // line and collided with the column beside it. Measured on a
+            // device, not in a preview.
             Readout(
                 label = "Last seen",
                 value = state.lastSeenLabel ?: "Not yet",
-                horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.weight(1f)
             )
             Readout(
                 label = "Messages",
-                value = if (state.unreadCount > 0) "${state.unreadCount} new" else "None waiting",
+                // "None", not "None waiting". Two words of monospace in half a
+                // card is what wrapped; the label above it already supplies the
+                // noun.
+                value = if (state.unreadCount > 0) "${state.unreadCount} new" else "None",
                 state = if (state.unreadCount > 0) LampState.ATTENTION else null,
                 horizontalAlignment = Alignment.End,
                 modifier = Modifier.weight(1f)
