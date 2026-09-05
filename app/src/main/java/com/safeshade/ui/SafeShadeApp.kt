@@ -17,7 +17,6 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,7 +47,6 @@ import com.safeshade.ui.nav.SosBarState
 import com.safeshade.ui.nav.tabForRoute
 import com.safeshade.ui.screens.IntroScreen
 import com.safeshade.ui.theme.BoardColors
-import com.safeshade.ui.theme.LocalBoardAccent
 import com.safeshade.ui.theme.board
 import com.safeshade.ui.vm.SafeShadeViewModel
 import kotlinx.coroutines.launch
@@ -206,26 +204,24 @@ fun SafeShadeApp(viewModel: SafeShadeViewModel) {
                     )
                 }
             ) { padding ->
-                // The area's decorative accent, provided once for the whole
-                // graph rather than passed to each of forty section headings.
-                // Keyed off the tab so a screen inherits its area's colour with
-                // no per-screen wiring, which is what stops one new section
-                // shipping grey in a coloured screen.
-                CompositionLocalProvider(LocalBoardAccent provides accentFor(currentTab, colors)) {
-                    MainNavGraph(
-                        navController = navController,
-                        viewModel = viewModel,
-                        state = ready,
-                        boardListState = boardListState,
-                        circleListState = circleListState,
-                        safetyListState = safetyListState,
-                        deviceListState = deviceListState,
-                        // The full inset set, not just the bottom: edge-to-edge
-                        // means the status bar overlaps content otherwise, and the
-                        // header row is the first thing it eats.
-                        modifier = Modifier.padding(padding)
-                    )
-                }
+                // No ambient accent any more. One colour per tab meant a whole
+                // screen wore a single hue, which is the opposite of the
+                // variety asked for — rows and section headings now each derive
+                // their own from their name (`BoardColors.accentFor`), so a
+                // screenful arrives varied with no wiring at all.
+                MainNavGraph(
+                    navController = navController,
+                    viewModel = viewModel,
+                    state = ready,
+                    boardListState = boardListState,
+                    circleListState = circleListState,
+                    safetyListState = safetyListState,
+                    deviceListState = deviceListState,
+                    // The full inset set, not just the bottom: edge-to-edge
+                    // means the status bar overlaps content otherwise, and the
+                    // header row is the first thing it eats.
+                    modifier = Modifier.padding(padding)
+                )
             }
         }
 
@@ -283,25 +279,6 @@ fun SafeShadeApp(viewModel: SafeShadeViewModel) {
     }
 }
 
-/**
- * Which decorative accent an area wears.
- *
- * Assigned by what the area is *about*, not by taste: Circle is people and
- * places, Safety is detection, Device is hardware. Board takes none — it is the
- * summary of all four, and tinting it would make it look like a fifth area
- * rather than the view over them.
- */
-private fun accentFor(tab: BottomDestination?, colors: BoardColors): Color? = when (tab) {
-    BottomDestination.CIRCLE -> colors.accentSky
-    BottomDestination.SAFETY -> colors.accentSage
-    BottomDestination.DEVICE -> colors.accentSand
-    // The Board takes no ambient accent, because it is the view *over* the
-    // other three rather than a fourth area — one colour across it would make
-    // it look like a peer. Its rows colour themselves individually instead,
-    // each by where it leads (see `accentForRoute`), so the icon column tells
-    // you which part of the app a row belongs to before you read it.
-    BottomDestination.BOARD, null -> null
-}
 
 private fun listStateFor(
     destination: BottomDestination,

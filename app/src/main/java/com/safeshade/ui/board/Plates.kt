@@ -25,7 +25,7 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import com.safeshade.ui.theme.LocalBoardAccent
+import com.safeshade.ui.theme.accentFor
 import com.safeshade.ui.theme.Radius
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.Stroke
@@ -102,15 +102,20 @@ fun SectionPlate(
      * Never a state colour: a section heading describes what a bank of ways is
      * *about*, not whether anything in it is live.
      *
-     * Defaults to the area's ambient accent, so a screen sets its colour once
-     * rather than at every heading. Pass `Color.Unspecified` to opt a single
-     * section back out — the right call on a safety path.
+     * Left null, the heading derives one from its own [title], so every
+     * section on a screen is a different colour without a screen having to say
+     * so. Pass `Color.Unspecified` to opt a single section back out to plain
+     * ink — the right call on a safety path.
      */
-    accent: Color? = LocalBoardAccent.current,
+    accent: Color? = null,
     trailing: (@Composable () -> Unit)? = null
 ) {
     val colors = MaterialTheme.board
-    val tint = accent?.takeIf { it.isSpecified }
+    val tint = when {
+        accent == null -> colors.accentFor(title)
+        accent.isSpecified -> accent
+        else -> null
+    }
     Column(modifier = modifier.fillMaxWidth()) {
         Row(
             verticalAlignment = Alignment.CenterVertically,

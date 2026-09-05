@@ -66,6 +66,7 @@ import com.safeshade.platform.PhoneNumbers
 import com.safeshade.repo.AppState
 import com.safeshade.repo.SyncStatus
 import com.safeshade.ui.board.BoardPlate
+import com.safeshade.ui.board.KitGallery
 import com.safeshade.ui.board.LampState
 import com.safeshade.ui.screens.board.BoardScreen
 import com.safeshade.ui.screens.board.BoardUiState
@@ -1551,11 +1552,13 @@ fun MainNavGraph(
                 ),
                 onSelectScenario = {},
                 onUseRealLink = {},
-                // The kit gallery has no route constant, and this file may not
-                // add one.
-                onOpenKitGallery = {},
+                onOpenKitGallery = { navController.navigate(Routes.SETTINGS_KIT) },
                 onBack = { navController.popBackStack() }
             )
+        }
+
+        composable(Routes.SETTINGS_KIT) {
+            KitGallery()
         }
     }
 }

@@ -85,6 +85,16 @@ object Routes {
     const val SETTINGS_ABOUT = "settings/about"
     const val SETTINGS_DEVELOPER = "settings/developer"
 
+    /**
+     * The component kit, reachable only from the developer screen.
+     *
+     * It had no route at all, and the handler that was supposed to open it was
+     * an empty lambda — so the one screen the project's own notes call "the
+     * reference to check before inventing a seventh kind of card" could not be
+     * opened. A debug-only destination is still a destination.
+     */
+    const val SETTINGS_KIT = "settings/kit"
+
     // ============================================
     // Arguments
     // ============================================

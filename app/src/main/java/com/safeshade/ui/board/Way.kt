@@ -47,7 +47,7 @@ import androidx.compose.ui.semantics.toggleableState
 import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.safeshade.ui.theme.LocalBoardAccent
+import com.safeshade.ui.theme.accentFor
 import com.safeshade.ui.theme.Motion
 import com.safeshade.ui.theme.Radius
 import com.safeshade.ui.theme.Spacing
@@ -86,8 +86,12 @@ fun Way(
      * A decorative accent for this row's icon — see `BoardColors`. Identity
      * only: which part of the app this row belongs to. The row's *state* is
      * carried by the bus tick and the state word, and neither is negotiable.
+     *
+     * Left null, the row derives one from its own [name], so a bank of ways
+     * arrives varied without any screen having to hand out colours. Pass
+     * `Color.Unspecified` to opt a single row back out to plain ink.
      */
-    accent: Color? = LocalBoardAccent.current,
+    accent: Color? = null,
     checked: Boolean? = null,
     onCheckedChange: ((Boolean) -> Unit)? = null,
     onClick: (() -> Unit)? = null
@@ -131,7 +135,11 @@ fun Way(
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = accent?.takeIf { it.isSpecified } ?: colors.inkMuted,
+                tint = when {
+                    accent == null -> colors.accentFor(name)
+                    accent.isSpecified -> accent
+                    else -> colors.inkMuted
+                },
                 // Anchored to the top of the row rather than its middle. The
                 // row is as tall as its title *plus* any detail line, so a
                 // centred icon on a two-line row floats down beside the

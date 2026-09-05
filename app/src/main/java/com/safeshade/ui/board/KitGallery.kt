@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Bolt
@@ -28,10 +30,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.material3.Icon
+import androidx.compose.ui.text.style.TextAlign
+import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.shady.Shady
 import com.safeshade.ui.shady.ShadyMood
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
+import com.safeshade.ui.theme.accentFor
 import com.safeshade.ui.theme.board
 
 /**
@@ -220,6 +228,15 @@ fun KitGallery(modifier: Modifier = Modifier) {
             }
         }
 
+        item { SectionPlate("Icons") }
+        item {
+            // Every generated icon, at the size a row draws it. This is the
+            // only place they can all be seen at once, and it is here because a
+            // path that fails to parse renders as nothing at all rather than as
+            // an error - so the check has to be visual.
+            IconSheet()
+        }
+
         item { SectionPlate("Empty bay") }
         item {
             EmptyBay(
@@ -230,6 +247,79 @@ fun KitGallery(modifier: Modifier = Modifier) {
         }
     }
 }
+
+/** The generated icon set, drawn at row size against the row tint. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun IconSheet() {
+    val colors = MaterialTheme.board
+    BoardPlate {
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+            verticalArrangement = Arrangement.spacedBy(Spacing.md),
+            modifier = Modifier.fillMaxWidth().padding(Spacing.lg)
+        ) {
+            allIcons.forEach { (name, vector) ->
+                Column(
+                    horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
+                    modifier = Modifier.width(72.dp)
+                ) {
+                    Icon(
+                        imageVector = vector,
+                        contentDescription = null,
+                        tint = colors.accentFor(name),
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(Modifier.height(Spacing.xs))
+                    Text(
+                        text = name,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = colors.inkFaint,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+        }
+    }
+}
+
+private val allIcons: List<Pair<String, androidx.compose.ui.graphics.vector.ImageVector>> = listOf(
+    "adaptive-mode" to SafeShadeIcons.AdaptiveMode,
+    "call-after-a-fall" to SafeShadeIcons.CallAfterAFall,
+    "check-in" to SafeShadeIcons.CheckIn,
+    "connect-to-the-device" to SafeShadeIcons.ConnectToTheDevice,
+    "cyber" to SafeShadeIcons.Cyber,
+    "daily-reminder" to SafeShadeIcons.DailyReminder,
+    "device-settings" to SafeShadeIcons.DeviceSettings,
+    "emergency-contacts" to SafeShadeIcons.EmergencyContacts,
+    "fall-detection" to SafeShadeIcons.FallDetection,
+    "find-the-device" to SafeShadeIcons.FindTheDevice,
+    "fire" to SafeShadeIcons.Fire,
+    "gps" to SafeShadeIcons.Gps,
+    "lights" to SafeShadeIcons.Lights,
+    "medical-id" to SafeShadeIcons.MedicalId,
+    "navbar-board" to SafeShadeIcons.NavbarBoard,
+    "navbar-circle" to SafeShadeIcons.NavbarCircle,
+    "navbar-device" to SafeShadeIcons.NavbarDevice,
+    "ocean" to SafeShadeIcons.Ocean,
+    "paired-devices" to SafeShadeIcons.PairedDevices,
+    "parental-control" to SafeShadeIcons.ParentalControl,
+    "police" to SafeShadeIcons.Police,
+    "pulse" to SafeShadeIcons.Pulse,
+    "quiet-hours" to SafeShadeIcons.QuietHours,
+    "rainbow" to SafeShadeIcons.Rainbow,
+    "reminders" to SafeShadeIcons.Reminders,
+    "repeating-check-in" to SafeShadeIcons.RepeatingCheckIn,
+    "ring-the-device" to SafeShadeIcons.RingTheDevice,
+    "safe-zone" to SafeShadeIcons.SafeZone,
+    "silent-sos" to SafeShadeIcons.SilentSos,
+    "sim-and-sms" to SafeShadeIcons.SimAndSms,
+    "sms-feedback-alert" to SafeShadeIcons.SmsFeedbackAlert,
+    "telemetry" to SafeShadeIcons.Telemetry,
+    "text-as-well" to SafeShadeIcons.TextAsWell,
+    "top-right-settings" to SafeShadeIcons.TopRightSettings,
+    "torch" to SafeShadeIcons.Torch
+)
 
 @Preview(name = "Kit — light", showBackground = true, heightDp = 1600)
 @Composable

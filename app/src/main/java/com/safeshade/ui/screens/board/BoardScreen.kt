@@ -89,26 +89,6 @@ data class BoardWay(
     val route: String? = null
 )
 
-/**
- * The colour a Board row wears, taken from where it leads.
- *
- * The Board is a summary of the other three tabs, and each of its rows is a
- * door into one of them. Colouring the icon by its destination means the icon
- * column is doing real work — you can see that Safe zones, Check-in and Journey
- * are the same kind of thing before reading a word — rather than being
- * decoration applied to make the screen less grey.
- *
- * Derived from the route rather than stored on [BoardWay], so a row cannot be
- * added with a colour that disagrees with where it goes.
- */
-private fun accentForRoute(route: String?, colors: BoardColors): Color? =
-    when (tabForRoute(route)) {
-        BottomDestination.CIRCLE -> colors.accentSky
-        BottomDestination.SAFETY -> colors.accentSage
-        BottomDestination.DEVICE -> colors.accentSand
-        BottomDestination.BOARD, null -> null
-    }
-
 /** Everything the Board screen draws. */
 data class BoardUiState(
     val connection: ConnectionState = ConnectionState.Disconnected,
@@ -288,7 +268,6 @@ fun BoardScreen(
                         stateLabel = way.stateLabel,
                         detail = way.detail,
                         icon = way.icon,
-                        accent = accentForRoute(way.route, colors),
                         sealed = way.sealed,
                         onClick = way.route?.let { route -> { onOpenWay(route) } }
                     )

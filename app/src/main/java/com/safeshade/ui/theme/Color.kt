@@ -1,6 +1,5 @@
 package com.safeshade.ui.theme
 
-import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 
 /**
@@ -64,20 +63,32 @@ private val TripInkDark = Color(0xFFFF8A8D)
 // DECORATIVE ACCENTS — identity, never status
 // ============================================
 /**
- * Six peers, not a scale.
+ * Twelve peers, not a scale.
  *
  * Each was solved for rather than picked: at a fixed 22% saturation, lightness
  * was walked until the value cleared 4.5:1 against *both* its theme's plate and
  * its ground. That is the text floor, comfortably past the 3:1 a 20dp icon or a
  * 2dp rule needs, so any of these can tint a glyph, draw a rule, or carry a
- * label without a second look.
+ * label without a second look. Measured, all twelve, on plate / ground:
+ * light 4.91-4.96 / 4.50-4.54, dark 4.50-4.55 / 5.44-5.50.
  *
- * They are also within 1.35:1 of each other, which is the point: they must read
- * as six different things at the same weight, not as six steps of emphasis.
- * Measured light / dark against plate and ground respectively —
- * sage 4.92/4.50 and 4.60/5.56, sky 4.93/4.52 and 4.53/5.48, lilac 4.95/4.54
- * and 4.54/5.49, clay 4.91/4.50 and 4.52/5.46, sand 4.94/4.53 and 4.54/5.48,
- * moss 4.92/4.50 and 4.55/5.50.
+ * Because they are solved to one floor they land within 1.02:1 of each other,
+ * which is the point: twelve different things at one weight, not twelve steps
+ * of emphasis. Hue alone separates them - 16, 40, 65, 93, 126, 168, 190, 212,
+ * 238, 266, 300 and 332 degrees, no two closer than 22.
+ *
+ * **Why twelve, and why they are handed out arbitrarily.** Six was too few to
+ * give a screenful of rows any variety, and tying a colour to a category meant
+ * most screens wore a single hue. They are assigned by a stable hash of a
+ * thing's own name instead - arbitrary-looking, but fixed. A row that is plum
+ * today is plum tomorrow, because a palette that reshuffles between launches
+ * would be worse than no colour at all.
+ *
+ * **Saturation is what keeps that safe, not hue.** State colours are saturated;
+ * these never are. A saturated pixel means status anywhere in this app, so
+ * decoration can be scattered freely without ever being read as a lamp. Note
+ * the deliberate absence of a decorative colour *named* teal, amber or red -
+ * the state hues keep those names to themselves.
  *
  * Used at full strength for icons, rules and identity type; used at low alpha
  * (0.10–0.18) as a wash behind a card, where the normal ink tokens still apply
@@ -96,6 +107,18 @@ private val SandLight = Color(0xFF7A6B4E)
 private val SandDark = Color(0xFF9E8C67)
 private val MossLight = Color(0xFF5D744A)
 private val MossDark = Color(0xFF7A9760)
+private val OchreLight = Color(0xFF6D7048)
+private val OchreDark = Color(0xFF8D925D)
+private val FernLight = Color(0xFF4B756D)
+private val FernDark = Color(0xFF61988D)
+private val CoveLight = Color(0xFF4E737B)
+private val CoveDark = Color(0xFF67959E)
+private val SlateLight = Color(0xFF67689E)
+private val SlateDark = Color(0xFF898AB3)
+private val PlumLight = Color(0xFF8F5B8F)
+private val PlumDark = Color(0xFFAD7EAD)
+private val RoseLight = Color(0xFF925D76)
+private val RoseDark = Color(0xFFAE8196)
 
 // ============================================
 // LIGHT — the panel in a lit room
@@ -178,32 +201,46 @@ data class BoardColors(
     val accentClay: Color,
     val accentSand: Color,
     val accentMoss: Color,
+    val accentOchre: Color,
+    val accentFern: Color,
+    val accentCove: Color,
+    val accentSlate: Color,
+    val accentPlum: Color,
+    val accentRose: Color,
 
     /** True when this is the dark resolution — for the few genuinely asymmetric decisions. */
     val isDark: Boolean
 )
 
-/** The decorative family as an ordered list, for anything that assigns one per item. */
+/**
+ * The decorative family as an ordered list, for anything that assigns one per item.
+ *
+ * Ordered by hue, so two adjacent entries are always visibly different: code
+ * that walks this list never lands two neighbouring shades of one colour side
+ * by side.
+ */
 val BoardColors.accents: List<Color>
-    get() = listOf(accentSage, accentSky, accentLilac, accentClay, accentSand, accentMoss)
+    get() = listOf(
+        accentClay, accentSand, accentOchre, accentMoss, accentSage, accentFern,
+        accentCove, accentSky, accentSlate, accentLilac, accentPlum, accentRose
+    )
 
 /**
- * The decorative accent in force for this part of the app.
+ * The accent a thing wears, derived from its own name.
  *
- * Ambient rather than a parameter on every component, because the alternative
- * is passing an accent to each of forty `SectionPlate` calls and a hundred
- * `Way`s, and the first person to add a section without one leaves a grey rule
- * in a coloured screen. Colour that identifies an *area* belongs to the area,
- * not to each thing inside it.
+ * Arbitrary by design - variety was wanted, not a colour code - but *stable*,
+ * which is the half that matters. Hashing the key means a row keeps its colour
+ * across launches, across a reordering of the list it sits in, and across a
+ * later insertion above it. Assigning by list position would have repainted
+ * half a screen the first time a row was added to the top of it.
  *
- * Set once per destination (see the nav graph), overridden inside a screen only
- * where a section genuinely belongs to a different area than the screen around
- * it — a medical block inside a device screen, say.
- *
- * Null means achromatic, which stays the correct answer for anything on a
- * safety path: a fall countdown or a trip banner takes no decorative colour.
+ * `String.hashCode` is specified by the language rather than left to the
+ * runtime, so this is reproducible and not merely consistent so far.
  */
-val LocalBoardAccent = staticCompositionLocalOf<Color?> { null }
+fun BoardColors.accentFor(key: String): Color {
+    val family = accents
+    return family[((key.hashCode() % family.size) + family.size) % family.size]
+}
 
 val LightBoardColors = BoardColors(
     ground = BoneGround,
@@ -227,6 +264,12 @@ val LightBoardColors = BoardColors(
     accentClay = ClayLight,
     accentSand = SandLight,
     accentMoss = MossLight,
+    accentOchre = OchreLight,
+    accentFern = FernLight,
+    accentCove = CoveLight,
+    accentSlate = SlateLight,
+    accentPlum = PlumLight,
+    accentRose = RoseLight,
     isDark = false
 )
 
@@ -252,5 +295,11 @@ val DarkBoardColors = BoardColors(
     accentClay = ClayDark,
     accentSand = SandDark,
     accentMoss = MossDark,
+    accentOchre = OchreDark,
+    accentFern = FernDark,
+    accentCove = CoveDark,
+    accentSlate = SlateDark,
+    accentPlum = PlumDark,
+    accentRose = RoseDark,
     isDark = true
 )
