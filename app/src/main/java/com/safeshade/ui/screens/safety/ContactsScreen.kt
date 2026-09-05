@@ -32,9 +32,11 @@ import com.safeshade.data.EmergencyContact
 import com.safeshade.ui.board.BoardButton
 import com.safeshade.ui.board.BoardPlate
 import com.safeshade.ui.board.ButtonWeight
+import com.safeshade.ui.board.ChipRow
 import com.safeshade.ui.board.EmptyBay
 import com.safeshade.ui.board.Hairline
 import com.safeshade.ui.board.LampState
+import com.safeshade.ui.board.RELATIONSHIP_SUGGESTIONS
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.Way
 import com.safeshade.ui.theme.SafeShadeTheme
@@ -53,7 +55,14 @@ data class ContactDraft(
     val index: Int? = null,
     val name: String = "",
     val phone: String = "",
-    val isPrimary: Boolean = false
+    val isPrimary: Boolean = false,
+    /**
+     * How this person is related to the wearer — see [EmergencyContact].
+     *
+     * Last, and defaulted, on purpose: the draft is built positionally at its
+     * one call site, so a field added anywhere else would break it.
+     */
+    val relationship: String = ""
 )
 
 /** Everything the contacts screen draws. */
@@ -172,7 +181,17 @@ private fun ContactList(
                             // as well, so the lamp is never the only signal.
                             state = if (isFirst) LampState.LIVE else LampState.OFF,
                             stateLabel = if (isFirst) "Called first" else "Standby",
-                            detail = PhoneNumbers.format(contact.phone),
+                            // "Daughter · 98300 11223". The relationship is
+                            // the whole point of storing it — a responder
+                            // holding this phone needs to know who they are
+                            // ringing before they ring. A contact without one
+                            // shows the number alone rather than a dash: an
+                            // empty relationship means nobody said, and a
+                            // placeholder there reads as an answer.
+                            detail = listOfNotNull(
+                                contact.relationship.takeIf { it.isNotBlank() },
+                                PhoneNumbers.format(contact.phone)
+                            ).joinToString(" · "),
                             onClick = { onStartEdit(index) }
                         )
                     }
@@ -289,6 +308,31 @@ private fun ContactEditor(
 
         Spacer(Modifier.height(Spacing.lg))
 
+        // Optional, and never validated. "Upstairs neighbour" and "Priya's
+        // husband" are real answers, so the chips below are suggestions that
+        // fill the box in one tap rather than a list to choose from — a value
+        // matching none of them lights none of them, which is correct.
+        PlateField(
+            label = "Relationship",
+            value = draft.relationship,
+            onValueChange = { onDraftChange(draft.copy(relationship = stripDeviceDelimiters(it))) },
+            placeholder = "Daughter",
+            helper = "Optional. Shown beside their name, so whoever picks up this " +
+                "phone knows who they are ringing.",
+            maxLength = 24,
+            imeAction = ImeAction.Next
+        )
+
+        Spacer(Modifier.height(Spacing.sm))
+
+        ChipRow(
+            options = RELATIONSHIP_SUGGESTIONS,
+            selected = draft.relationship,
+            onSelect = { onDraftChange(draft.copy(relationship = it)) }
+        )
+
+        Spacer(Modifier.height(Spacing.lg))
+
         PlateField(
             label = "Phone number",
             value = draft.phone,
@@ -364,9 +408,12 @@ private fun ContactEditor(
 // PREVIEWS
 // ============================================
 
+// Two with a relationship, one without — the row builds its detail line
+// differently in each case, and a preview where every contact is filled in
+// would only ever show one of the two.
 private val previewContacts = listOf(
-    EmergencyContact("Priya", "+91 98300 11223", isPrimary = true),
-    EmergencyContact("Dr Sen", "+91 98300 44556"),
+    EmergencyContact("Priya", "+91 98300 11223", isPrimary = true, relationship = "Daughter"),
+    EmergencyContact("Dr Sen", "+91 98300 44556", relationship = "Doctor"),
     EmergencyContact("Ashok next door", "+91 98300 77889")
 )
 
@@ -411,7 +458,12 @@ private fun ContactEditorPreview() {
         ContactsScreen(
             state = ContactsUiState(
                 contacts = previewContacts,
-                draft = ContactDraft(index = 1, name = "Dr Sen", phone = "+91 98300 44556")
+                draft = ContactDraft(
+                    index = 1,
+                    name = "Dr Sen",
+                    phone = "+91 98300 44556",
+                    relationship = "Doctor"
+                )
             ),
             onBack = {}, onStartAdd = {}, onStartEdit = {}, onDraftChange = {},
             onSaveDraft = {}, onCancelDraft = {}, onDelete = {}

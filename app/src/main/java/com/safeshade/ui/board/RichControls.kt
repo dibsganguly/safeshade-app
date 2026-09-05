@@ -62,6 +62,11 @@ import kotlin.math.roundToInt
  * @param advice called with the current value on every frame of a drag. Keep it
  *   cheap and keep it honest: this is where the trade-off gets stated, so it
  *   should describe what will actually happen rather than praise the choice.
+ * @param onCommit fired once when the drag ends, for callers whose write is
+ *   expensive. Anything that goes out over BLE needs this: Android allows one
+ *   outstanding GATT operation at a time, so a write per frame spends the whole
+ *   gesture draining a queue and drops the last value - the only one that
+ *   matters. Null means the value is cheap and [onValueChange] is enough.
  */
 @Composable
 fun DialControl(
@@ -71,6 +76,7 @@ fun DialControl(
     step: Float,
     onValueChange: (Float) -> Unit,
     modifier: Modifier = Modifier,
+    onCommit: (() -> Unit)? = null,
     format: (Float) -> String = { it.roundToInt().toString() },
     unit: String? = null,
     advice: ((Float) -> String)? = null,
@@ -101,6 +107,7 @@ fun DialControl(
             Slider(
                 value = current,
                 onValueChange = onValueChange,
+                onValueChangeFinished = onCommit,
                 valueRange = valueRange,
                 steps = steps,
                 modifier = Modifier

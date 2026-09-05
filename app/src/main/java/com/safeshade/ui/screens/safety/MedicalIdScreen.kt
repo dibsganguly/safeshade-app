@@ -29,9 +29,11 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.safeshade.data.MedicalId
+import com.safeshade.ui.board.BLOOD_GROUP_SUGGESTIONS
 import com.safeshade.ui.board.BoardButton
 import com.safeshade.ui.board.BoardPlate
 import com.safeshade.ui.board.ButtonWeight
+import com.safeshade.ui.board.ChipRow
 import com.safeshade.ui.board.ExpandableSection
 import com.safeshade.ui.board.LampState
 import com.safeshade.ui.board.SectionPlate
@@ -148,9 +150,26 @@ fun MedicalIdScreen(
             value = id.bloodType,
             onValueChange = { onChange(id.copy(bloodType = stripDeviceDelimiters(it))) },
             placeholder = "B+",
-            helper = "A+, A-, B+, B-, AB+, AB-, O+ or O-. Leave blank if you are not certain.",
+            // The eight groups used to be listed here because there was
+            // nothing else to list them. The chips below are that list now,
+            // and one tappable, so repeating them in the helper would be the
+            // same eight strings said twice.
+            helper = "Leave blank if you are not certain.",
             maxLength = MAX_BLOOD_TYPE,
             imeAction = ImeAction.Next
+        )
+
+        Spacer(Modifier.height(Spacing.sm))
+
+        // The box stays: a wearer whose record says "O+ (Rh null)" or who
+        // knows only "O" can still type it, and neither lights a chip, which
+        // is correct rather than an error. What the row removes is spelling a
+        // blood group on a phone keyboard, where a slip between B+ and B- is
+        // both easy and the worst typo on this card.
+        ChipRow(
+            options = BLOOD_GROUP_SUGGESTIONS,
+            selected = id.bloodType,
+            onSelect = { onChange(id.copy(bloodType = it)) }
         )
 
         Spacer(Modifier.height(Spacing.lg))

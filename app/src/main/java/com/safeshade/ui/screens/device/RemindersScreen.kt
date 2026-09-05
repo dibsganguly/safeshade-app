@@ -35,6 +35,7 @@ import com.safeshade.ui.board.Nameplate
 import com.safeshade.ui.board.PilotLamp
 import com.safeshade.ui.board.ScreenHeader
 import com.safeshade.ui.board.SectionPlate
+import com.safeshade.ui.board.TimeStrip
 import com.safeshade.ui.board.Way
 import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.theme.SafeShadeTheme
@@ -81,7 +82,8 @@ private fun RemindersUiState.ackFor(key: String): AckState = acks[key] ?: AckSta
 fun RemindersScreen(
     state: RemindersUiState,
     onMedicationEnabledChange: (Boolean) -> Unit,
-    onEditMedicationTime: () -> Unit,
+    /** Hour 0..23 and minute 0..59. Replaces a callback nobody ever passed. */
+    onMedicationTimeChange: (Int, Int) -> Unit,
     onCheckInEnabledChange: (Boolean) -> Unit,
     onCheckInIntervalChange: (Int) -> Unit,
     onGrantExactAlarms: () -> Unit,
@@ -123,9 +125,12 @@ fun RemindersScreen(
         item("medication-heading") { SectionPlate(title = "Medication") }
 
         item("medication") {
+            // Hoisted out of the plate: the strip below is a sibling of the
+            // plate, not a child of it, and both need to know whether the
+            // reminder is on.
+            val enabled = state.medication?.enabled == true
+            val ack = state.ackFor("medicationTime")
             BoardPlate(modifier = Modifier.fillMaxWidth()) {
-                val enabled = state.medication?.enabled == true
-                val ack = state.ackFor("medicationTime")
                 Way(
                     name = "Daily reminder",
                     state = ackLamp(ack, if (enabled) LampState.LIVE else LampState.OFF),
@@ -136,15 +141,25 @@ fun RemindersScreen(
                     checked = enabled,
                     onCheckedChange = onMedicationEnabledChange
                 )
-                Hairline()
-                ScheduleRow(
-                    label = "Time",
-                    value = state.medication
-                        ?.let { "%02d:%02d".format(it.hour, it.minute) }
-                        ?: "Not set",
-                    supporting = timingNote(state.exactAlarmsAllowed),
-                    actionLabel = "Change",
-                    onAction = onEditMedicationTime
+            }
+            if (enabled) {
+                Spacer(Modifier.height(Spacing.sm))
+                // The other half of the medication bug. This screen and the
+                // device-settings screen both offered a "Change" button for
+                // this time, and both were wired to the same empty lambda -
+                // so the reminder could be switched on and off but never
+                // moved. Both are strips now, and both write the same value.
+                //
+                // Only while the reminder is on: the enable path writes a null
+                // time when it is off, so a live strip would set a time and
+                // watch it be nulled a frame later.
+                TimeStrip(
+                    label = "Every day at",
+                    minutesOfDay = state.medication
+                        ?.let { it.hour * 60 + it.minute }
+                        ?: DEFAULT_REMINDER_MINUTES,
+                    onChange = { minutes -> onMedicationTimeChange(minutes / 60, minutes % 60) },
+                    advice = { timingNote(state.exactAlarmsAllowed) }
                 )
             }
         }
@@ -268,54 +283,6 @@ private fun InexactAlarmNotice(
     }
 }
 
-/** A value with the button that changes it. */
-@Composable
-private fun ScheduleRow(
-    label: String,
-    value: String,
-    supporting: String,
-    actionLabel: String,
-    onAction: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val colors = MaterialTheme.board
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = modifier
-            .fillMaxWidth()
-            .heightIn(min = Spacing.touchTarget)
-            .padding(horizontal = Spacing.lg, vertical = Spacing.md)
-    ) {
-        // Same shape as DeviceSettingsScreen's ValueRow, and the same fix: a
-        // weighted label column beside a fixed-size button, but with no
-        // guard on the value/supporting text — safe today only because
-        // "value" happens to always be a short time string, which is the
-        // kind of assumption that breaks the next time this row is reused
-        // for something longer. Capped defensively rather than left bare.
-        Column(modifier = Modifier.weight(1f)) {
-            Nameplate(label, small = true, muted = true)
-            Text(
-                text = value,
-                style = MaterialTheme.typography.bodyLarge,
-                color = colors.ink,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                text = supporting,
-                style = MaterialTheme.typography.bodySmall,
-                color = colors.inkFaint,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-        BoardButton(
-            label = actionLabel,
-            onClick = onAction,
-            weight = ButtonWeight.SECONDARY
-        )
-    }
-}
 
 /**
  * Which profile a schedule belongs to.
@@ -384,7 +351,7 @@ private fun RemindersPreviewHost(state: RemindersUiState) {
         RemindersScreen(
             state = state,
             onMedicationEnabledChange = {},
-            onEditMedicationTime = {},
+            onMedicationTimeChange = { _, _ -> },
             onCheckInEnabledChange = {},
             onCheckInIntervalChange = {},
             onGrantExactAlarms = {}
@@ -420,3 +387,12 @@ private fun RemindersPreviewEmpty() {
         )
     }
 }
+
+/**
+ * Where the strip starts when the reminder has never been given a time.
+ *
+ * 09:00, matching the default the device-settings screen has always carried.
+ * Not midnight, which is what a bare zero would have shown and would have read
+ * as a broken control rather than an unset one.
+ */
+private const val DEFAULT_REMINDER_MINUTES = 9 * 60

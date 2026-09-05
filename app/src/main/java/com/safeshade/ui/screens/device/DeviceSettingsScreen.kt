@@ -15,13 +15,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -31,20 +29,30 @@ import com.safeshade.device.ConnectionState
 import com.safeshade.device.DeviceCapabilities
 import com.safeshade.ui.board.BoardButton
 import com.safeshade.ui.board.BoardPlate
+import com.safeshade.ui.board.DialControl
 import com.safeshade.ui.board.ButtonWeight
 import com.safeshade.ui.board.ExpandableSection
 import com.safeshade.ui.board.Hairline
 import com.safeshade.ui.board.LampState
+import com.safeshade.ui.board.RangeStrip
 import com.safeshade.ui.board.Nameplate
 import com.safeshade.ui.board.PilotLamp
-import com.safeshade.ui.board.Readout
 import com.safeshade.ui.board.ScreenHeader
 import com.safeshade.ui.board.SectionPlate
+import com.safeshade.ui.board.TimeStrip
+import com.safeshade.ui.board.formatClock
 import com.safeshade.ui.board.Way
+// OptionWay lives in the safety package because that is where it was first
+// needed. It is `internal`, so this is legal, and importing it is the point:
+// this screen and FallSettingsScreen now use one control for one setting
+// rather than two. It belongs in ui/board with the rest of the row kit; that
+// move is worth doing and is not worth doing in the middle of this pass.
+import com.safeshade.ui.screens.safety.OptionWay
 import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.board
+import kotlin.math.roundToInt
 
 /**
  * The settings this app can genuinely put on the wearable.
@@ -107,9 +115,11 @@ fun DeviceSettingsScreen(
     onParentalControlsChange: (Boolean) -> Unit,
     onSmsFallbackChange: (Boolean) -> Unit,
     onQuietHoursChange: (Boolean) -> Unit,
-    onEditQuietHours: () -> Unit,
+    /** Start and end hour, 0..23. Replaces the picker that never existed. */
+    onQuietWindowChange: (Int, Int) -> Unit,
     onMedicationChange: (Boolean) -> Unit,
-    onEditMedicationTime: () -> Unit,
+    /** Hour 0..23 and minute 0..59. */
+    onMedicationTimeChange: (Int, Int) -> Unit,
     onCheckInIntervalChange: (Int) -> Unit,
     onEditDeviceName: () -> Unit,
     onBack: (() -> Unit)? = null,
@@ -152,34 +162,31 @@ fun DeviceSettingsScreen(
                 supporting = "How hard the accelerometer has to be hit before " +
                     "the device treats it as a fall."
             ) {
+                // OptionWay rows, the same control the fall-settings screen
+                // uses for this same value.
+                //
+                // There were two. This screen had a row of three plates with
+                // the selected one filled, and FallSettingsScreen had these
+                // rows - one setting, two widgets, and a user who changes it in
+                // one place and then finds something that looks like a
+                // different control in the other. Rows win because each option
+                // states its own consequence: the plate row could only show the
+                // blurb for whichever option was already chosen, which is the
+                // one the user least needs explained.
+                //
+                // Deliberately NOT a slider. Three named settings on a track
+                // reads as a continuum with two invisible stops, and this is a
+                // choice between three named behaviours.
                 Column {
-                    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                        FallSensitivity.entries.forEach { level ->
-                            BoardButton(
-                                label = level.label,
-                                onClick = { onFallSensitivityChange(level) },
-                                // The selected option is the filled plate.
-                                // Weight rather than hue carries the selection,
-                                // so this survives greyscale and stays inside
-                                // the rule that colour only means circuit state.
-                                weight = if (state.fallSensitivity == level) {
-                                    ButtonWeight.PRIMARY
-                                } else {
-                                    ButtonWeight.SECONDARY
-                                },
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
+                    FallSensitivity.entries.forEachIndexed { index, level ->
+                        if (index > 0) Hairline()
+                        OptionWay(
+                            name = level.label,
+                            detail = level.blurb,
+                            selected = state.fallSensitivity == level,
+                            onSelect = { onFallSensitivityChange(level) }
+                        )
                     }
-                    Spacer(Modifier.height(Spacing.sm))
-                    // The blurb sits under the row rather than inside each
-                    // button: three of them at a third of the screen width wrap
-                    // to four lines apiece at a raised font scale.
-                    Text(
-                        text = state.fallSensitivity.blurb,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = colors.inkMuted
-                    )
                 }
             }
         }
@@ -191,25 +198,26 @@ fun DeviceSettingsScreen(
                 supporting = "Only the emergency siren. The wearable's ordinary " +
                     "chime volume is set on the device itself."
             ) {
-                Column {
-                    Readout(value = "${(state.sosVolume * 100).toInt()}%")
-                    Slider(
-                        value = state.sosVolume,
-                        onValueChange = onSosVolumeChange,
-                        // The write happens on release, not on every pixel of
-                        // the drag. A GATT queue fed one write per frame would
-                        // spend the whole gesture draining and drop the last
-                        // value, which is the only one that matters.
-                        onValueChangeFinished = onSosVolumeCommit,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(min = Spacing.touchTarget)
-                            .semantics {
-                                contentDescription = "SOS siren volume, " +
-                                    "${(state.sosVolume * 100).toInt()} percent"
-                            }
-                    )
-                }
+                // Stepped to ten percent and given advice that changes as it
+                // moves. A bare slider let the user place the siren at 47%,
+                // which is neither reproducible nor audibly different from 50%,
+                // and said nothing about what any of it meant.
+                //
+                // `onCommit` still carries the write, for the original reason:
+                // Android allows one outstanding GATT operation at a time, so a
+                // write per frame spends the gesture draining a queue and drops
+                // the last value.
+                DialControl(
+                    label = "Volume",
+                    value = state.sosVolume,
+                    valueRange = 0f..1f,
+                    step = 0.1f,
+                    onValueChange = onSosVolumeChange,
+                    onCommit = onSosVolumeCommit,
+                    format = { "${(it * 100).roundToInt()}%" },
+                    spokenValue = { "${(it * 100).roundToInt()} percent" },
+                    advice = ::sirenAdvice
+                )
             }
         }
 
@@ -261,12 +269,31 @@ fun DeviceSettingsScreen(
                     ack = state.ackFor("quietHours"),
                     onCheckedChange = onQuietHoursChange
                 )
-                Hairline()
-                ValueRow(
-                    label = "Window",
-                    value = "${hourLabel(state.quietStartHour)} to ${hourLabel(state.quietEndHour)}",
-                    actionLabel = "Change",
-                    onAction = onEditQuietHours
+            }
+            if (state.quietHoursEnabled) {
+                Spacer(Modifier.height(Spacing.sm))
+                // Shown only while quiet hours are on, which is what closes the
+                // hole the old "Change" button had: that button called an empty
+                // lambda, and a strip that wrote a window nobody was observing
+                // would have looked just as broken - set it, watch nothing
+                // happen. Off means there is no window to set.
+                RangeStrip(
+                    label = "Quiet from",
+                    startMinutes = state.quietStartHour * 60,
+                    endMinutes = state.quietEndHour * 60,
+                    onChange = { start, end -> onQuietWindowChange(start / 60, end / 60) },
+                    // Whole hours: the wire carries two hour fields, and
+                    // offering minutes the protocol cannot hold would be a
+                    // control that silently rounds what it was told.
+                    snapMinutes = 60,
+                    advice = { start, end ->
+                        if (start == end) {
+                            "Start and end are the same, so nothing is silenced."
+                        } else {
+                            "Silent from " + formatClock(start) + " to " + formatClock(end) +
+                                ". An emergency still sounds."
+                        }
+                    }
                 )
             }
         }
@@ -286,12 +313,24 @@ fun DeviceSettingsScreen(
                     ack = state.ackFor("medicationTime"),
                     onCheckedChange = onMedicationChange
                 )
-                Hairline()
-                ValueRow(
-                    label = "Time",
-                    value = timeLabel(state.medicationHour, state.medicationMinute),
-                    actionLabel = "Change",
-                    onAction = onEditMedicationTime
+            }
+            if (state.medicationEnabled) {
+                Spacer(Modifier.height(Spacing.sm))
+                // This is the bug, not the polish. `onEditMedicationTime` was a
+                // hardcoded empty lambda at both of its call sites, so the
+                // "Change" button that used to sit here did nothing at all and
+                // the reminder shipped stuck at whatever it defaulted to.
+                //
+                // Gated on the switch on purpose. The enable path writes
+                // `setMedicationTime(null, null)` when it is off, so a strip
+                // that stayed live while disabled would write a time and have
+                // it nulled immediately - the user sets it, nothing sticks, and
+                // it looks exactly like the bug being fixed here.
+                TimeStrip(
+                    label = "Every day at",
+                    minutesOfDay = state.medicationHour * 60 + state.medicationMinute,
+                    onChange = { minutes -> onMedicationTimeChange(minutes / 60, minutes % 60) },
+                    advice = { "The wearable buzzes and shows the reminder until it is dismissed." }
                 )
             }
         }
@@ -580,10 +619,19 @@ private val CHECK_IN_CHOICES = listOf(
 /** What the switch turns on to, when no interval has been chosen yet. */
 private const val DEFAULT_CHECK_IN_MINUTES = 60
 
-private fun hourLabel(hour: Int): String = "%02d:00".format(hour.coerceIn(0, 23))
-
-private fun timeLabel(hour: Int, minute: Int): String =
-    "%02d:%02d".format(hour.coerceIn(0, 23), minute.coerceIn(0, 59))
+/**
+ * What a siren level means in practice.
+ *
+ * Percentages are meaningless for loudness - nobody knows what 60% of a siren
+ * sounds like - so the number is paired with the thing it decides: whether
+ * somebody in the next room hears it.
+ */
+private fun sirenAdvice(level: Float): String = when {
+    level <= 0.2f -> "Barely audible. Useful only if the wearer is holding the device."
+    level <= 0.5f -> "Heard in the same room. Quiet enough not to startle."
+    level <= 0.8f -> "Heard through a closed door. This is the usual choice."
+    else -> "As loud as the device goes. Carries outdoors and down a hallway."
+}
 
 // ============================================================================
 // Previews
@@ -625,9 +673,9 @@ private fun PreviewHost(state: DeviceSettingsUiState) {
             onParentalControlsChange = {},
             onSmsFallbackChange = {},
             onQuietHoursChange = {},
-            onEditQuietHours = {},
+            onQuietWindowChange = { _, _ -> },
             onMedicationChange = {},
-            onEditMedicationTime = {},
+            onMedicationTimeChange = { _, _ -> },
             onCheckInIntervalChange = {},
             onEditDeviceName = {}
         )

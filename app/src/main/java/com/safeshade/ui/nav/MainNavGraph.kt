@@ -945,6 +945,7 @@ fun MainNavGraph(
             var draftName by rememberSaveable { mutableStateOf("") }
             var draftPhone by rememberSaveable { mutableStateOf("") }
             var draftPrimary by rememberSaveable { mutableStateOf(false) }
+            var draftRelationship by rememberSaveable { mutableStateOf("") }
 
             // Writes the whole list in one go rather than calling
             // `addContact` / `removeContact` in sequence: an edit is a remove
@@ -958,7 +959,7 @@ fun MainNavGraph(
                 state = ContactsUiState(
                     contacts = contacts,
                     draft = if (draftOpen) {
-                        ContactDraft(draftIndex, draftName, draftPhone, draftPrimary)
+                        ContactDraft(draftIndex, draftName, draftPhone, draftPrimary, draftRelationship)
                     } else {
                         null
                     },
@@ -973,6 +974,7 @@ fun MainNavGraph(
                     draftPhone = ""
                     // The first contact anyone adds is the one that gets rung.
                     draftPrimary = contacts.isEmpty()
+                    draftRelationship = ""
                     draftOpen = true
                 },
                 onStartEdit = { index ->
@@ -988,6 +990,7 @@ fun MainNavGraph(
                         // across two different lengths.
                         draftPhone = PhoneNumbers.digitsOf(contact.phone)
                         draftPrimary = contact.isPrimary
+                        draftRelationship = contact.relationship
                         draftOpen = true
                     }
                 },
@@ -995,12 +998,20 @@ fun MainNavGraph(
                     draftName = draft.name
                     draftPhone = draft.phone
                     draftPrimary = draft.isPrimary
+                    // Every field the draft carries has to be read back here.
+                    // A field the screen edits but this lambda ignores is
+                    // echoed back unchanged on the next recomposition, so it
+                    // looks like typing into a box that erases itself - worse
+                    // than an unwired field, because it reads as a bug in the
+                    // keyboard rather than as something not finished.
+                    draftRelationship = draft.relationship
                 },
                 onSaveDraft = {
                     val edited = EmergencyContact(
                         name = draftName.trim(),
                         phone = draftPhone.trim(),
-                        isPrimary = draftPrimary
+                        isPrimary = draftPrimary,
+                        relationship = draftRelationship.trim()
                     )
                     if (edited.name.isNotBlank() && edited.phone.isNotBlank()) {
                         val index = draftIndex
@@ -1305,12 +1316,29 @@ fun MainNavGraph(
                     // The screens speak minutes; the wire takes seconds.
                     viewModel.setCheckInInterval(minutes * 60)
                 },
-                // These three ask the caller to raise a picker. There is no
-                // shared dialog layer in this build and adding one here would
-                // put screen chrome in the navigation graph, so they are left
-                // for whoever owns the device screens.
-                onEditQuietHours = {},
-                onEditMedicationTime = {},
+                // These two used to be `{}`, and the comment above them said a
+                // picker was left "for whoever owns the device screens". That
+                // is why the medication time could not be changed anywhere in
+                // the shipped app: the button existed, the route existed, and
+                // the handler did nothing. The screens set the value inline
+                // now, so there is no picker to raise and no dialog layer to
+                // add to the navigation graph.
+                onQuietWindowChange = { startHour, endHour ->
+                    quietStartHour = startHour
+                    quietEndHour = endHour
+                    // Only written through while the feature is on. Off is
+                    // carried by nulls on both ends, and writing a window here
+                    // would switch it back on behind the user.
+                    if (quietHoursEnabled) viewModel.setQuietHours(startHour, endHour)
+                },
+                onMedicationTimeChange = { hour, minute ->
+                    medicationHour = hour
+                    medicationMinute = minute
+                    if (medicationEnabled) viewModel.setMedicationTime(hour, minute)
+                },
+                // Still a picker, and still not raised here. Unlike the two
+                // above it is not dead: the device name is edited on the
+                // device-settings screen itself.
                 onEditDeviceName = {},
                 onBack = { navController.popBackStack() }
             )
@@ -1456,8 +1484,11 @@ fun MainNavGraph(
                         if (enabled) medicationMinute else null
                     )
                 },
-                // No picker layer, so the time itself cannot be changed here.
-                onEditMedicationTime = {},
+                onMedicationTimeChange = { hour, minute ->
+                    medicationHour = hour
+                    medicationMinute = minute
+                    if (medicationEnabled) viewModel.setMedicationTime(hour, minute)
+                },
                 onCheckInEnabledChange = { enabled ->
                     // An hour is the floor a re-enabled check-in falls back to,
                     // so switching it on never schedules a reminder every zero
