@@ -27,6 +27,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.safeshade.ui.shady.ShadyHost
+import com.safeshade.ui.shady.ShadyMood
 import com.safeshade.ui.theme.Radius
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.Stroke
@@ -246,7 +248,20 @@ fun EmptyBay(
     message: String,
     modifier: Modifier = Modifier,
     actionLabel: String? = null,
-    onAction: (() -> Unit)? = null
+    onAction: (() -> Unit)? = null,
+    /**
+     * Whether Shady keeps the bay company.
+     *
+     * On by default, because an empty bay is the one surface in the app that is
+     * empty *by definition* and therefore the one place a character costs
+     * nothing: there is no information for it to compete with, and "you have
+     * not set this up yet" is a friendlier sentence with somebody saying it.
+     *
+     * Off wherever the emptiness is itself the bad news — an emergency card
+     * that was never filled in, a contact list with nobody on it. Those want
+     * the plain statement, not a companion.
+     */
+    withShady: Boolean = true
 ) {
     val colors = MaterialTheme.board
     Column(
@@ -258,6 +273,16 @@ fun EmptyBay(
             .border(Stroke.hairline, colors.hairline, RoundedCornerShape(Radius.card))
             .padding(Spacing.xl)
     ) {
+        if (withShady) {
+            ShadyHost(
+                mood = ShadyMood.CALM,
+                // An empty bay is never itself an emergency, and `ShadyHost`
+                // enforces the suppression rule anyway if that ever changes.
+                emergencyActive = false,
+                size = 64.dp
+            )
+            Spacer(Modifier.height(Spacing.md))
+        }
         Text(
             text = message,
             style = MaterialTheme.typography.bodyMedium,

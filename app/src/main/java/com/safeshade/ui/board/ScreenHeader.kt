@@ -64,7 +64,11 @@ fun ScreenHeader(
     Column(modifier = modifier.fillMaxWidth()) {
         Spacer(Modifier.height(if (tier == ScreenTier.ROOT) Spacing.lg else Spacing.sm))
         Row(
-            verticalAlignment = Alignment.CenterVertically,
+            // Top, not centre. On a header with a subtitle the row is as tall
+            // as both lines, so a centred arrow drifts down beside the subtitle
+            // and stops reading as belonging to the title it sits next to —
+            // the same mistake the row icons used to make.
+            verticalAlignment = Alignment.Top,
             modifier = Modifier
                 .fillMaxWidth()
                 .defaultMinSize(minHeight = Spacing.touchTarget)
@@ -74,8 +78,10 @@ fun ScreenHeader(
                     onClick = onBack,
                     // Pulled back into the gutter so the arrow's optical edge
                     // lines up with the text below it rather than its 48dp
-                    // touch box, which would leave the title indented.
-                    modifier = Modifier.offset(x = (-12).dp)
+                    // touch box, which would leave the title indented. The
+                    // vertical nudge centres the 24dp glyph against the title's
+                    // own line box rather than against the 48dp touch target.
+                    modifier = Modifier.offset(x = (-12).dp, y = (-10).dp)
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Outlined.ArrowBack,

@@ -95,6 +95,7 @@ fun TelemetryScreen(
         if (!hasData) {
             item("empty") {
                 EmptyBay(
+                    withShady = false,
                     message = if (state.connection.isUsable) {
                         "No data yet. The wearable sends a reading about once a " +
                             "second once it has settled — this fills in shortly."

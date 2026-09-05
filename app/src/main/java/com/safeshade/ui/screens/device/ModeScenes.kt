@@ -313,7 +313,6 @@ private fun DrawScope.drawBehind(mode: PersonaMode, t: Float, s: Float, paint: S
     when (mode) {
         PersonaMode.KIDS -> drawSchoolPack(s, paint)
         PersonaMode.PET -> drawTail(s, t, paint)
-        PersonaMode.BACKPACK -> drawCommuterBag(s, paint)
         PersonaMode.AUTO -> {
             val hint = autoHint(t)
             if (hint.slot == 1) drawSchoolPack(s, paint, hint.fade)
@@ -330,7 +329,10 @@ private fun DrawScope.drawInFront(mode: PersonaMode, t: Float, s: Float, paint: 
         PersonaMode.PET -> drawCollar(s, paint)
         PersonaMode.HELMET -> drawHardHat(s, paint)
         PersonaMode.WRIST -> drawWristband(s, t, paint)
-        PersonaMode.BACKPACK -> drawBagStrap(s, paint)
+        PersonaMode.BACKPACK -> {
+            drawBagStrap(s, paint)
+            drawCommuterBag(s, paint)
+        }
         PersonaMode.AUTO -> {
             val hint = autoHint(t)
             when (hint.slot) {
@@ -602,33 +604,44 @@ private fun DrawScope.drawWristband(s: Float, t: Float, paint: ScenePaint, alpha
         center = Offset(cx, cy),
         style = Stroke(width = s * 0.014f)
     )
+    // Sized up from the hand it sits on rather than down to it. The wrist is
+    // the smallest place any of these props are worn, and a band scaled to look
+    // right against the body would be a smudge at the card's 124dp.
     drawRoundRect(
         color = paint.prop.at(alpha),
-        topLeft = Offset(cx - s * 0.068f, cy - s * 0.033f),
-        size = Size(s * 0.136f, s * 0.066f),
-        cornerRadius = corner(s, 0.022f)
+        topLeft = Offset(cx - s * 0.080f, cy - s * 0.040f),
+        size = Size(s * 0.160f, s * 0.080f),
+        cornerRadius = corner(s, 0.026f)
     )
     drawRoundRect(
         color = paint.light.at(alpha),
-        topLeft = Offset(cx - s * 0.040f, cy - s * 0.026f),
-        size = Size(s * 0.080f, s * 0.052f),
-        cornerRadius = corner(s, 0.014f)
+        topLeft = Offset(cx - s * 0.048f, cy - s * 0.031f),
+        size = Size(s * 0.096f, s * 0.062f),
+        cornerRadius = corner(s, 0.016f)
     )
     drawLine(
         color = paint.strap.at(alpha),
-        start = Offset(cx - s * 0.022f, cy),
-        end = Offset(cx + s * 0.022f, cy),
-        strokeWidth = s * 0.014f,
+        start = Offset(cx - s * 0.026f, cy),
+        end = Offset(cx + s * 0.026f, cy),
+        strokeWidth = s * 0.016f,
         cap = StrokeCap.Round
     )
 }
 
-/** BACKPACK: a commuter bag — lower than the school pack, flapped, single strap. */
+/**
+ * BACKPACK: a commuter bag, hung at the near hip.
+ *
+ * In front of the character rather than behind it, which is the one thing that
+ * separates this scene from KIDS at a glance. A pack drawn behind a body this
+ * wide shows about a tenth of itself down the left flank — enough to read as a
+ * slab of colour, not as a bag. A shoulder bag genuinely hangs at the front, so
+ * moving it there costs nothing in truthfulness and buys the whole silhouette.
+ */
 private fun DrawScope.drawCommuterBag(s: Float, paint: ScenePaint, alpha: Float = 1f) {
-    val x = 0f
-    val y = s * 0.455f
-    val w = s * 0.245f
-    val h = s * 0.305f
+    val x = s * 0.030f
+    val y = s * 0.575f
+    val w = s * 0.260f
+    val h = s * 0.270f
     drawRoundRect(
         color = paint.propShade.at(alpha),
         topLeft = Offset(x, y + s * 0.018f),
@@ -655,12 +668,18 @@ private fun DrawScope.drawCommuterBag(s: Float, paint: ScenePaint, alpha: Float 
     )
 }
 
-/** BACKPACK: the single strap across the chest that makes it a shoulder bag. */
+/**
+ * BACKPACK: the shoulder strap, down the near flank to the bag.
+ *
+ * It stays left of x 0.25 for the length of its run. A strap drawn across the
+ * chest would be a better-looking sash and would cross the left eye, which
+ * turns a commuter into a character with a line through its face.
+ */
 private fun DrawScope.drawBagStrap(s: Float, paint: ScenePaint, alpha: Float = 1f) {
     drawPath(
         path = Path().apply {
-            moveTo(s * 0.155f, s * 0.355f)
-            quadraticTo(s * 0.220f, s * 0.560f, s * 0.340f, s * 0.775f)
+            moveTo(s * 0.205f, s * 0.290f)
+            quadraticTo(s * 0.145f, s * 0.450f, s * 0.140f, s * 0.620f)
         },
         color = paint.strap.at(alpha),
         style = Stroke(width = s * 0.028f, cap = StrokeCap.Round)

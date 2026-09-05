@@ -184,6 +184,7 @@ fun LocateScreen(
         item("last") {
             if (state.lastKnownPlace == null && state.lastKnownCoordinates == null) {
                 EmptyBay(
+                    withShady = false,
                     message = "No position recorded yet. This fills in the first " +
                         "time your phone has both a location fix and the device " +
                         "in range."

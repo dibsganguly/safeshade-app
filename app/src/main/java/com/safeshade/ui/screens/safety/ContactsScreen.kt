@@ -148,6 +148,7 @@ private fun ContactList(
         if (state.contacts.isEmpty()) {
             item("empty") {
                 EmptyBay(
+                    withShady = false,
                     message = "No contacts yet. Until there is at least one, a detected fall " +
                         "sounds the siren on the device and stops there.",
                     actionLabel = "Add a contact",

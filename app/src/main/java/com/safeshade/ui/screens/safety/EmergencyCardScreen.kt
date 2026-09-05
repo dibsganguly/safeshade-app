@@ -135,6 +135,7 @@ fun EmergencyCardScreen(
             // to a header and no details is worse than no card at all — it
             // reads as "we checked, there is nothing wrong with this person".
             EmptyBay(
+                withShady = false,
                 message = "There is nothing on the card yet. Add a blood type, an allergy or a " +
                     "contact number and it becomes something a responder can use.",
                 actionLabel = "Fill in the medical ID",

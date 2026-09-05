@@ -104,7 +104,7 @@ fun DeveloperScreen(
             // Belt and braces. If this ever renders in a release build, it says
             // so and offers nothing, rather than half-working.
             item("release") {
-                EmptyBay(message = "Developer tools are only available in debug builds.")
+                EmptyBay(message = "Developer tools are only available in debug builds.", withShady = false)
             }
             return@LazyColumn
         }
@@ -127,6 +127,7 @@ fun DeveloperScreen(
         if (state.scenarios.isEmpty()) {
             item("sim-empty") {
                 EmptyBay(
+                    withShady = false,
                     message = "No scenarios were supplied. The debug source set owns " +
                         "the list; this screen only renders it."
                 )

@@ -129,3 +129,54 @@ Complete replacement. See `DESIGN.md` for the built system.
 - **Compose is pinned below the current release.** BOM `2026.06.01` (Compose 1.11.4) is the newest
   train that compiles against `compileSdk 36`; Compose 1.12 / navigation 2.10 / lifecycle 2.11 all
   require compileSdk 37 and AGP 9.2.0. Moving to those is a separate, isolated change.
+
+---
+
+## 3. v2.1.0 — what this pass changed, and what firmware still owes it
+
+Written 2026-09-05. App only; no firmware was touched.
+
+### 3.1 Firmware follow-up needed: relaying a phone SOS over the gateway
+
+The app now has an SOS control in its own bottom bar (hold five seconds). It sends by **phone SMS**
+to every emergency contact, and separately writes the same text to `MESSAGE_CHAR` so the wearable
+buzzes and shows the alert.
+
+What it deliberately does **not** do is ask the device to relay the alert onward over its own
+cellular gateway. There is no wire format for that:
+
+- `DeviceProtocol` exposes `CMD_FIND` as a bare command plus a generic `writeExt(tag, payload)`.
+- `handoff2.md` §0.3-4 records `ALERT_CHAR` as device→app notify-only, with nothing for the app to
+  send on it.
+- `MessagingRepository.sendGuardianMessage`'s own SMS fallback targets `devicePhoneNumber` — the
+  device SIM — not the emergency contact.
+
+So a phone-raised SOS currently reaches a contact **only** if the phone itself has signal and the
+`SEND_SMS` grant. On a wearer whose phone is dead or out of coverage but whose wearable has a
+cellular link, the alert does not go out.
+
+**Closing that needs a new EXT tag and a firmware handler** — something on the order of
+`EXT SOSRELAY:<e164>,<text>`, with the gateway sending it and acking so the app can report per
+contact honestly rather than optimistically. This is a real gap in the product promise and is worth
+a decision rather than being left implicit.
+
+### 3.2 A permission that was declared and never requested
+
+`android.permission.SEND_SMS` was in the manifest from early on and was requested **nowhere**. It is
+a dangerous permission at `minSdk 26`, so `sendSmsText` returned `PermissionMissing` on every
+install, silently — which meant the SMS fallback in `AlertActionReceiver.notifyContactsBySms` and in
+`ReminderReceiver` had never once worked in the field either.
+
+It is now requested at the SOS guard rather than in the cold-start batch, because a restricted
+permission asked for before the user has seen anything that sends a text reads as overreach.
+
+Worth knowing when testing: **every SOS test sends real SMS to real people.** Point the emergency
+contact at a spare SIM first, and note that a message carrying a maps link is routinely two
+segments.
+
+### 3.3 Trip kinds
+
+`TripKind.PHONE_SOS` was added alongside `SOS`, so the trip log stops claiming a phone-raised alert
+came from the device's physical button. Enum values are persisted by name (`Dtos.kt`,
+`enumOrDefault`), so an older build reading a newer store degrades it to `FALL` rather than shifting
+ordinals — still an alert in the log.

@@ -97,6 +97,7 @@ fun PairedDevicesScreen(
         if (state.devices.isEmpty()) {
             item("empty") {
                 EmptyBay(
+                    withShady = false,
                     message = "No SafeShade device saved yet. Pairing takes a few " +
                         "seconds and only has to be done once.",
                     actionLabel = if (state.permissionsGranted) "Pair a device" else "Grant permissions",

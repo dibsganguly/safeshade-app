@@ -392,7 +392,7 @@ private fun ModeCarousel(
 /**
  * A page height that survives large text.
  *
- * The 316dp base is the card at default scale with a two-line blurb and the
+ * The 300dp base is the card at default scale with a three-line blurb and the
  * acknowledgement line present. The rest is headroom bought at the same rate
  * the text grows, so the sensitivity row at the foot of the card stays inside
  * it at a 1.3 font scale — which is not a hypothetical on a product whose
@@ -400,7 +400,7 @@ private fun ModeCarousel(
  */
 @Composable
 private fun carouselHeight() =
-    316.dp + ((LocalDensity.current.fontScale - 1f).coerceAtLeast(0f) * 150f).dp
+    300.dp + ((LocalDensity.current.fontScale - 1f).coerceAtLeast(0f) * 150f).dp
 
 /** Position in the set. Decoration — the counter beside the section heading says it in words. */
 @Composable
@@ -496,7 +496,12 @@ private fun ModeCard(
                         .background(accent)
                 )
 
-                Column(modifier = Modifier.fillMaxSize().padding(Spacing.lg)) {
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .padding(Spacing.lg)
+                ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
                             imageVector = mode.icon,
@@ -603,21 +608,15 @@ private fun AutoHero(
             BusTick(state = lamp, modifier = Modifier.fillMaxHeight())
 
             Column(modifier = Modifier.weight(1f).padding(Spacing.lg)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = PersonaMode.AUTO.label,
-                            style = MaterialTheme.typography.headlineSmall,
-                            color = colors.ink
-                        )
-                        Text(
-                            // Identity type at full accent strength — the one
-                            // place the hero states which colour it is.
-                            text = "The device's own default",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = accent
-                        )
-                    }
+                // The state word gets a line of its own above the title rather
+                // than sharing one with it. Sharing cost the heading four
+                // characters of width, which is exactly enough to break
+                // "Adaptive" across two lines on a 393dp phone.
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Text(
                         text = stateWord.uppercase(),
                         style = MaterialTheme.boardType.stateLabel,
@@ -626,6 +625,19 @@ private fun AutoHero(
                     Spacer(Modifier.width(Spacing.sm))
                     PilotLamp(state = lamp, size = 18.dp)
                 }
+                Spacer(Modifier.height(Spacing.xs))
+                Text(
+                    text = PersonaMode.AUTO.label,
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = colors.ink
+                )
+                Text(
+                    // Identity type at full accent strength — the one place the
+                    // hero states which colour it is.
+                    text = "The device's own default",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = accent
+                )
 
                 Spacer(Modifier.height(Spacing.md))
                 Text(
@@ -661,7 +673,7 @@ private fun AutoHero(
 
             Box(
                 modifier = Modifier
-                    .width(124.dp)
+                    .width(108.dp)
                     .fillMaxHeight()
                     .background(accent.copy(alpha = if (colors.isDark) 0.16f else 0.12f)),
                 contentAlignment = Alignment.Center
@@ -669,7 +681,7 @@ private fun AutoHero(
                 ModeScene(
                     mode = PersonaMode.AUTO,
                     accent = accent,
-                    size = 104.dp,
+                    size = 96.dp,
                     modifier = Modifier.padding(Spacing.sm)
                 )
             }
