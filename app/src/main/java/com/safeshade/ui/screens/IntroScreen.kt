@@ -123,7 +123,13 @@ fun IntroScreen(
         }
     }
     // The plate spans the whole lockup, as it does in the supplied logo. Now
-    // that the wordmark half is measured, this is the real drawn width.
+    // that the wordmark half is measured, this is the real drawn width - and
+    // it only became real once `brand_tagline.png` was cropped to its content.
+    // The artwork carried transparent margins on all four sides, so the pill
+    // occupied 90.2% of the canvas and `width(taglineWidth)` sized the canvas,
+    // not the pill: the plate rendered about a tenth narrower than the mark
+    // above it no matter what number went in here. Measured off a device
+    // screenshot, not reasoned about - it is invisible in a preview.
     val taglineWidth = EMBLEM_W + Spacing.md + wordmarkWidth
 
     // A single 0..1 clock. Every element below is a window onto it, which is
