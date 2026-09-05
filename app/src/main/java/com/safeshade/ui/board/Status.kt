@@ -49,6 +49,8 @@ fun MainsPlate(
     modifier: Modifier = Modifier,
     batteryPercent: Int? = null,
     signalDbm: Int? = null,
+    /** Who the device is looking after. The contract's "who is protected". */
+    protectedName: String? = null,
     trailing: (@Composable () -> Unit)? = null
 ) {
     val colors = MaterialTheme.board
@@ -89,9 +91,18 @@ fun MainsPlate(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = Spacing.lg, vertical = Spacing.md),
-            horizontalArrangement = Arrangement.spacedBy(Spacing.xl)
+                .padding(horizontal = Spacing.lg, vertical = Spacing.md)
         ) {
+            // Three weighted slots rather than two left-packed ones. Two
+            // readouts in a full-width bay left a void down the right side,
+            // which read as a bay that had not finished loading rather than one
+            // whose instruments are simply unlit.
+            Readout(
+                label = "Protecting",
+                value = protectedName?.takeIf { it.isNotBlank() } ?: "Not set",
+                state = if (protectedName.isNullOrBlank()) LampState.ATTENTION else null,
+                modifier = Modifier.weight(1.2f)
+            )
             Readout(
                 label = "Battery",
                 value = batteryPercent?.let { "$it%" } ?: "—",
@@ -101,12 +112,14 @@ fun MainsPlate(
                         it <= 30 -> LampState.ATTENTION
                         else -> null
                     }
-                }
+                },
+                modifier = Modifier.weight(1f)
             )
             Readout(
                 label = "Signal",
-                value = signalDbm?.let { "$it dBm" } ?: "—",
-                state = signalDbm?.let { if (it < -90) LampState.ATTENTION else null }
+                value = signalDbm?.let { "$it" } ?: "—",
+                state = signalDbm?.let { if (it < -90) LampState.ATTENTION else null },
+                modifier = Modifier.weight(1f)
             )
         }
     }

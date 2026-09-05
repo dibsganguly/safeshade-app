@@ -70,6 +70,8 @@ data class BoardUiState(
     val connection: ConnectionState = ConnectionState.Disconnected,
     val role: UserRole = UserRole.GUARDIAN,
     val headline: String = "",
+    /** Who the device looks after, for the mains plate's instrument bay. */
+    val protectedName: String = "",
     val subline: String = "",
     val batteryPercent: Int? = null,
     val signalDbm: Int? = null,
@@ -153,6 +155,7 @@ fun BoardScreen(
                 subline = state.subline,
                 batteryPercent = state.batteryPercent,
                 signalDbm = state.signalDbm,
+                protectedName = state.protectedName,
                 // Shady rides in the plate's trailing slot rather than floating
                 // over it. Overlaying the mascot on the headline was legible
                 // with a short status and unreadable with a long one, which is
@@ -171,11 +174,30 @@ fun BoardScreen(
             )
         }
 
-        // The connect control only appears when there is something to do about
-        // the link. When it is up and working, a "disconnect" button is noise
-        // on the one screen that should be readable at a glance.
-        if (lamp != LampState.LIVE) {
-            item("connect") {
+        // One primary action slot, whose contents follow the link.
+        //
+        // Showing "connect" and a disabled "ring" together wastes the most
+        // valuable row on the screen on a control that cannot be pressed. When
+        // there is no link, connecting is the only thing worth offering; the
+        // moment there is one, ringing takes the same slot — which is also how
+        // TEST · RING DEVICE ends up in the first viewport rather than below
+        // the fold, in the only state where it does anything.
+        item("primary-action") {
+            if (lamp == LampState.LIVE) {
+                BoardButton(
+                    label = if (state.isRinging) "Ringing" else "Test — ring device",
+                    supporting = if (state.isRinging) {
+                        "Tap the button on the device to stop the siren"
+                    } else {
+                        "Sounds the siren so you can find it"
+                    },
+                    icon = Icons.Outlined.NotificationsActive,
+                    onClick = onRing,
+                    enabled = !state.isRinging,
+                    weight = ButtonWeight.PRIMARY,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            } else {
                 BoardButton(
                     label = if (state.permissionsGranted) connectLabel(state.connection) else "Grant permissions",
                     supporting = if (state.permissionsGranted) null else "Bluetooth and location are needed to find the device",
@@ -253,23 +275,6 @@ fun BoardScreen(
             }
         }
 
-        item("test") {
-            Column {
-                BoardButton(
-                    label = if (state.isRinging) "Ringing" else "Test — ring device",
-                    supporting = if (state.isRinging) {
-                        "Tap the button on the device to stop the siren"
-                    } else {
-                        "Sounds the siren so you can find it"
-                    },
-                    icon = Icons.Outlined.NotificationsActive,
-                    onClick = onRing,
-                    enabled = lamp == LampState.LIVE && !state.isRinging,
-                    weight = ButtonWeight.SECONDARY,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        }
     }
 }
 

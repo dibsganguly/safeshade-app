@@ -323,6 +323,7 @@ fun MainNavGraph(
                 state = BoardUiState(
                     connection = state.connection,
                     role = state.role,
+                    protectedName = state.deviceSettings.wearerName,
                     headline = boardHeadline(state.connection, state.role, state.wearerName),
                     subline = boardSubline(state, permissionsGranted),
                     batteryPercent = state.telemetry.batteryLevel.takeIf { state.telemetry.isRealData },

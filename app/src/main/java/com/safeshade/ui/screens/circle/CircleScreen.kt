@@ -583,10 +583,12 @@ private fun QuickMessageRow(
             .defaultMinSize(minHeight = Spacing.touchTarget)
             .padding(horizontal = Spacing.lg, vertical = Spacing.md)
     ) {
-        Text(
+        // Set as a nameplate, like every other control in the system. These
+        // are buttons, not quoted message text, and body type here made the
+        // plate read as a component borrowed from another app.
+        Nameplate(
             text = text,
-            style = MaterialTheme.typography.bodyLarge,
-            color = if (enabled) colors.ink else colors.inkFaint,
+            muted = !enabled,
             modifier = Modifier.weight(1f)
         )
         Icon(
