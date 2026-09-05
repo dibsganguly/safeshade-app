@@ -23,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.safeshade.data.FallSensitivity
@@ -523,16 +524,26 @@ private fun ValueRow(
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Nameplate(label, small = true, muted = true)
+            // The value competes with a fixed-size trailing button for the
+            // row's width — at "Device name" a long user-typed string had
+            // nowhere to go and wrapped across several lines, pushing the
+            // button off-centre. One line with an ellipsis keeps the row's
+            // height predictable; the full value is still visible in the
+            // rename dialog this button opens.
             Text(
                 text = value,
                 style = MaterialTheme.typography.bodyLarge,
-                color = colors.ink
+                color = colors.ink,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
             if (supporting != null) {
                 Text(
                     text = supporting,
                     style = MaterialTheme.typography.bodySmall,
-                    color = colors.inkFaint
+                    color = colors.inkFaint,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
         }

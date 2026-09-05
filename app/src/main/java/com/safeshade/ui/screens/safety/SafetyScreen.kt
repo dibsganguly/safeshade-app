@@ -167,11 +167,14 @@ fun SafetyScreen(
         // emergency happening now, and it looked exactly like every other row.
         // Matching the SOS makes it findable at a glance, which is the only
         // property that matters here. Nothing dials on its own; the supporting
-        // line still says so.
+        // line still says so — kept short because BoardButton centres this
+        // text inside Spacing.lg of horizontal padding with no maxLines
+        // guard, and the original two-clause sentence wrapped to three lines
+        // on a narrow phone at a raised font scale.
         item("services") {
             BoardButton(
                 label = "Emergency numbers",
-                supporting = "112 and seven other Indian services. Opens the dialer; never calls by itself.",
+                supporting = "112 and 7 more. Opens the dialer — never calls by itself.",
                 icon = SafeShadeIcons.Police,
                 onClick = onOpenServices,
                 weight = ButtonWeight.DANGER,

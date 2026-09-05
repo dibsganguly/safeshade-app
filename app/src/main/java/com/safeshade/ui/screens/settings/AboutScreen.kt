@@ -108,7 +108,12 @@ fun AboutScreen(
                     Image(
                         painter = painterResource(R.drawable.splash_emblem),
                         contentDescription = "SafeShade emblem",
-                        modifier = Modifier.size(72.dp)
+                        // Height, not size. Since the drawable was cropped to
+                        // its content it is a 0.65-aspect mark, so a square box
+                        // reserved 72dp of width for a 47dp-wide image. Same
+                        // correction the masthead, the intro and onboarding
+                        // carry.
+                        modifier = Modifier.height(72.dp)
                     )
                     Spacer(Modifier.height(Spacing.md))
                     Text(
@@ -204,13 +209,21 @@ private fun BlockedFeatureCard(
             )
         }
         Hairline()
+        // Neither side of this row had a weight, and `feature.blocker` is a
+        // two-to-three sentence explanation — with no constraint on its
+        // width, Compose gave it a single unbroken line and let it run off
+        // the right edge of the screen instead of wrapping. The label is
+        // short and fixed ("Blocked by"), so it keeps its natural width
+        // unweighted; the explanation gets the weight so it wraps into the
+        // space that's left.
         Row(modifier = Modifier.padding(Spacing.lg)) {
             Nameplate("Blocked by", small = true, muted = true)
             Spacer(Modifier.width(Spacing.md))
             Text(
                 text = feature.blocker,
                 style = MaterialTheme.typography.bodySmall,
-                color = colors.inkMuted
+                color = colors.inkMuted,
+                modifier = Modifier.weight(1f)
             )
         }
     }

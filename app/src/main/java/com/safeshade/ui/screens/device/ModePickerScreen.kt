@@ -510,10 +510,19 @@ private fun ModeCard(
                             modifier = Modifier.size(22.dp)
                         )
                         Spacer(Modifier.width(Spacing.sm))
+                        // The label is weighted so the state word (a short,
+                        // fixed vocabulary: SENDING/LAST SET/RUNNING) is
+                        // measured first and always stays whole — but a
+                        // weighted Text still wraps by default when squeezed,
+                        // which broke a long mode label into two lines and
+                        // threw off the row's vertical centering against the
+                        // icon and lamp. One line with an ellipsis instead.
                         Text(
                             text = mode.label,
                             style = MaterialTheme.typography.headlineSmall,
                             color = colors.ink,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f)
                         )
                         Text(

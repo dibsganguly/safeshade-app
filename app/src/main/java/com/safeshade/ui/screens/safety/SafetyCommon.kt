@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
@@ -425,7 +426,13 @@ internal fun DetailLine(
             .fillMaxWidth()
             .padding(vertical = Spacing.xs)
     ) {
-        Box(modifier = Modifier.width(112.dp)) {
+        // A hard 112dp label column doesn't survive a raised font scale: a
+        // label like "Temperature" or "Device said" no longer fits at that
+        // width once text is scaled up, and wraps inside the fixed box while
+        // the value column (which does get to grow) sits there unused. A
+        // minimum instead of a fixed width keeps short labels aligned at the
+        // default scale but lets the column grow with the label's own text.
+        Box(modifier = Modifier.widthIn(min = 112.dp)) {
             Nameplate(label, small = true, muted = true)
         }
         Text(

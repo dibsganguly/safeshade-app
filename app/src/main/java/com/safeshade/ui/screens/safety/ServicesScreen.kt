@@ -105,10 +105,18 @@ fun ServicesScreen(
             // 112 gets the whole width and the top of the screen because it
             // reaches police, fire and ambulance together — someone who does
             // not know which service they need still gets the right one.
+            //
+            // The supporting line used to append ". Opens the dialer; you
+            // press call." to the blurb — a second clause that made this
+            // BoardButton's centred, unwrapped text three lines deep on a
+            // narrow phone at a raised font scale. Dropped rather than
+            // shortened: the header above already promises "Nothing here
+            // calls on its own", so restating it per-button was duplicate
+            // information, not just long information.
             item("primary") {
                 BoardButton(
                     label = "112 — ${primary.label}",
-                    supporting = "${primary.blurb}. Opens the dialer; you press call.",
+                    supporting = primary.blurb,
                     icon = SafeShadeIcons.Police,
                     onClick = { dial(primary.number) },
                     weight = ButtonWeight.PRIMARY,

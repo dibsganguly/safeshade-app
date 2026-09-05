@@ -19,6 +19,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.safeshade.data.PersonaMode
@@ -285,17 +286,27 @@ private fun ScheduleRow(
             .heightIn(min = Spacing.touchTarget)
             .padding(horizontal = Spacing.lg, vertical = Spacing.md)
     ) {
+        // Same shape as DeviceSettingsScreen's ValueRow, and the same fix: a
+        // weighted label column beside a fixed-size button, but with no
+        // guard on the value/supporting text — safe today only because
+        // "value" happens to always be a short time string, which is the
+        // kind of assumption that breaks the next time this row is reused
+        // for something longer. Capped defensively rather than left bare.
         Column(modifier = Modifier.weight(1f)) {
             Nameplate(label, small = true, muted = true)
             Text(
                 text = value,
                 style = MaterialTheme.typography.bodyLarge,
-                color = colors.ink
+                color = colors.ink,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
             Text(
                 text = supporting,
                 style = MaterialTheme.typography.bodySmall,
-                color = colors.inkFaint
+                color = colors.inkFaint,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
             )
         }
         BoardButton(

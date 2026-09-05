@@ -52,6 +52,7 @@ import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.board
+import com.safeshade.ui.theme.boardType
 
 /**
  * A summary row on the hub, in the shape a `Way` needs.
@@ -150,6 +151,13 @@ fun CircleScreen(
     val other = counterpartName(state.role, state.wearerName, state.guardianName)
     val headlineName = counterpartHeadline(state.role, state.wearerName, state.guardianName)
 
+    // No single spacedBy gap for the whole list any more. A flat 16dp between
+    // every item put a section heading as far from the card it labels as that
+    // card was from the next heading, which is what made the screen read as
+    // one undifferentiated stack rather than a set of grouped sections. Each
+    // item below carries its own top gap instead: tight (sm) under a heading
+    // it labels, looser (md) between blocks still inside the same section, and
+    // loosest (xl) where one section ends and the next begins.
     LazyColumn(
         state = listState,
         modifier = modifier.fillMaxSize(),
@@ -158,8 +166,7 @@ fun CircleScreen(
             end = Spacing.gutter,
             top = contentPadding.calculateTopPadding() + Spacing.sm,
             bottom = contentPadding.calculateBottomPadding() + Spacing.xxl
-        ),
-        verticalArrangement = Arrangement.spacedBy(Spacing.lg)
+        )
     ) {
         item("title") {
             // A tab root, so it takes the ROOT tier — the same weight the
@@ -180,13 +187,14 @@ fun CircleScreen(
         }
 
         item("person") {
-            PersonPlate(state = state, name = headlineName)
+            PersonPlate(state = state, name = headlineName, modifier = Modifier.padding(top = Spacing.lg))
         }
 
         // ---- Messages
         item("messages-heading") {
             SectionPlate(
-                title = if (state.unreadCount > 0) "Messages · ${state.unreadCount} new" else "Messages"
+                title = if (state.unreadCount > 0) "Messages · ${state.unreadCount} new" else "Messages",
+                modifier = Modifier.padding(top = Spacing.xl)
             )
         }
 
@@ -200,10 +208,11 @@ fun CircleScreen(
                             "Nothing yet. Messages from $other appear here and on the device."
                     },
                     actionLabel = "Open messages",
-                    onAction = onOpenThread
+                    onAction = onOpenThread,
+                    modifier = Modifier.padding(top = Spacing.sm)
                 )
             } else {
-                BoardPlate(modifier = Modifier.fillMaxWidth()) {
+                BoardPlate(modifier = Modifier.fillMaxWidth().padding(top = Spacing.sm)) {
                     state.recentMessages.forEachIndexed { index, message ->
                         if (index > 0) Hairline()
                         MessagePreviewRow(
@@ -220,7 +229,13 @@ fun CircleScreen(
 
         if (state.quickMessages.isNotEmpty()) {
             item("quick") {
-                Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+                    // Still the Messages section, so a medium gap rather than
+                    // the tight one a heading gets or the loose one between
+                    // sections.
+                    modifier = Modifier.padding(top = Spacing.md)
+                ) {
                     // One plate of rows rather than a 2x2 grid of identical
                     // outlined buttons. Four same-sized boxes give every option
                     // equal weight and none of them any shape, so the eye has
@@ -254,7 +269,8 @@ fun CircleScreen(
                 label = "Write a message",
                 onClick = onOpenThread,
                 weight = ButtonWeight.QUIET,
-                modifier = Modifier.fillMaxWidth()
+                // Same section as the plate above it, not a new one.
+                modifier = Modifier.fillMaxWidth().padding(top = Spacing.md)
             )
         }
 
@@ -262,6 +278,7 @@ fun CircleScreen(
         item("place-heading") {
             SectionPlate(
                 title = "Where",
+                modifier = Modifier.padding(top = Spacing.xl),
                 trailing = {
                     IconButton(onClick = onRefreshLocation, enabled = !state.isRefreshingLocation) {
                         Icon(
@@ -276,16 +293,16 @@ fun CircleScreen(
         }
 
         item("place") {
-            PlacePlate(state = state, name = other)
+            PlacePlate(state = state, name = other, modifier = Modifier.padding(top = Spacing.sm))
         }
 
         // ---- The standing arrangements
         item("arrangements-heading") {
-            SectionPlate(title = "Arrangements")
+            SectionPlate(title = "Arrangements", modifier = Modifier.padding(top = Spacing.xl))
         }
 
         item("arrangements") {
-            BoardPlate(modifier = Modifier.fillMaxWidth()) {
+            BoardPlate(modifier = Modifier.fillMaxWidth().padding(top = Spacing.sm)) {
                 Way(
                     name = "Safe zones",
                     state = state.zones.state,
@@ -329,36 +346,79 @@ fun CircleScreen(
 /**
  * Who this screen is about, and whether they can be reached.
  *
+ * The hero of the screen, built to the same anatomy as `MainsPlate` — the
+ * strongest card in the app — because the question this card answers
+ * ("who, and can I reach them") is the Circle tab's equivalent of "is the
+ * device on". Headline, one subline, a rule, then a readout strip for the
+ * live facts: link state, last seen, and how many messages are waiting.
+ *
  * The headline is a person's name, not a device name. On the Board the subject
  * is the wearable; here it is deliberately the human being at the other end,
  * because that is the difference between the two tabs.
+ *
+ * The lamp used to lead the row, level with and competing against the name for
+ * the same line. It now sits with the state word in its own column at the top
+ * right, the way a panel's pilot light sits apart from the circuit label it
+ * lights for. That column is laid out in the row rather than overlaid on the
+ * card corner — a state word is real text, not a fixed glyph like `StubMark`,
+ * and it has to be free to grow at a raised font scale without drifting over
+ * the name beside it.
  */
 @Composable
-private fun PersonPlate(state: CircleUiState, name: String) {
+private fun PersonPlate(state: CircleUiState, name: String, modifier: Modifier = Modifier) {
     val colors = MaterialTheme.board
 
-    BoardPlate(modifier = Modifier.fillMaxWidth()) {
+    BoardPlate(modifier = modifier.fillMaxWidth()) {
         Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(Spacing.lg)
+            verticalAlignment = Alignment.Top,
+            modifier = Modifier.fillMaxWidth().padding(Spacing.lg)
         ) {
-            PilotLamp(state = state.linkState, size = 22.dp, description = state.linkLabel)
-            Spacer(Modifier.width(Spacing.md))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = name,
                     style = MaterialTheme.typography.headlineSmall,
                     color = colors.ink
                 )
+                Spacer(Modifier.height(Spacing.xs))
                 Text(
                     text = state.subline.ifBlank { defaultSubline(state) },
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.boardType.rowDetail,
                     color = colors.inkMuted
                 )
             }
-            Spacer(Modifier.width(Spacing.sm))
-            // The state word beside the lamp, never the lamp on its own.
-            Nameplate(state.linkLabel, small = true, muted = true)
+            Spacer(Modifier.width(Spacing.md))
+            Column(horizontalAlignment = Alignment.End) {
+                PilotLamp(state = state.linkState, size = 22.dp, description = state.linkLabel)
+                Spacer(Modifier.height(Spacing.xs))
+                Nameplate(state.linkLabel, small = true, muted = true)
+            }
+        }
+
+        Hairline()
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = Spacing.lg, vertical = Spacing.md)
+        ) {
+            Readout(
+                label = "Link",
+                value = state.linkLabel,
+                state = state.linkState,
+                modifier = Modifier.weight(1.2f)
+            )
+            Readout(
+                label = "Last seen",
+                value = state.lastSeenLabel ?: "Not yet",
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.weight(1f)
+            )
+            Readout(
+                label = "Messages",
+                value = if (state.unreadCount > 0) "${state.unreadCount} new" else "None waiting",
+                state = if (state.unreadCount > 0) LampState.ATTENTION else null,
+                horizontalAlignment = Alignment.End,
+                modifier = Modifier.weight(1f)
+            )
         }
     }
 }
@@ -371,58 +431,74 @@ private fun defaultSubline(state: CircleUiState): String = when (state.role) {
 
 /** Last known place, how old it is, and the coordinates behind it. */
 @Composable
-private fun PlacePlate(state: CircleUiState, name: String) {
+private fun PlacePlate(state: CircleUiState, name: String, modifier: Modifier = Modifier) {
     val colors = MaterialTheme.board
+    // "Last seen" is about the phone's own fix, not a satellite lock on the
+    // wearable, and both the state word and the fallback copy below must not
+    // imply otherwise.
+    val freshnessWord = when (state.locationState) {
+        LampState.LIVE -> "Recent"
+        LampState.ATTENTION -> "Getting old"
+        LampState.TRIP -> "Stale"
+        else -> "No fix yet"
+    }
 
-    BoardPlate(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(Spacing.lg)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                PilotLamp(
-                    state = state.locationState,
-                    description = when (state.locationState) {
-                        LampState.LIVE -> "Recent"
-                        LampState.ATTENTION -> "Getting old"
-                        LampState.TRIP -> "Stale"
-                        else -> "No location yet"
-                    }
-                )
-                Spacer(Modifier.width(Spacing.sm))
+    BoardPlate(modifier = modifier.fillMaxWidth()) {
+        Row(
+            verticalAlignment = Alignment.Top,
+            modifier = Modifier.fillMaxWidth().padding(Spacing.lg)
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = state.placeLabel ?: "No place known yet",
                     style = MaterialTheme.typography.bodyLarge,
-                    color = colors.ink,
+                    color = colors.ink
+                )
+                Spacer(Modifier.height(Spacing.xs))
+                Text(
+                    text = state.lastSeenLabel ?: when (state.role) {
+                        UserRole.GUARDIAN -> "No location has reached this phone yet."
+                        UserRole.COMPANION -> "This phone has not recorded a location yet."
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.inkMuted
+                )
+            }
+            Spacer(Modifier.width(Spacing.md))
+            Column(horizontalAlignment = Alignment.End) {
+                PilotLamp(state = state.locationState, description = freshnessWord)
+                Spacer(Modifier.height(Spacing.xs))
+                Nameplate(freshnessWord, small = true, muted = true)
+            }
+        }
+
+        if (state.lat != null && state.lon != null) {
+            Hairline()
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = Spacing.lg, vertical = Spacing.md)
+            ) {
+                Readout(label = "Latitude", value = "%.5f".format(state.lat), modifier = Modifier.weight(1f))
+                Readout(
+                    label = "Longitude",
+                    value = "%.5f".format(state.lon),
+                    horizontalAlignment = Alignment.End,
                     modifier = Modifier.weight(1f)
                 )
             }
+        }
 
-            Spacer(Modifier.height(Spacing.sm))
+        if (state.role == UserRole.GUARDIAN) {
+            // The header block above always closes with its own bottom
+            // Spacing.lg, lat/lon row or not, so this needs no top gap of its
+            // own to avoid stacking two margins into one oversized one.
             Text(
-                // "Last seen" is about the phone's own fix, not a satellite
-                // lock on the wearable, and the copy must not imply otherwise.
-                text = state.lastSeenLabel ?: when (state.role) {
-                    UserRole.GUARDIAN -> "No location has reached this phone yet."
-                    UserRole.COMPANION -> "This phone has not recorded a location yet."
-                },
+                text = "$name is told nothing when you look at this.",
                 style = MaterialTheme.typography.bodySmall,
-                color = colors.inkMuted
+                color = colors.inkFaint,
+                modifier = Modifier.padding(start = Spacing.lg, end = Spacing.lg, bottom = Spacing.lg)
             )
-
-            if (state.lat != null && state.lon != null) {
-                Spacer(Modifier.height(Spacing.md))
-                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xl)) {
-                    Readout(label = "Latitude", value = "%.5f".format(state.lat))
-                    Readout(label = "Longitude", value = "%.5f".format(state.lon))
-                }
-            }
-
-            if (state.role == UserRole.GUARDIAN) {
-                Spacer(Modifier.height(Spacing.sm))
-                Text(
-                    text = "$name is told nothing when you look at this.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colors.inkFaint
-                )
-            }
         }
     }
 }
