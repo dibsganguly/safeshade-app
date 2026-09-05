@@ -1,0 +1,275 @@
+package com.safeshade.ui.screens.safety
+
+import android.content.res.Configuration
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.PhoneCallback
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import com.safeshade.ui.board.BoardButton
+import com.safeshade.ui.board.BoardPlate
+import com.safeshade.ui.board.ButtonWeight
+import com.safeshade.ui.board.Hairline
+import com.safeshade.ui.board.LampState
+import com.safeshade.ui.board.SectionPlate
+import com.safeshade.ui.board.StubMark
+import com.safeshade.ui.board.Way
+import com.safeshade.ui.theme.SafeShadeTheme
+import com.safeshade.ui.theme.Spacing
+import com.safeshade.ui.theme.board
+
+/** Everything the silent SOS screen draws. */
+data class SilentSosUiState(
+    val silentSosEnabled: Boolean = false,
+    /**
+     * The delay of the call that is currently staged, in seconds, or null when
+     * nothing is staged. Kept as the scheduled delay rather than a countdown so
+     * this screen never has to own a ticking clock.
+     */
+    val stagedCallSeconds: Int? = null,
+    /** The name the staged call shows. Something ordinary works best. */
+    val callerName: String = "Home",
+    val hasContacts: Boolean = false,
+    /**
+     * Whether the wearable can raise an alert without making a sound. False on
+     * current firmware, which always shows and sounds an SOS.
+     */
+    val deviceSupportsSilentAlert: Boolean = false
+)
+
+/** The staged-call delays offered, in seconds. */
+private val CallDelayChoices = listOf(10, 30, 60, 300)
+
+/**
+ * Two ways out of a situation you cannot talk your way out of.
+ *
+ * They are different tools and the screen keeps them apart:
+ *
+ *  - **Silent SOS** tells your contacts. It makes no sound, shows nothing, and
+ *    leaves no trace on the screen a person standing next to you can see.
+ *  - **A staged call** tells nobody. It gives you a reason to leave a room, a
+ *    car, or a conversation without explaining yourself.
+ *
+ * The copy is plain to the point of bluntness because the person reading it is
+ * making a safety judgement about their own situation, and a euphemism here
+ * costs them accuracy. There is no reassurance in the wording and no promise
+ * that either of these makes anybody safe.
+ */
+@Composable
+fun SilentSosScreen(
+    state: SilentSosUiState,
+    onBack: () -> Unit,
+    onSilentSosChange: (Boolean) -> Unit,
+    onStageCall: (Int) -> Unit,
+    onCancelStagedCall: () -> Unit,
+    onOpenContacts: () -> Unit,
+    modifier: Modifier = Modifier,
+    contentPadding: PaddingValues = PaddingValues(0.dp)
+) {
+    val colors = MaterialTheme.board
+
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .background(colors.ground)
+            .verticalScroll(rememberScrollState())
+            .padding(
+                start = Spacing.gutter,
+                end = Spacing.gutter,
+                top = contentPadding.calculateTopPadding() + Spacing.sm,
+                bottom = contentPadding.calculateBottomPadding() + Spacing.xxl
+            )
+    ) {
+        PanelHeader(
+            title = "Silent SOS",
+            subtitle = "For when being seen asking for help is the problem.",
+            onBack = onBack
+        )
+
+        Spacer(Modifier.height(Spacing.xl))
+        SectionPlate(title = "Alert without a sound")
+        Spacer(Modifier.height(Spacing.sm))
+
+        Note(
+            text = "Holding the button on the device sends every emergency contact your last " +
+                "known location. There is no call to place and nothing to say out loud. " +
+                if (state.deviceSupportsSilentAlert) {
+                    "The device stays dark and quiet while it does it, so somebody standing " +
+                        "next to you sees you put a hand in your pocket and nothing more."
+                } else {
+                    "What it cannot do yet is stay quiet about it — see below."
+                }
+        )
+
+        Spacer(Modifier.height(Spacing.md))
+
+        // The stub mark is not decoration and not a placeholder for missing
+        // design. Current firmware always shows and sounds an SOS, so the
+        // silent path does not exist on the device yet — and a safety switch
+        // that quietly does something other than what it says is exactly the
+        // failure this product cannot afford.
+        Box {
+            BoardPlate(modifier = Modifier.fillMaxWidth()) {
+                Way(
+                    name = "Silent SOS",
+                    state = if (state.silentSosEnabled) LampState.LIVE else LampState.OFF,
+                    stateLabel = if (state.silentSosEnabled) "Armed" else "Off",
+                    detail = if (state.hasContacts) {
+                        "Sends every emergency contact a message. No call, no siren."
+                    } else {
+                        "There are no contacts yet, so this would reach nobody."
+                    },
+                    checked = state.silentSosEnabled,
+                    onCheckedChange = onSilentSosChange
+                )
+                if (!state.hasContacts) {
+                    Hairline()
+                    Way(
+                        name = "Add a contact",
+                        state = LampState.ATTENTION,
+                        stateLabel = "None",
+                        detail = "A silent alert with nobody to send it to does nothing at all.",
+                        onClick = onOpenContacts
+                    )
+                }
+            }
+            if (!state.deviceSupportsSilentAlert) {
+                StubMark(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(Spacing.sm)
+                )
+            }
+        }
+
+        if (!state.deviceSupportsSilentAlert) {
+            Spacer(Modifier.height(Spacing.sm))
+            Note(
+                text = "On the firmware currently on the device, an SOS always sounds the siren " +
+                    "and fills the screen. Until that changes, treat this switch as " +
+                    "representative — the alert goes out, but the device is not quiet about it."
+            )
+        }
+
+        Spacer(Modifier.height(Spacing.xl))
+        SectionPlate(title = "Stage a call")
+        Spacer(Modifier.height(Spacing.sm))
+
+        Note(
+            text = "Your phone rings after the delay you pick, as though somebody were calling. " +
+                "Nobody is: there is no call and no connection, and it costs nothing. It is a " +
+                "reason to stand up and leave, nothing more. Nobody is alerted by this."
+        )
+
+        Spacer(Modifier.height(Spacing.md))
+
+        BoardPlate(modifier = Modifier.fillMaxWidth()) {
+            CallDelayChoices.forEachIndexed { index, seconds ->
+                if (index > 0) Hairline()
+                OptionWay(
+                    name = formatDuration(seconds),
+                    detail = delayDetail(seconds),
+                    selected = state.stagedCallSeconds == seconds,
+                    onSelect = { onStageCall(seconds) },
+                    selectedLabel = "Staged",
+                    unselectedLabel = "Not staged"
+                )
+            }
+        }
+
+        val staged = state.stagedCallSeconds
+        if (staged != null) {
+            Spacer(Modifier.height(Spacing.lg))
+            BoardButton(
+                label = "Cancel the staged call",
+                supporting = "A call is set for ${formatDuration(staged)} from when you chose it.",
+                icon = Icons.Outlined.PhoneCallback,
+                onClick = onCancelStagedCall,
+                weight = ButtonWeight.SECONDARY,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+
+        Spacer(Modifier.height(Spacing.lg))
+
+        BoardPlate(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(Spacing.lg)) {
+                DetailLine("Shows as", state.callerName)
+                Spacer(Modifier.height(Spacing.xs))
+                Text(
+                    text = "An ordinary name works better than an obvious excuse. The call " +
+                        "rings with your normal ringtone, so leave your phone unmuted if you " +
+                        "want it heard.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.inkFaint
+                )
+            }
+        }
+
+        Spacer(Modifier.height(Spacing.xl))
+        Note(
+            text = "Neither of these calls the police. If you can safely make a real call, " +
+                "112 reaches police, fire and ambulance together."
+        )
+    }
+}
+
+private fun delayDetail(seconds: Int): String = when (seconds) {
+    10 -> "Almost immediate. For getting out of a conversation."
+    30 -> "Enough time to put the phone away first."
+    60 -> "A minute. Long enough that the timing does not look staged."
+    else -> "Five minutes. For a meeting or a journey you want an exit from."
+}
+
+// ============================================
+// PREVIEWS
+// ============================================
+
+@Preview(name = "Silent SOS — light", showBackground = true, heightDp = 1400)
+@Composable
+private fun SilentSosLightPreview() {
+    SafeShadeTheme(darkTheme = false) {
+        SilentSosScreen(
+            state = SilentSosUiState(
+                silentSosEnabled = true,
+                stagedCallSeconds = 60,
+                callerName = "Home",
+                hasContacts = true
+            ),
+            onBack = {}, onSilentSosChange = {}, onStageCall = {},
+            onCancelStagedCall = {}, onOpenContacts = {}
+        )
+    }
+}
+
+@Preview(
+    name = "Silent SOS — dark, no contacts",
+    showBackground = true,
+    heightDp = 1400,
+    uiMode = Configuration.UI_MODE_NIGHT_YES
+)
+@Composable
+private fun SilentSosDarkPreview() {
+    SafeShadeTheme(darkTheme = true) {
+        SilentSosScreen(
+            state = SilentSosUiState(),
+            onBack = {}, onSilentSosChange = {}, onStageCall = {},
+            onCancelStagedCall = {}, onOpenContacts = {}
+        )
+    }
+}

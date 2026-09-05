@@ -1,0 +1,416 @@
+package com.safeshade.ui.screens.device
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Alarm
+import androidx.compose.material.icons.outlined.Bluetooth
+import androidx.compose.material.icons.outlined.Lightbulb
+import androidx.compose.material.icons.outlined.MyLocation
+import androidx.compose.material.icons.outlined.Timeline
+import androidx.compose.material.icons.outlined.Tune
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import com.safeshade.data.DeviceIconType
+import com.safeshade.data.LedPattern
+import com.safeshade.data.PersonaMode
+import com.safeshade.device.ConnectionState
+import com.safeshade.ui.board.BoardPlate
+import com.safeshade.ui.board.Hairline
+import com.safeshade.ui.board.LampState
+import com.safeshade.ui.board.MainsPlate
+import com.safeshade.ui.board.Nameplate
+import com.safeshade.ui.board.SectionPlate
+import com.safeshade.ui.board.Way
+import com.safeshade.ui.board.icon
+import com.safeshade.ui.nav.Routes
+import com.safeshade.ui.theme.SafeShadeTheme
+import com.safeshade.ui.theme.Spacing
+import com.safeshade.ui.theme.board
+
+// ============================================================================
+// Shared across com.safeshade.ui.screens.device
+//
+// These declarations are `internal` and live here rather than in `ui/board/`,
+// because they are screen-level vocabulary rather than kit components — the
+// sibling screens in this package reuse them by name. Duplicate top-level
+// declarations in one package do not compile and nothing catches that until a
+// build, so anything shared belongs here and only here.
+// ============================================================================
+
+/**
+ * How a write to the wearable is getting on.
+ *
+ * Every synced setting needs this, because a BLE write is not a commit: it can
+ * be dropped by the GATT queue, arrive at a device busy on its alarm screen, or
+ * be acknowledged. Showing the new value the instant the user taps would be a
+ * lie roughly as often as the link is imperfect, which for a wearable in a
+ * pocket is often.
+ *
+ * [NO_RESPONSE] is deliberately not a trip. `LampState.TRIP` means "something
+ * happened and it needs a person"; an unacknowledged settings write means "we
+ * do not know", which is `LampState.UNKNOWN`.
+ */
+enum class AckState {
+    /** Nothing in flight. The stored value is the last thing both ends agreed on. */
+    IDLE,
+
+    /** Written, waiting for `ACK:<tag>`. */
+    PENDING,
+
+    /** The device answered. This value is genuinely on the wearable. */
+    CONFIRMED,
+
+    /** The ack window elapsed. The write may or may not have landed. */
+    NO_RESPONSE
+}
+
+/**
+ * The lamp for a row whose value reads as [settled] when nothing is in flight.
+ *
+ * A function rather than a property on [AckState], because the settled
+ * appearance belongs to the setting and not to the ack: an "off" switch that
+ * has been confirmed should still read OFF, not LIVE.
+ */
+internal fun ackLamp(ack: AckState, settled: LampState): LampState = when (ack) {
+    AckState.PENDING -> LampState.ATTENTION
+    AckState.NO_RESPONSE -> LampState.UNKNOWN
+    AckState.IDLE, AckState.CONFIRMED -> settled
+}
+
+/**
+ * The ack as words, for a row's `detail` line.
+ *
+ * This goes in `detail` rather than in `stateLabel` on purpose. `Way` renders
+ * either a switch **or** a state word plus lamp — never both — so on a row that
+ * carries a switch the state word is invisible and only the bus tick's colour
+ * is left to say anything. Colour alone is exactly what this system forbids, so
+ * the acknowledgement has to be readable text somewhere the switch cannot
+ * displace it.
+ */
+internal fun ackWord(ack: AckState): String? = when (ack) {
+    AckState.IDLE -> null
+    AckState.PENDING -> "Sending to the device"
+    AckState.CONFIRMED -> "Confirmed by the device"
+    AckState.NO_RESPONSE -> "No reply from the device"
+}
+
+/**
+ * Link state as a lamp.
+ *
+ * `Connected` is amber rather than teal, matching the Board. The GATT link is
+ * up but service discovery has not finished, so every write in that window is
+ * dropped against a null characteristic with nothing but a log line. A teal
+ * lamp there would be the app claiming it can reach a device it cannot.
+ */
+internal fun ConnectionState.toLampState(): LampState = when (this) {
+    is ConnectionState.Ready -> LampState.LIVE
+    is ConnectionState.Connected,
+    is ConnectionState.Scanning,
+    is ConnectionState.Connecting,
+    is ConnectionState.Found -> LampState.ATTENTION
+    is ConnectionState.ScanFailed, is ConnectionState.BluetoothUnavailable -> LampState.TRIP
+    is ConnectionState.Disconnected -> LampState.OFF
+}
+
+/** The link in one short phrase, for a state label or a subline. */
+internal fun ConnectionState.word(): String = when (this) {
+    is ConnectionState.Ready -> "Connected"
+    is ConnectionState.Connected -> "Starting up"
+    is ConnectionState.Connecting -> "Connecting"
+    is ConnectionState.Scanning -> "Searching"
+    is ConnectionState.Found -> "Found"
+    is ConnectionState.BluetoothUnavailable -> "Bluetooth off"
+    is ConnectionState.ScanFailed -> "Scan failed"
+    is ConnectionState.Disconnected -> "Not connected"
+}
+
+/**
+ * The banner every screen in this package uses to say why its controls are
+ * inert.
+ *
+ * The base sentence is the only thing this composable can honestly assert: the
+ * link is down, so nothing reaches the wearable. Whether a change made now is
+ * *queued* for the next connection is a fact about the caller's repository, not
+ * about this screen — settings and mode are persisted and re-pushed on `Ready`,
+ * an LED pattern is a direct characteristic write and is not. So the promise
+ * arrives as [queuedNote] from the screen that can keep it, and a screen that
+ * cannot keep it simply does not pass one.
+ */
+@Composable
+internal fun OfflineNotice(
+    connection: ConnectionState,
+    modifier: Modifier = Modifier,
+    queuedNote: String? = null
+) {
+    if (connection.isUsable) return
+    val colors = MaterialTheme.board
+    BoardPlate(modifier = modifier.fillMaxWidth(), recessed = true) {
+        Column(modifier = Modifier.padding(Spacing.lg)) {
+            Nameplate("Not connected", small = true, muted = true)
+            Text(
+                text = "Nothing reaches the wearable until it connects.",
+                style = MaterialTheme.typography.bodySmall,
+                color = colors.inkMuted
+            )
+            if (queuedNote != null) {
+                Text(
+                    text = queuedNote,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.inkFaint
+                )
+            }
+        }
+    }
+}
+
+// ============================================================================
+// The screen
+// ============================================================================
+
+/** Everything the Device hub draws. */
+data class DeviceUiState(
+    val connection: ConnectionState = ConnectionState.Disconnected,
+    val deviceName: String = "SafeShade S1",
+    /** Whose device it is, when a guardian has named the wearer. */
+    val wearerName: String = "",
+    val iconType: DeviceIconType = DeviceIconType.BACKPACK,
+    val batteryPercent: Int? = null,
+    val signalDbm: Int? = null,
+    val mode: PersonaMode = PersonaMode.AUTO,
+    val ledPattern: LedPattern = LedPattern.TORCH,
+    /**
+     * Preformatted by the caller — "just now", "2 hours ago".
+     *
+     * Anything relative to the clock arrives as a string. Working it out inside
+     * a composable makes it stale the moment recomposition stops, and makes
+     * previews depend on when they were rendered.
+     */
+    val lastSeenLabel: String? = null,
+    val syncSummary: String? = null,
+    val activeReminderCount: Int = 0,
+    val pairedDeviceCount: Int = 0,
+    val hasTelemetry: Boolean = false,
+    val isRinging: Boolean = false
+)
+
+/**
+ * The wearable, as a panel.
+ *
+ * A guardian arrives here to do maintenance — change the mode, find the thing,
+ * check whether it still has charge — so the mains plate answers "is it there
+ * and is it well" first, and everything under it is one way through to one job.
+ *
+ * Every row leaves through a single [onOpenWay] taking a route string, the same
+ * shape the Board uses. That keeps the navigation graph the caller's business:
+ * this file names destinations, it does not know how they are reached.
+ */
+@Composable
+fun DeviceScreen(
+    state: DeviceUiState,
+    onOpenWay: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    contentPadding: PaddingValues = PaddingValues(0.dp)
+) {
+    val colors = MaterialTheme.board
+    val lamp = state.connection.toLampState()
+
+    LazyColumn(
+        modifier = modifier.fillMaxSize(),
+        contentPadding = PaddingValues(
+            start = Spacing.gutter,
+            end = Spacing.gutter,
+            top = contentPadding.calculateTopPadding() + Spacing.sm,
+            bottom = contentPadding.calculateBottomPadding() + Spacing.xxl
+        ),
+        verticalArrangement = Arrangement.spacedBy(Spacing.lg)
+    ) {
+        item("title") {
+            Text(
+                text = "Device",
+                style = MaterialTheme.typography.displaySmall,
+                color = colors.ink
+            )
+        }
+
+        item("mains") {
+            MainsPlate(
+                state = lamp,
+                headline = state.deviceName,
+                subline = deviceSubline(state),
+                // Battery and signal are omitted entirely while there is no
+                // link, rather than shown as dashes. The lamp has already said
+                // why, and "--" in a readout reads as a broken instrument.
+                batteryPercent = state.batteryPercent,
+                signalDbm = state.signalDbm
+            )
+        }
+
+        item("ways-heading") { SectionPlate(title = "Ways") }
+
+        item("ways") {
+            BoardPlate(modifier = Modifier.fillMaxWidth()) {
+                Way(
+                    name = "Adaptive mode",
+                    state = if (state.connection.isUsable) LampState.LIVE else LampState.UNKNOWN,
+                    stateLabel = state.mode.label,
+                    detail = state.mode.blurb,
+                    icon = state.mode.icon,
+                    // The seal is the honest signal that this mode has taken
+                    // the wearable's own Mode and Safety menus away from the
+                    // person wearing it.
+                    sealed = state.mode.isGuardianLocked,
+                    onClick = { onOpenWay(Routes.DEVICE_MODE) }
+                )
+                Hairline()
+                Way(
+                    name = "Device settings",
+                    state = if (state.connection.isUsable) LampState.LIVE else LampState.UNKNOWN,
+                    stateLabel = if (state.connection.isUsable) "Open" else "Offline",
+                    detail = state.syncSummary
+                        ?: "Fall sensitivity, siren, calling, quiet hours",
+                    icon = Icons.Outlined.Tune,
+                    onClick = { onOpenWay(Routes.DEVICE_SETTINGS) }
+                )
+                Hairline()
+                Way(
+                    name = "Lights",
+                    state = if (state.connection.isUsable) LampState.LIVE else LampState.UNKNOWN,
+                    stateLabel = state.ledPattern.label,
+                    detail = "Pattern for the wearable's LED ring",
+                    icon = Icons.Outlined.Lightbulb,
+                    onClick = { onOpenWay(Routes.DEVICE_LIGHTS) }
+                )
+                Hairline()
+                Way(
+                    name = "Find the device",
+                    // Ringing is a lit, attention-demanding state and stays lit
+                    // until somebody taps the wearable — the app is never told
+                    // that it stopped, so this row must not settle on its own.
+                    state = if (state.isRinging) LampState.ATTENTION else LampState.OFF,
+                    stateLabel = if (state.isRinging) "Ringing" else "Ready",
+                    detail = state.lastSeenLabel?.let { "Last seen $it" }
+                        ?: "Sounds the siren and shows how close it is",
+                    icon = Icons.Outlined.MyLocation,
+                    onClick = { onOpenWay(Routes.DEVICE_LOCATE) }
+                )
+                Hairline()
+                Way(
+                    name = "Telemetry",
+                    state = if (state.hasTelemetry) LampState.LIVE else LampState.UNKNOWN,
+                    stateLabel = if (state.hasTelemetry) "Live" else "No data",
+                    detail = "Motion, temperature, light, battery",
+                    icon = Icons.Outlined.Timeline,
+                    onClick = { onOpenWay(Routes.DEVICE_TELEMETRY) }
+                )
+                Hairline()
+                Way(
+                    name = "Reminders",
+                    state = if (state.activeReminderCount > 0) LampState.LIVE else LampState.OFF,
+                    stateLabel = if (state.activeReminderCount > 0) {
+                        "${state.activeReminderCount} on"
+                    } else {
+                        "None"
+                    },
+                    detail = "Medication times and worker check-ins",
+                    icon = Icons.Outlined.Alarm,
+                    onClick = { onOpenWay(Routes.DEVICE_REMINDERS) }
+                )
+                Hairline()
+                Way(
+                    name = "Paired devices",
+                    state = if (state.pairedDeviceCount > 0) LampState.LIVE else LampState.OFF,
+                    stateLabel = if (state.pairedDeviceCount > 0) {
+                        "${state.pairedDeviceCount} saved"
+                    } else {
+                        "None"
+                    },
+                    detail = "Pair another SafeShade, or forget one",
+                    icon = Icons.Outlined.Bluetooth,
+                    onClick = { onOpenWay(Routes.DEVICE_PAIRED) }
+                )
+            }
+        }
+    }
+}
+
+/**
+ * The one line under the device name.
+ *
+ * Prefers the wearer's name over the bare link state when a guardian has set
+ * one: with two devices paired, "Baba" is what tells them which panel they are
+ * looking at, and the lamp beside it has already said whether it is connected.
+ */
+private fun deviceSubline(state: DeviceUiState): String = when {
+    state.isRinging -> "Ringing — tap the button on the device to stop it"
+    state.wearerName.isNotBlank() -> "${state.wearerName} · ${state.connection.word()}"
+    else -> state.connection.word()
+}
+
+// ============================================================================
+// Previews
+// ============================================================================
+
+private val previewDevice = DeviceUiState(
+    connection = ConnectionState.Ready,
+    deviceName = "SafeShade S1",
+    wearerName = "Baba",
+    iconType = DeviceIconType.CANE,
+    batteryPercent = 74,
+    signalDbm = -63,
+    mode = PersonaMode.ELDERLY,
+    ledPattern = LedPattern.PULSE,
+    lastSeenLabel = "just now",
+    syncSummary = "All settings confirmed by the device",
+    activeReminderCount = 2,
+    pairedDeviceCount = 1,
+    hasTelemetry = true
+)
+
+@Preview(name = "Device · light", showBackground = true)
+@Composable
+private fun DeviceScreenPreviewLight() {
+    SafeShadeTheme(darkTheme = false) {
+        Box(Modifier.background(MaterialTheme.board.ground)) {
+            DeviceScreen(state = previewDevice, onOpenWay = {})
+        }
+    }
+}
+
+@Preview(name = "Device · dark", showBackground = true)
+@Composable
+private fun DeviceScreenPreviewDark() {
+    SafeShadeTheme(darkTheme = true) {
+        Box(Modifier.background(MaterialTheme.board.ground)) {
+            DeviceScreen(state = previewDevice, onOpenWay = {})
+        }
+    }
+}
+
+@Preview(name = "Device · disconnected", showBackground = true)
+@Composable
+private fun DeviceScreenPreviewDisconnected() {
+    SafeShadeTheme(darkTheme = false) {
+        Box(Modifier.background(MaterialTheme.board.ground)) {
+            DeviceScreen(
+                state = DeviceUiState(
+                    connection = ConnectionState.Disconnected,
+                    wearerName = "Baba",
+                    lastSeenLabel = "2 hours ago"
+                ),
+                onOpenWay = {}
+            )
+        }
+    }
+}

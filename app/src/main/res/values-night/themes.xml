@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+        Dark is a first-class scheme here, not an inversion. The window
+        background matters as much as the Compose palette: without this the
+        cold-start frame flashes bone before the theme resolves, which on a
+        phone checked at 3am is genuinely unpleasant.
+    -->
+    <style name="Theme.SafeShade" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/brand_night</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+
+    <style name="Theme.SafeShade.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/brand_night</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_emblem</item>
+        <item name="postSplashScreenTheme">@style/Theme.SafeShade</item>
+    </style>
+</resources>

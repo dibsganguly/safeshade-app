@@ -1,5 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <style name="Theme.SafeShade" parent="android:Theme.Material.Light.NoActionBar" />
+    <!-- The app window itself. Compose owns everything inside it. -->
+    <style name="Theme.SafeShade" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/brand_bone</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+
+    <!--
+        The launch theme, handed to core-splashscreen. It exists so the cold
+        start shows the emblem on the brand ground instead of a white flash,
+        and is swapped for Theme.SafeShade in onCreate.
+    -->
+    <style name="Theme.SafeShade.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/brand_bone</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_emblem</item>
+        <item name="postSplashScreenTheme">@style/Theme.SafeShade</item>
+    </style>
 </resources>

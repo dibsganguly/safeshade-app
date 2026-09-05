@@ -1,0 +1,244 @@
+package com.safeshade.ui.board
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Bolt
+import androidx.compose.material.icons.outlined.MyLocation
+import androidx.compose.material.icons.outlined.Vibration
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import com.safeshade.ui.shady.Shady
+import com.safeshade.ui.shady.ShadyMood
+import com.safeshade.ui.theme.SafeShadeTheme
+import com.safeshade.ui.theme.Spacing
+import com.safeshade.ui.theme.board
+
+/**
+ * Every component in the kit on one screen.
+ *
+ * This exists to be looked at, on a real device, in both themes and at a
+ * raised font scale, *before* any screen is built on top of the system. Six
+ * screens written against an unverified kit means six screens to redo when the
+ * kit turns out to be wrong; one gallery costs a few minutes.
+ *
+ * It is not shipped in the navigation graph — it is reachable only from the
+ * developer screen, and it doubles as the reference a later contributor can
+ * open to see what already exists before inventing a seventh kind of card.
+ */
+@Composable
+fun KitGallery(modifier: Modifier = Modifier) {
+    val colors = MaterialTheme.board
+    var switchA by remember { mutableStateOf(true) }
+    var switchB by remember { mutableStateOf(false) }
+
+    LazyColumn(
+        modifier = modifier
+            .fillMaxSize()
+            .background(colors.ground),
+        // Edge-to-edge means the list draws behind the status and navigation
+        // bars, so the insets have to be added to the content padding rather
+        // than clipped away - otherwise the first row sits under the clock.
+        contentPadding = PaddingValues(
+            start = Spacing.gutter,
+            end = Spacing.gutter,
+            top = WindowInsets.safeDrawing.asPaddingValues().calculateTopPadding() + Spacing.gutter,
+            bottom = WindowInsets.safeDrawing.asPaddingValues().calculateBottomPadding() + Spacing.gutter
+        ),
+        verticalArrangement = Arrangement.spacedBy(Spacing.lg)
+    ) {
+        item {
+            Text(
+                "Kit gallery",
+                style = MaterialTheme.typography.displaySmall,
+                color = colors.ink
+            )
+        }
+
+        item { SectionPlate("Type") }
+        item {
+            BoardPlate {
+                Column(Modifier.padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                    Text("Display small", style = MaterialTheme.typography.displaySmall, color = colors.ink)
+                    Text("Headline small", style = MaterialTheme.typography.headlineSmall, color = colors.ink)
+                    Text("Title medium", style = MaterialTheme.typography.titleMedium, color = colors.ink)
+                    Text("Body medium — the quick brown fox jumps over the lazy dog.", style = MaterialTheme.typography.bodyMedium, color = colors.inkMuted)
+                    Nameplate("Nameplate")
+                    Nameplate("Nameplate small", small = true, muted = true)
+                    Readout(label = "Readout", value = "-62 dBm · 84% · 1.02g")
+                    Readout(value = "28", large = true)
+                }
+            }
+        }
+
+        item { SectionPlate("Pilot lamps") }
+        item {
+            BoardPlate {
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(Spacing.lg),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    LampState.entries.forEach { state ->
+                        Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
+                            PilotLamp(state = state, size = 20.dp)
+                            Spacer(Modifier.height(Spacing.sm))
+                            Nameplate(state.name, small = true, muted = true)
+                        }
+                    }
+                }
+            }
+        }
+
+        item { SectionPlate("Ways") }
+        item {
+            BoardPlate {
+                Way(
+                    name = "Fall detection",
+                    state = LampState.LIVE,
+                    stateLabel = "Live",
+                    detail = "High sensitivity",
+                    icon = Icons.Outlined.Bolt,
+                    checked = switchA,
+                    onCheckedChange = { switchA = it }
+                )
+                Hairline()
+                Way(
+                    name = "SMS fallback",
+                    state = LampState.OFF,
+                    stateLabel = "Off",
+                    icon = Icons.Outlined.Vibration,
+                    checked = switchB,
+                    onCheckedChange = { switchB = it }
+                )
+                Hairline()
+                Way(
+                    name = "Safe zone",
+                    state = LampState.ATTENTION,
+                    stateLabel = "Outside",
+                    detail = "Left Home 8 minutes ago",
+                    icon = Icons.Outlined.MyLocation,
+                    onClick = {}
+                )
+                Hairline()
+                Way(
+                    name = "Adaptive mode",
+                    state = LampState.LIVE,
+                    stateLabel = "Elderly",
+                    detail = "Managed by you — hidden on the device",
+                    sealed = true,
+                    onClick = {}
+                )
+                Hairline()
+                Way(
+                    name = "Screen contrast",
+                    state = LampState.UNKNOWN,
+                    stateLabel = "On device",
+                    detail = "Change at Settings › Display",
+                    deviceOnly = true
+                )
+            }
+        }
+
+        item { SectionPlate("Mains plate") }
+        item {
+            MainsPlate(
+                state = LampState.LIVE,
+                headline = "Baba is covered",
+                subline = "SafeShade S1 · cane",
+                batteryPercent = 84,
+                signalDbm = -62
+            )
+        }
+
+        item { SectionPlate("Gauges") }
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
+                Gauge(label = "Temperature", value = "28", unit = "°C", caption = "Clear", modifier = Modifier.weight(1f))
+                Gauge(label = "Heart rate", value = "72", unit = "bpm", caption = "Resting", stub = true, modifier = Modifier.weight(1f))
+            }
+        }
+
+        item { SectionPlate("Buttons") }
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                BoardButton("Test — ring device", onClick = {}, supporting = "Sounds the siren", modifier = Modifier.fillMaxWidth())
+                BoardButton("Secondary", onClick = {}, weight = ButtonWeight.SECONDARY, modifier = Modifier.fillMaxWidth())
+                BoardButton("Call now", onClick = {}, weight = ButtonWeight.DANGER, modifier = Modifier.fillMaxWidth())
+                BoardButton("Disabled", onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth())
+            }
+        }
+
+        item { SectionPlate("Shady") }
+        item {
+            BoardPlate {
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(Spacing.md),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    ShadyMood.entries.forEach { mood ->
+                        Column(
+                            horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Shady(mood = mood, size = 44.dp)
+                            // Full name, wrapped. Truncating to five characters
+                            // produced "SEARC" / "CONCE", which reads as a
+                            // clipping bug rather than a deliberate abbreviation.
+                            Text(
+                                text = mood.name,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = colors.inkFaint,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        item { SectionPlate("Empty bay") }
+        item {
+            EmptyBay(
+                message = "No safe zones yet. Add one and you will be told when the device leaves it.",
+                actionLabel = "Add a zone",
+                onAction = {}
+            )
+        }
+    }
+}
+
+@Preview(name = "Kit — light", showBackground = true, heightDp = 1600)
+@Composable
+private fun KitGalleryLightPreview() {
+    SafeShadeTheme(darkTheme = false) { KitGallery() }
+}
+
+@Preview(name = "Kit — dark", showBackground = true, heightDp = 1600)
+@Composable
+private fun KitGalleryDarkPreview() {
+    SafeShadeTheme(darkTheme = true) { KitGallery() }
+}

@@ -151,6 +151,44 @@ class BleManager(private val context: Context) {
     private val _fallAlert = MutableStateFlow(false)
     val fallAlert = _fallAlert.asStateFlow()
 
+    /**
+     * True once onServicesDiscovered() has resolved the characteristics.
+     *
+     * [connectionState] flips to "Connected" the moment the GATT link comes up,
+     * which is BEFORE requestMtu() -> onMtuChanged() -> discoverServices()
+     * has run. Every send function below null-guards on its characteristic and
+     * returns quietly, so a write issued in that window is dropped with only a
+     * log line to show for it.
+     *
+     * That is not hypothetical: the app used to re-push medical ID, safety
+     * settings and the SMS allowlist keyed on "Connected", and all three had
+     * been silently failing on every single reconnect. Callers that need a
+     * write to actually land must gate on this, not on connectionState.
+     */
+    private val _servicesReady = MutableStateFlow(false)
+    val servicesReady = _servicesReady.asStateFlow()
+
+    /**
+     * The MTU the stack actually negotiated, for payload budgeting.
+     *
+     * The 11-field Medical ID payload can exceed the default 23-byte ATT MTU
+     * with realistic content, and the excess is truncated silently rather than
+     * rejected.
+     */
+    private val _negotiatedMtu = MutableStateFlow(23)
+    val negotiatedMtu = _negotiatedMtu.asStateFlow()
+
+    /**
+     * Alerts as events rather than as a conflated flag.
+     *
+     * [fallAlert] is a StateFlow<Boolean>; setting it true while it is already
+     * true emits nothing, so a second fall arriving before the first was
+     * dismissed was simply lost. It is kept for compatibility, but anything
+     * that must not miss an alert collects this instead.
+     */
+    private val _alertEvents = MutableSharedFlow<String>(extraBufferCapacity = 8)
+    val alertEvents = _alertEvents.asSharedFlow()
+
     private val _deviceName = MutableStateFlow("SafeShade S1")
     val deviceName = _deviceName.asStateFlow()
 
@@ -335,6 +373,9 @@ class BleManager(private val context: Context) {
 
         override fun onMtuChanged(gatt: BluetoothGatt?, mtu: Int, status: Int) {
             Log.d("BLE", "MTU changed to $mtu (status=$status)")
+            if (status == BluetoothGatt.GATT_SUCCESS) {
+                _negotiatedMtu.value = mtu
+            }
             gatt?.discoverServices()
         }
 
@@ -392,6 +433,12 @@ class BleManager(private val context: Context) {
             replyCharacteristic?.let { enableNotification(it) }
             telemetryCharacteristic?.let { enableNotification(it) }
             ackCharacteristic?.let { enableNotification(it) }
+
+            // Announced last, and deliberately after the notification writes
+            // are enqueued rather than after they complete: the operation queue
+            // already serialises them, and the characteristics themselves are
+            // resolved by this point, which is what a write actually needs.
+            _servicesReady.value = true
         }
 
         override fun onCharacteristicChanged(
@@ -415,6 +462,10 @@ class BleManager(private val context: Context) {
             when (uuid) {
                 ALERT_CHAR_UUID -> {
                     Log.d("BLE", "Alert received: $value")
+                    // Emitted unconditionally so a repeat alert is never
+                    // swallowed by the StateFlow's conflation. The boolean
+                    // below stays for existing callers.
+                    _alertEvents.tryEmit(value)
                     if (value == "FALL_DETECTED") {
                         _fallAlert.value = true
                     }
@@ -577,6 +628,7 @@ class BleManager(private val context: Context) {
      * Clear all characteristic references on disconnect.
      */
     private fun clearCharacteristics() {
+        _servicesReady.value = false
         weatherCharacteristic = null
         messageCharacteristic = null
         healthCharacteristic = null
@@ -597,32 +649,11 @@ class BleManager(private val context: Context) {
      * Send weather and location data to device.
      * Format: "rain,condition,uv,humidity,lat,lon,locationName,locality,altitude,hour,minute"
      */
-    fun sendWeatherData(
-        rainChance: Int,
-        condition: String,
-        uvIndex: Float,
-        humidity: Float,
-        lat: Double,
-        lon: Double,
-        locationName: String,
-        locality: String,
-        altitude: Int,
-        hour: Int,
-        minute: Int
-    ) {
+    fun sendWeatherPayload(payload: String) {
         if (weatherCharacteristic == null || bluetoothGatt == null) {
             Log.e("BLE", "Cannot send weather - not connected")
             return
         }
-
-        // Guardian against commas in free-text fields corrupting the
-        // firmware's comma-delimited parser (WeatherCallbacks::onWrite
-        // splits on ',' with no escaping).
-        val safeLocationName = locationName.replace(",", " ")
-        val safeLocality = locality.replace(",", " ")
-        val safeCondition = condition.replace(",", " ")
-
-        val payload = "$rainChance,$safeCondition,$uvIndex,$humidity,$lat,$lon,$safeLocationName,$safeLocality,$altitude,$hour,$minute"
         writeCharacteristic(weatherCharacteristic!!, payload)
         Log.d("BLE", "Sent weather: $payload")
     }
@@ -676,20 +707,11 @@ class BleManager(private val context: Context) {
      * Send health/medical ID data to device.
      * Format: "bloodType,emergencyContact,contactName,allergies,age"
      */
-    fun sendHealthData(medicalId: MedicalId) {
+    fun sendHealthPayload(payload: String) {
         if (healthCharacteristic == null || bluetoothGatt == null) {
             Log.e("BLE", "Cannot send health data - not connected or characteristic not found")
             return
         }
-
-        // Guard against commas in free-text fields corrupting the firmware's
-        // fixed-count comma-delimited parser, same as sendWeatherData() does.
-        val safeBloodType = medicalId.bloodType.replace(",", " ")
-        val safeEmergencyContact = medicalId.emergencyContact.replace(",", " ")
-        val safeContactName = medicalId.contactName.replace(",", " ")
-        val safeAllergies = medicalId.allergies.replace(",", " ")
-
-        val payload = "$safeBloodType,$safeEmergencyContact,$safeContactName,$safeAllergies,${medicalId.age}"
         writeCharacteristic(healthCharacteristic!!, payload)
         Log.d("BLE", "Sent health data: $payload")
     }
@@ -700,19 +722,11 @@ class BleManager(private val context: Context) {
      * the last two fields were added so SafetySettings' full field set
      * actually reaches the device (previously only the first 3 did).
      */
-    fun sendSettings(settings: SafetySettings) {
+    fun sendSettingsPayload(payload: String) {
         if (settingsCharacteristic == null || bluetoothGatt == null) {
             Log.e("BLE", "Cannot send settings - not connected or characteristic not found")
             return
         }
-
-        val sensitivity = when (settings.fallSensitivity) {
-            FallSensitivity.LOW -> 0
-            FallSensitivity.MEDIUM -> 1
-            FallSensitivity.HIGH -> 2
-        }
-        val payload = "$sensitivity,${(settings.sosVolumeLevel * 100).toInt()},${if (settings.autoCallEmergency) 1 else 0}," +
-            "${if (settings.parentalControlsEnabled) 1 else 0},${if (settings.smsFallbackEnabled) 1 else 0}"
         writeCharacteristic(settingsCharacteristic!!, payload)
         Log.d("BLE", "Sent settings: $payload")
     }

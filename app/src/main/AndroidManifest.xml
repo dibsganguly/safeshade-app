@@ -18,7 +18,7 @@
         android:usesPermissionFlags="neverForLocation" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
 
-    <!-- Used for actual GPS-based weather sync (MainActivity.fetchAndSendWeather), unrelated to BLE -->
+    <!-- Used for actual GPS-based weather sync, geofencing, and journey tracking -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
@@ -27,15 +27,55 @@
 
     <!-- Real auto-call-emergency on confirmed fall (user-confirmed, never silent-dialed) -->
     <uses-permission android:name="android.permission.CALL_PHONE" />
-    <!-- SMS fallback: emergency alerts, and device-independent Guardian<->device messaging (SmsReceiver/EmergencyActions.sendSmsText) -->
+    <!-- SMS fallback: emergency alerts, and device-independent Guardian<->device messaging -->
     <uses-permission android:name="android.permission.SEND_SMS" />
     <uses-permission android:name="android.permission.RECEIVE_SMS" />
 
     <uses-permission android:name="android.permission.INTERNET" />
-    <!-- Geofence enter/exit and fall-alert notifications (Android 13+) -->
+
+    <!-- Fall, geofence, check-in and reminder notifications (Android 13+) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+
+    <!--
+        A fall detected while the phone is locked in a pocket has to reach the
+        user over the lock screen. Note that on API 34+ this is granted at
+        install time only for calling/alarm apps; everyone else must be sent to
+        a settings screen, and a denied full-screen intent is SILENTLY
+        downgraded to a heads-up notification with no exception and no
+        callback. The notification therefore carries the countdown and both
+        actions itself - the full-screen activity is an enhancement, never the
+        mechanism. See AlertNotifier.
+    -->
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+
+    <!--
+        Medication reminders and worker check-ins must fire at the minute, not
+        within Doze's 15-minute window. USE_EXACT_ALARM is deliberately NOT
+        requested: its Play policy carve-out is for alarm-clock and calendar
+        apps, and a safety wearable companion is neither. When the user has not
+        granted this, reminders degrade to an inexact window and the UI says so.
+    -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+
+    <!-- Alarms do not survive a reboot; every schedule is re-armed from DataStore. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <!--
+        Without a foreground service Android and MIUI both drop the BLE link
+        within minutes of the screen going off, and a fall alert then simply
+        never arrives. Two separate services with two separate types: an FGS
+        with the "location" type cannot be started from the background on API
+        34+, so merging them would stop the link service restarting on reconnect.
+    -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+
+    <uses-feature android:name="android.hardware.bluetooth_le" android:required="true" />
 
     <application
+        android:name=".SafeShadeApplication"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -43,15 +83,20 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
+        android:enableOnBackInvokedCallback="true"
         android:theme="@style/Theme.SafeShade">
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:label="@string/app_name"
-            android:theme="@style/Theme.SafeShade">
+            android:launchMode="singleTop"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:windowSoftInputMode="adjustResize"
+            android:theme="@style/Theme.SafeShade.Splash">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
@@ -72,6 +117,53 @@
             android:permission="android.permission.BROADCAST_SMS">
             <intent-filter>
                 <action android:name="android.provider.Telephony.SMS_RECEIVED" />
+            </intent-filter>
+        </receiver>
+
+        <!--
+            Keeps the process resident so BLE alerts, geofence forwarding and
+            journey escalation keep running with the app backgrounded. The type
+            here must match what startForeground() passes or it throws on 29+.
+        -->
+        <service
+            android:name=".service.LinkService"
+            android:exported="false"
+            android:foregroundServiceType="connectedDevice" />
+
+        <!--
+            Separate from LinkService on purpose. On API 34+ a foreground service
+            with the "location" type cannot be started from the background, so
+            merging the two would stop the link service restarting on reconnect.
+            This one is only ever started from an in-app foreground tap.
+        -->
+        <service
+            android:name=".service.JourneyService"
+            android:exported="false"
+            android:foregroundServiceType="location" />
+
+        <!-- Fires medication, check-in, journey-overdue and fake-call alarms. -->
+        <receiver
+            android:name=".alarms.ReminderReceiver"
+            android:exported="false" />
+
+        <!-- "I am OK" / "Call now" straight from the fall notification. -->
+        <receiver
+            android:name=".alerts.AlertActionReceiver"
+            android:exported="false" />
+
+        <!--
+            Alarms do not survive a reboot. Without this, a medication reminder
+            silently stops after a restart, which is worse than never having had
+            one. MY_PACKAGE_REPLACED covers app updates for the same reason.
+        -->
+        <receiver
+            android:name=".alarms.BootReceiver"
+            android:exported="true"
+            android:permission="android.permission.RECEIVE_BOOT_COMPLETED">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
             </intent-filter>
         </receiver>
     </application>

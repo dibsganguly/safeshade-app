@@ -1,0 +1,309 @@
+package com.safeshade.ui.screens.board
+
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.NotificationsActive
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.Sync
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.dp
+import com.safeshade.R
+import com.safeshade.data.UserRole
+import com.safeshade.device.ConnectionState
+import com.safeshade.ui.board.BoardButton
+import com.safeshade.ui.board.BoardPlate
+import com.safeshade.ui.board.ButtonWeight
+import com.safeshade.ui.board.Gauge
+import com.safeshade.ui.board.Hairline
+import com.safeshade.ui.board.LampState
+import com.safeshade.ui.board.MainsPlate
+import com.safeshade.ui.board.Nameplate
+import com.safeshade.ui.board.SectionPlate
+import com.safeshade.ui.board.Way
+import com.safeshade.ui.shady.ShadyHost
+import com.safeshade.ui.shady.shadyMoodFor
+import com.safeshade.ui.theme.Spacing
+import com.safeshade.ui.theme.board
+
+/**
+ * One circuit as the Board screen needs to render it.
+ *
+ * Deliberately a flat presentation type rather than a domain object: a way on
+ * this screen may be backed by a BLE setting, a phone permission, or a derived
+ * condition like "the medical card has never been filled in", and the row
+ * should not care which.
+ */
+data class BoardWay(
+    val key: String,
+    val name: String,
+    val state: LampState,
+    val stateLabel: String,
+    val detail: String? = null,
+    val icon: ImageVector? = null,
+    val sealed: Boolean = false,
+    val route: String? = null
+)
+
+/** Everything the Board screen draws. */
+data class BoardUiState(
+    val connection: ConnectionState = ConnectionState.Disconnected,
+    val role: UserRole = UserRole.GUARDIAN,
+    val headline: String = "",
+    val subline: String = "",
+    val batteryPercent: Int? = null,
+    val signalDbm: Int? = null,
+    val ways: List<BoardWay> = emptyList(),
+    val temperatureC: Float? = null,
+    val weatherCondition: String? = null,
+    val uvIndex: Float? = null,
+    val lastSyncLabel: String? = null,
+    val isSyncing: Boolean = false,
+    val isRinging: Boolean = false,
+    val hasUnresolvedTrip: Boolean = false,
+    val permissionsGranted: Boolean = true
+)
+
+/**
+ * The board.
+ *
+ * Answers one question in the first viewport — is the person I am responsible
+ * for covered right now — and then lists the circuits that make up that answer.
+ * Everything below the mains plate is elaboration; a user who reads only the
+ * top of this screen has still got what they came for.
+ */
+@Composable
+fun BoardScreen(
+    state: BoardUiState,
+    onConnectToggle: () -> Unit,
+    onRequestPermissions: () -> Unit,
+    onSync: () -> Unit,
+    onRing: () -> Unit,
+    onOpenSettings: () -> Unit,
+    onOpenWay: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    contentPadding: PaddingValues = PaddingValues(0.dp)
+) {
+    val colors = MaterialTheme.board
+    val lamp = state.connection.toLampState()
+
+    LazyColumn(
+        modifier = modifier.fillMaxSize(),
+        contentPadding = PaddingValues(
+            start = Spacing.gutter,
+            end = Spacing.gutter,
+            top = contentPadding.calculateTopPadding() + Spacing.sm,
+            bottom = contentPadding.calculateBottomPadding() + Spacing.xxl
+        ),
+        verticalArrangement = Arrangement.spacedBy(Spacing.lg)
+    ) {
+        item("header") {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                // The emblem is a full-colour raster, so it is an Image rather
+                // than an Icon - an Icon would flatten it to a single tint.
+                Image(
+                    painter = painterResource(R.drawable.splash_emblem),
+                    contentDescription = null,
+                    modifier = Modifier.size(30.dp)
+                )
+                Spacer(Modifier.width(Spacing.sm))
+                Text(
+                    text = "SafeShade",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = colors.ink,
+                    modifier = Modifier.weight(1f)
+                )
+                IconButton(onClick = onOpenSettings) {
+                    Icon(
+                        Icons.Outlined.Settings,
+                        contentDescription = "Settings",
+                        tint = colors.inkMuted
+                    )
+                }
+            }
+        }
+
+        item("mains") {
+            MainsPlate(
+                state = lamp,
+                headline = state.headline,
+                subline = state.subline,
+                batteryPercent = state.batteryPercent,
+                signalDbm = state.signalDbm,
+                // Shady rides in the plate's trailing slot rather than floating
+                // over it. Overlaying the mascot on the headline was legible
+                // with a short status and unreadable with a long one, which is
+                // exactly the case that matters most.
+                trailing = {
+                    ShadyHost(
+                        mood = shadyMoodFor(
+                            connection = state.connection,
+                            batteryPercent = state.batteryPercent,
+                            hasUnresolvedTrip = state.hasUnresolvedTrip
+                        ),
+                        emergencyActive = state.hasUnresolvedTrip,
+                        size = 56.dp
+                    )
+                }
+            )
+        }
+
+        // The connect control only appears when there is something to do about
+        // the link. When it is up and working, a "disconnect" button is noise
+        // on the one screen that should be readable at a glance.
+        if (lamp != LampState.LIVE) {
+            item("connect") {
+                BoardButton(
+                    label = if (state.permissionsGranted) connectLabel(state.connection) else "Grant permissions",
+                    supporting = if (state.permissionsGranted) null else "Bluetooth and location are needed to find the device",
+                    onClick = if (state.permissionsGranted) onConnectToggle else onRequestPermissions,
+                    weight = ButtonWeight.PRIMARY,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
+
+        item("ways-heading") {
+            SectionPlate(title = "Ways")
+        }
+
+        item("ways") {
+            BoardPlate(modifier = Modifier.fillMaxWidth()) {
+                state.ways.forEachIndexed { index, way ->
+                    if (index > 0) Hairline()
+                    Way(
+                        name = way.name,
+                        state = way.state,
+                        stateLabel = way.stateLabel,
+                        detail = way.detail,
+                        icon = way.icon,
+                        sealed = way.sealed,
+                        onClick = way.route?.let { route -> { onOpenWay(route) } }
+                    )
+                }
+            }
+        }
+
+        item("conditions-heading") {
+            SectionPlate(
+                title = "Conditions",
+                trailing = {
+                    IconButton(onClick = onSync, enabled = !state.isSyncing && !state.isRinging) {
+                        Icon(
+                            Icons.Outlined.Sync,
+                            contentDescription = "Sync weather and location",
+                            tint = if (state.isSyncing) colors.inkFaint else colors.inkMuted,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            )
+        }
+
+        item("gauges") {
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
+                Gauge(
+                    label = "Temperature",
+                    value = state.temperatureC?.let { "%.0f".format(it) } ?: "--",
+                    unit = "°C",
+                    caption = state.weatherCondition,
+                    modifier = Modifier.weight(1f)
+                )
+                Gauge(
+                    label = "UV index",
+                    value = state.uvIndex?.let { "%.1f".format(it) } ?: "--",
+                    caption = state.uvIndex?.let { uvAdvice(it) },
+                    state = state.uvIndex?.let { if (it >= 8f) LampState.TRIP else if (it >= 6f) LampState.ATTENTION else null },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+
+        if (state.lastSyncLabel != null) {
+            item("sync-note") {
+                Text(
+                    text = state.lastSyncLabel,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.inkFaint,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
+
+        item("test") {
+            Column {
+                BoardButton(
+                    label = if (state.isRinging) "Ringing" else "Test — ring device",
+                    supporting = if (state.isRinging) {
+                        "Tap the button on the device to stop the siren"
+                    } else {
+                        "Sounds the siren so you can find it"
+                    },
+                    icon = Icons.Outlined.NotificationsActive,
+                    onClick = onRing,
+                    enabled = lamp == LampState.LIVE && !state.isRinging,
+                    weight = ButtonWeight.SECONDARY,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
+    }
+}
+
+private fun connectLabel(connection: ConnectionState): String = when (connection) {
+    is ConnectionState.Scanning -> "Searching…"
+    is ConnectionState.Connecting -> "Connecting…"
+    is ConnectionState.Found -> "Found ${connection.name}"
+    is ConnectionState.Connected -> "Starting up…"
+    is ConnectionState.BluetoothUnavailable -> "Turn on Bluetooth"
+    is ConnectionState.ScanFailed -> "Try again"
+    else -> "Connect to the device"
+}
+
+/**
+ * Link state as a lamp.
+ *
+ * `Connected` is amber rather than teal on purpose: the GATT link is up but
+ * service discovery has not finished, so nothing sent in that window would
+ * actually reach the device. Showing it as live would be the same lie the old
+ * reconnect logic told itself.
+ */
+private fun ConnectionState.toLampState(): LampState = when (this) {
+    is ConnectionState.Ready -> LampState.LIVE
+    is ConnectionState.Connected -> LampState.ATTENTION
+    is ConnectionState.Scanning, is ConnectionState.Connecting, is ConnectionState.Found ->
+        LampState.ATTENTION
+    is ConnectionState.ScanFailed, is ConnectionState.BluetoothUnavailable -> LampState.TRIP
+    is ConnectionState.Disconnected -> LampState.OFF
+}
+
+private fun uvAdvice(uv: Float): String = when {
+    uv >= 11f -> "Extreme — stay inside"
+    uv >= 8f -> "Very high — cover up"
+    uv >= 6f -> "High — use shade"
+    uv >= 3f -> "Moderate"
+    else -> "Low"
+}
