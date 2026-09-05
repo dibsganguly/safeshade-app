@@ -401,6 +401,22 @@ Two rules carried from the firmware: **no speech or thought bubbles** (text emer
 
 **The Honesty Rules.** Three conventions are part of the visual system, not decoration around it. A small dotted **stub mark** in a card's corner (with its own spoken description) is the only tell that data is representative rather than live, used only where hardware or infrastructure genuinely does not exist. A **device-only** row draws a readable value and no control where the app has no write path. **UNKNOWN** is a distinct lamp state meaning "we cannot currently tell" — rendered unlit and inert, never as a fault, because no link is not the same thing as a failure.
 
+## Known evidence limits
+
+Two things about this system are documented rather than demonstrated, so the
+next person to review it inherits the gap instead of rediscovering it.
+
+- **The connected-state first viewport has never been photographed.** Every
+  capture was taken with no wearable present, so the mains plate has only been
+  seen with `—` in BATTERY and SIGNAL and with the primary action slot showing
+  CONNECT rather than TEST · RING DEVICE. Both halves are built and both are
+  reachable; neither has been seen. Capturing them needs a paired device.
+- **Motion is unverified.** Stills cannot show the pilot lamp's filament
+  warm-up, the trip lamp's breathing, the rocker's overshoot, or Shady's
+  antenna pulse. A screen recording is the only evidence that settles those.
+
+Everything else in this document was read off the built system.
+
 ## Do's and Don'ts
 
 ### Do:

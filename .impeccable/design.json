@@ -1,0 +1,227 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-05T00:00:00Z",
+  "title": "Design System: SafeShade",
+  "extensions": {
+    "colorMeta": {
+      "brand-charcoal": { "role": "primary", "displayName": "Brand Charcoal", "canonical": "#22282E", "note": "Emblem shield body; light-theme ink and Material primary role.", "tonalRamp": ["#0B0D0F", "#14171A", "#1C2126", "#22282E", "#3A424B", "#5A6068", "#8A9098", "#C9CDD2"] },
+      "brand-teal": { "role": "secondary", "displayName": "Signal Teal", "canonical": "#6FD3CC", "note": "Emblem signal arcs. Lamp glass only — too light to carry text on bone.", "tonalRamp": ["#0A2E2B", "#0F4A45", "#0F7A72", "#2AA79E", "#6FD3CC", "#95E2DC", "#BDEEEA", "#E2F8F6"] },
+      "brand-amber": { "role": "tertiary", "displayName": "Sun Amber", "canonical": "#F5A623", "note": "Emblem sun dot. Attention lamp glass and Shady's skin.", "tonalRamp": ["#3A2600", "#5C3B00", "#8A5300", "#C07800", "#F5A623", "#FFC46B", "#FFDCA6", "#FFF1DA"] },
+      "lamp-trip-glass": { "role": "secondary", "displayName": "Trip Red", "canonical": "#E5484D", "note": "Trip lamp glass and the danger button container.", "tonalRamp": ["#3D0508", "#6B0C11", "#B3151A", "#D42B31", "#E5484D", "#FF8A8D", "#FFB6B8", "#FFE2E3"] },
+      "bone-ground": { "role": "neutral", "displayName": "Bone Ground", "canonical": "#F2EFE9", "note": "The panel behind everything, light theme.", "tonalRamp": ["#26241F", "#403D36", "#5C584F", "#807B70", "#A8A296", "#C8C2B4", "#E5E1D8", "#F2EFE9"] },
+      "bone-plate": { "role": "neutral", "displayName": "Bone Plate", "canonical": "#FBF9F5", "note": "A raised plate: way row, card, section body, bottom bar." },
+      "bone-recess": { "role": "neutral", "displayName": "Bone Recess", "canonical": "#E5E1D8", "note": "A routed channel: inputs, switch tracks, wells." },
+      "brass-rule-light": { "role": "neutral", "displayName": "Brass Rule", "canonical": "#B9A88A", "note": "Emphasis under a section nameplate; seal backing; nav selection plate.", "tonalRamp": ["#2E2820", "#4A4133", "#6B5D48", "#8A7A5E", "#B9A88A", "#D3C6AC", "#E7DECB", "#F5F0E6"] },
+      "hairline-light": { "role": "neutral", "displayName": "Hairline", "canonical": "#D3CDC0", "note": "Structural separator and plate border." },
+      "ink-light": { "role": "neutral", "displayName": "Panel Ink", "canonical": "#22282E", "note": "Primary copy, light theme." },
+      "ink-muted-light": { "role": "neutral", "displayName": "Muted Ink", "canonical": "#5A6068", "note": "Supporting copy, section plates, icon tints." },
+      "ink-faint-light": { "role": "neutral", "displayName": "Faint Ink", "canonical": "#8A9098", "note": "Captions, placeholders, inert state words (OFF / UNKNOWN)." },
+      "night-ground": { "role": "neutral", "displayName": "Night Ground", "canonical": "#14171A", "note": "The same panel in a hallway at night.", "tonalRamp": ["#0E1113", "#14171A", "#1C2126", "#2A3138", "#353C43", "#6B7480", "#A0A8B0", "#ECEFF1"] },
+      "night-plate": { "role": "neutral", "displayName": "Night Plate", "canonical": "#1C2126" },
+      "night-recess": { "role": "neutral", "displayName": "Night Recess", "canonical": "#0E1113" },
+      "brass-rule-dark": { "role": "neutral", "displayName": "Brass Rule (Night)", "canonical": "#8A7A5E" },
+      "hairline-dark": { "role": "neutral", "displayName": "Hairline (Night)", "canonical": "#353C43" },
+      "ink-dark": { "role": "neutral", "displayName": "Panel Ink (Night)", "canonical": "#ECEFF1" },
+      "ink-muted-dark": { "role": "neutral", "displayName": "Muted Ink (Night)", "canonical": "#A0A8B0" },
+      "ink-faint-dark": { "role": "neutral", "displayName": "Faint Ink (Night)", "canonical": "#6B7480" },
+      "lamp-live-glass": { "role": "secondary", "displayName": "Live Lamp Glass", "canonical": "#6FD3CC", "note": "Theme-invariant. Fills only, never text." },
+      "lamp-attention-glass": { "role": "secondary", "displayName": "Attention Lamp Glass", "canonical": "#F5A623", "note": "Theme-invariant. Fills only, never text." },
+      "lamp-off-light": { "role": "neutral", "displayName": "Unlit Stone", "canonical": "#C8C2B4", "note": "An unlit lamp. Used for OFF and UNKNOWN alike." },
+      "lamp-off-dark": { "role": "neutral", "displayName": "Unlit Stone (Night)", "canonical": "#31383E" },
+      "ink-live-light": { "role": "secondary", "displayName": "Live Ink", "canonical": "#0F7A72", "note": "Contrast-safe counterpart to live glass, on bone." },
+      "ink-live-dark": { "role": "secondary", "displayName": "Live Ink (Night)", "canonical": "#7EDCD5" },
+      "ink-attention-light": { "role": "tertiary", "displayName": "Attention Ink", "canonical": "#8A5300" },
+      "ink-attention-dark": { "role": "tertiary", "displayName": "Attention Ink (Night)", "canonical": "#FFC46B" },
+      "ink-trip-light": { "role": "secondary", "displayName": "Trip Ink", "canonical": "#B3151A" },
+      "ink-trip-dark": { "role": "secondary", "displayName": "Trip Ink (Night)", "canonical": "#FF8A8D" }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Rare full-frame moments. Archivo width 100, weight 700." },
+      "headline": { "displayName": "Headline", "purpose": "Screen titles and the mains plate headline." },
+      "title": { "displayName": "Title", "purpose": "Plate headings inside a card." },
+      "body": { "displayName": "Body", "purpose": "Explanatory copy. Used heavily: a toggle whose consequence is unstated is a toggle nobody dares touch." },
+      "label": { "displayName": "Label", "purpose": "Material label slots, set in the condensed nameplate voice." },
+      "nameplate": { "displayName": "Nameplate", "purpose": "The engraved circuit label. Archivo width 78, uppercased inside the component." },
+      "nameplate-small": { "displayName": "Nameplate Small", "purpose": "Sub-rows, inline labels, seals, nav labels." },
+      "section-plate": { "displayName": "Section Plate", "purpose": "A bank heading sitting above a 2dp brass rule." },
+      "state-label": { "displayName": "State Label", "purpose": "LIVE / OFF / TRIPPED / SEALED on the right of a way. End-aligned." },
+      "readout": { "displayName": "Readout", "purpose": "Instrument values in Azeret Mono so digits do not jitter as they change." },
+      "readout-large": { "displayName": "Readout Large", "purpose": "The one big number on a mains plate or gauge tile." },
+      "countdown": { "displayName": "Countdown", "purpose": "Trip-banner digits at 64sp." }
+    },
+    "shadows": [],
+    "shadowPolicy": "None. The shipped app contains no shadow or elevation call sites; the navigation bar sets tonal elevation to 0 explicitly. An Elevation scale (flat 0 / plate 1 / floating 6 / overlay 12dp) exists in the theme file with zero call sites and is deliberately NOT canonized. Depth is tonal step + hairline + brass rule only.",
+    "strokes": [
+      { "name": "hairline", "value": "1dp", "purpose": "Structural separator between ways; border of every plate, field and switch track." },
+      { "name": "rule", "value": "1.5dp", "purpose": "Defined weight between hairline and brass." },
+      { "name": "brass", "value": "2dp", "purpose": "The rule under a section nameplate. The one ornament the system allows." },
+      { "name": "heavy", "value": "3dp", "purpose": "The bus tick at the leading edge of a way, tinted by state." }
+    ],
+    "motion": [
+      { "name": "switch-throw", "value": "400ms cubic-bezier(0.2, 1.4, 0.4, 1)", "purpose": "A rocker lands, it does not glide. The overshoot is most of why a toggle feels physical." },
+      { "name": "lamp-warm-up", "value": "260ms cubic-bezier(0.6, 0, 0.9, 0.6)", "purpose": "A filament comes up slowly then quickly." },
+      { "name": "lamp-cool-down", "value": "160ms fast-out-slow-in", "purpose": "A lamp dies faster than it lights. Deliberately asymmetric with warm-up." },
+      { "name": "trip-pulse", "value": "720ms linear, reversing, alpha 0.45 to 1.0", "purpose": "A trip breathes. Nothing else on the board moves on its own." },
+      { "name": "press", "value": "120ms scale to 0.985, ripple removed", "purpose": "A press on a surface that emits no light." },
+      { "name": "nav-out", "value": "90ms", "purpose": "Outgoing element leaves." },
+      { "name": "nav-hold", "value": "90ms", "purpose": "Hold before the incoming element arrives, so the two never cross-dissolve." },
+      { "name": "nav-in", "value": "210ms", "purpose": "Incoming element arrives. Short enough that no transition delays an emergency control." },
+      { "name": "fade-through", "value": "fadeIn + scaleIn from 0.94", "purpose": "Between the four peer bottom destinations. They have no spatial relationship, so nothing slides." },
+      { "name": "shared-axis-x", "value": "slide ±10% + fade", "purpose": "Parent destination into a sub-screen. Written to scrub correctly for predictive back." },
+      { "name": "shared-axis-z", "value": "scale 0.86 to 1.0 in, 1.0 to 1.08 out, + fade", "purpose": "Overlays that sit above the hierarchy: map picker, QR card, trip screen." },
+      { "name": "inspection-hold", "value": "all infinite animations frozen under LocalInspectionMode", "purpose": "Captured screenshot evidence is identical from run to run." }
+    ],
+    "provenance": {
+      "screenshots": ".impeccable/review/ (gitignored)",
+      "capturedOn": "Redmi Note 10S, Android 13",
+      "note": "Screenshots of the built system, captured on device in both themes."
+    }
+  },
+  "components": [
+    {
+      "name": "Way",
+      "kind": "custom",
+      "refersTo": "way-row",
+      "description": "The atomic circuit row the whole interface is built from: bus tick, nameplate, optional detail, and either a state word plus pilot lamp or a rocker switch.",
+      "html": "<div class=\"ds-way\"><span class=\"ds-way-tick ds-tick-live\"></span><div class=\"ds-way-body\"><span class=\"ds-nameplate\">FALL DETECTION</span><span class=\"ds-way-detail\">Sensitivity: medium</span></div><span class=\"ds-way-state ds-state-live\">LIVE</span><span class=\"ds-lamp ds-lamp-live\"></span></div>",
+      "css": ".ds-way { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 12px 16px; background: #FBF9F5; font-family: Archivo, system-ui, sans-serif; cursor: pointer; } .ds-way:hover { background: #F6F3EE; } .ds-way:focus-visible { outline: 2px solid #22282E; outline-offset: -2px; } .ds-way-tick { width: 3px; height: 28px; border-radius: 2px; flex: 0 0 auto; } .ds-tick-live { background: #6FD3CC; } .ds-way-body { display: flex; flex-direction: column; flex: 1 1 auto; } .ds-nameplate { font-size: 15px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; font-stretch: 78%; color: #22282E; line-height: 20px; } .ds-way-detail { font-size: 13px; font-weight: 400; color: #8A9098; line-height: 18px; } .ds-way-state { font-size: 13px; font-weight: 700; letter-spacing: 0.10em; text-transform: uppercase; font-stretch: 78%; } .ds-state-live { color: #0F7A72; } .ds-lamp { width: 14px; height: 14px; border-radius: 50%; box-sizing: border-box; } .ds-lamp-live { background: #6FD3CC; border: 3px solid rgba(34,40,46,0.28); }"
+    },
+    {
+      "name": "Pilot Lamp (all states)",
+      "kind": "custom",
+      "refersTo": "way-state-live",
+      "description": "Five states and no more. Glass disc, always-drawn bezel ring so an unlit lamp still reads as a lamp, flat low-alpha halo when lit. A trip lamp breathes.",
+      "html": "<div class=\"ds-lamp-row\"><span class=\"ds-lamp2 ds-l-live\"></span><span class=\"ds-lamp2 ds-l-attn\"></span><span class=\"ds-lamp2 ds-l-trip\"></span><span class=\"ds-lamp2 ds-l-off\"></span></div>",
+      "css": ".ds-lamp-row { display: flex; gap: 16px; align-items: center; padding: 8px; } .ds-lamp2 { width: 14px; height: 14px; border-radius: 50%; box-sizing: border-box; border: 3px solid rgba(34,40,46,0.28); } .ds-l-live { background: #6FD3CC; box-shadow: 0 0 0 4px rgba(111,211,204,0.18); } .ds-l-attn { background: #F5A623; box-shadow: 0 0 0 4px rgba(245,166,35,0.18); } .ds-l-trip { background: #E5484D; box-shadow: 0 0 0 4px rgba(229,72,77,0.18); animation: ds-breathe 1440ms linear infinite alternate; } .ds-l-off { background: #C8C2B4; } @keyframes ds-breathe { from { opacity: 0.45; } to { opacity: 1; } }"
+    },
+    {
+      "name": "Rocker Switch",
+      "kind": "custom",
+      "refersTo": "way-switch-on",
+      "description": "Not a Material switch. A recessed 52x30 track with a rectangular chip that crosses to the leading edge when live and throws with an overshoot.",
+      "html": "<div class=\"ds-switch ds-switch-on\"><span class=\"ds-switch-chip\"></span></div>",
+      "css": ".ds-switch { position: relative; width: 52px; height: 30px; border-radius: 2px; background: #E5E1D8; border: 1px solid #D3CDC0; box-sizing: border-box; cursor: pointer; } .ds-switch-chip { position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 2px; background: #C8C2B4; border: 1px solid #D3CDC0; box-sizing: border-box; transition: left 400ms cubic-bezier(0.2, 1.4, 0.4, 1), background 400ms linear; } .ds-switch-on .ds-switch-chip { left: 26px; background: #6FD3CC; border-color: #6FD3CC; } .ds-switch:focus-visible { outline: 2px solid #22282E; outline-offset: 2px; }"
+    },
+    {
+      "name": "Board Button — Primary",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Wide, low, square-shouldered: an engraved plate you press, not a pill. Press is a scale-down, never a ripple.",
+      "html": "<button class=\"ds-btn ds-btn-primary\">TEST &middot; RING DEVICE</button>",
+      "css": ".ds-btn { display: inline-flex; align-items: center; justify-content: center; min-height: 56px; padding: 12px 16px; border-radius: 4px; border: 1px solid transparent; font-family: Archivo, system-ui, sans-serif; font-size: 15px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; font-stretch: 78%; cursor: pointer; transition: transform 120ms ease; } .ds-btn:active { transform: scale(0.985); } .ds-btn:focus-visible { outline: 2px solid #22282E; outline-offset: 2px; } .ds-btn-primary { background: #22282E; color: #FBF9F5; } .ds-btn-primary:hover { background: #2C333A; }"
+    },
+    {
+      "name": "Board Button — Secondary",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Plate container with a hairline border. The default for anything that is not the screen's one action.",
+      "html": "<button class=\"ds-btn ds-btn-secondary\">SYNC NOW</button>",
+      "css": ".ds-btn-secondary { display: inline-flex; align-items: center; justify-content: center; min-height: 56px; padding: 12px 16px; border-radius: 4px; background: #FBF9F5; color: #22282E; border: 1px solid #D3CDC0; font-family: Archivo, system-ui, sans-serif; font-size: 15px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; font-stretch: 78%; cursor: pointer; transition: transform 120ms ease, background 120ms ease; } .ds-btn-secondary:hover { background: #F2EFE9; } .ds-btn-secondary:active { transform: scale(0.985); } .ds-btn-secondary:focus-visible { outline: 2px solid #22282E; outline-offset: 2px; }"
+    },
+    {
+      "name": "Board Button — Danger",
+      "kind": "button",
+      "refersTo": "button-danger",
+      "description": "The only button variant carrying a hue. Reserved for actions that place a real call or fire a real alert.",
+      "html": "<button class=\"ds-btn-danger\">CALL EMERGENCY CONTACT</button>",
+      "css": ".ds-btn-danger { display: inline-flex; align-items: center; justify-content: center; min-height: 56px; padding: 12px 16px; border-radius: 4px; background: #E5484D; color: #FBF9F5; border: 1px solid #E5484D; font-family: Archivo, system-ui, sans-serif; font-size: 15px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; font-stretch: 78%; cursor: pointer; transition: transform 120ms ease, background 120ms ease; } .ds-btn-danger:hover { background: #D42B31; } .ds-btn-danger:active { transform: scale(0.985); } .ds-btn-danger:focus-visible { outline: 2px solid #22282E; outline-offset: 2px; }"
+    },
+    {
+      "name": "Plate Field",
+      "kind": "input",
+      "refersTo": "plate-field",
+      "description": "A text input drawn as a routed channel in the panel: recess fill, hairline border, 48dp floor that grows with the font scale. The whole plate is the touch target.",
+      "html": "<label class=\"ds-field-wrap\"><span class=\"ds-field-label\">FULL NAME</span><input class=\"ds-field\" type=\"text\" placeholder=\"As it should be read aloud\" /></label>",
+      "css": ".ds-field-wrap { display: flex; flex-direction: column; gap: 4px; font-family: Archivo, system-ui, sans-serif; } .ds-field-label { font-size: 12px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; font-stretch: 78%; color: #5A6068; } .ds-field { min-height: 48px; padding: 8px 12px; border-radius: 4px; background: #E5E1D8; border: 1px solid #D3CDC0; color: #22282E; font-family: Archivo, system-ui, sans-serif; font-size: 16px; line-height: 24px; box-sizing: border-box; } .ds-field::placeholder { color: #8A9098; } .ds-field:focus { outline: none; border-color: #22282E; } .ds-field:focus-visible { border-color: #22282E; box-shadow: inset 0 0 0 1px #22282E; } .ds-field:disabled { background: #F2EFE9; color: #8A9098; }"
+    },
+    {
+      "name": "Section Plate",
+      "kind": "custom",
+      "refersTo": "section-plate",
+      "description": "A bank heading over a 2dp brass rule. This is how a long settings screen reads as labelled banks rather than an undifferentiated list.",
+      "html": "<div class=\"ds-section\"><span class=\"ds-section-title\">PROTECTION</span><div class=\"ds-brass\"></div></div>",
+      "css": ".ds-section { display: flex; flex-direction: column; width: 100%; font-family: Archivo, system-ui, sans-serif; } .ds-section-title { font-size: 13px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; font-stretch: 78%; color: #5A6068; line-height: 18px; } .ds-brass { margin-top: 4px; width: 100%; height: 2px; background: #B9A88A; }"
+    },
+    {
+      "name": "Seal",
+      "kind": "chip",
+      "refersTo": "seal",
+      "description": "The clip on a guardian-managed circuit. Marks a setting the wearer cannot change on the device itself.",
+      "html": "<span class=\"ds-seal\"><svg width=\"10\" height=\"10\" viewBox=\"0 0 24 24\" fill=\"#5A6068\"><path d=\"M12 2a5 5 0 0 0-5 5v3H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-1V7a5 5 0 0 0-5-5zm0 2a3 3 0 0 1 3 3v3H9V7a3 3 0 0 1 3-3z\"/></svg>SEALED</span>",
+      "css": ".ds-seal { display: inline-flex; align-items: center; gap: 2px; padding: 1px 5px; border-radius: 2px; background: rgba(185,168,138,0.20); color: #5A6068; font-family: Archivo, system-ui, sans-serif; font-size: 12px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; font-stretch: 78%; }"
+    },
+    {
+      "name": "Gauge Tile",
+      "kind": "card",
+      "refersTo": "board-plate",
+      "description": "One instrument reading in its own bay. A labelled plate, not a dial — a dial looks handsome and is slower to read. The dotted corner mark denotes representative data.",
+      "html": "<div class=\"ds-gauge\"><span class=\"ds-gauge-label\">UV INDEX</span><div class=\"ds-gauge-row\"><span class=\"ds-gauge-value\">7.2</span><span class=\"ds-gauge-unit\">very high</span></div><span class=\"ds-gauge-caption\">Shade advised until 16:00</span><span class=\"ds-stub\" title=\"Representative data, not live\"></span></div>",
+      "css": ".ds-gauge { position: relative; display: flex; flex-direction: column; padding: 16px; border-radius: 8px; background: #FBF9F5; border: 1px solid #D3CDC0; font-family: Archivo, system-ui, sans-serif; } .ds-gauge-label { font-size: 12px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; font-stretch: 78%; color: #5A6068; margin-bottom: 8px; } .ds-gauge-row { display: flex; align-items: baseline; gap: 4px; } .ds-gauge-value { font-family: 'Azeret Mono', ui-monospace, monospace; font-size: 34px; font-weight: 500; letter-spacing: -0.03em; line-height: 38px; color: #8A5300; } .ds-gauge-unit { font-size: 13px; color: #8A9098; } .ds-gauge-caption { font-size: 13px; color: #8A9098; } .ds-stub { position: absolute; top: 8px; right: 8px; width: 10px; height: 10px; border-radius: 2px; background: rgba(138,144,152,0.22); border: 1px solid rgba(138,144,152,0.5); }"
+    },
+    {
+      "name": "Board Bottom Bar",
+      "kind": "nav",
+      "refersTo": "nav-item-selected",
+      "description": "Four primary destinations. A stock navigation bar themed to the board: plate fill, hairline top rule instead of a shadow, engraved labels, a square brass selection plate rather than a rounded pill.",
+      "html": "<nav class=\"ds-nav\"><a class=\"ds-nav-item ds-nav-selected\"><span class=\"ds-nav-ind\"><svg width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"currentColor\"><path d=\"M3 3h8v8H3V3zm10 0h8v5h-8V3zM3 13h8v8H3v-8zm10-3h8v11h-8V10z\"/></svg></span><span class=\"ds-nav-label\">BOARD</span></a><a class=\"ds-nav-item\"><span class=\"ds-nav-ind\"><svg width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"currentColor\"><path d=\"M12 2l8 4v6c0 5-3.4 8.7-8 10-4.6-1.3-8-5-8-10V6l8-4z\"/></svg></span><span class=\"ds-nav-label\">SAFETY</span></a></nav>",
+      "css": ".ds-nav { display: flex; background: #FBF9F5; border-top: 1px solid #D3CDC0; font-family: Archivo, system-ui, sans-serif; } .ds-nav-item { display: flex; flex: 1 1 0; flex-direction: column; align-items: center; gap: 4px; padding: 10px 0 12px; color: #8A9098; text-decoration: none; cursor: pointer; } .ds-nav-ind { display: flex; align-items: center; justify-content: center; width: 64px; height: 32px; border-radius: 2px; } .ds-nav-selected { color: #22282E; } .ds-nav-selected .ds-nav-ind { background: rgba(185,168,138,0.22); } .ds-nav-item:hover { color: #5A6068; } .ds-nav-item:focus-visible { outline: 2px solid #22282E; outline-offset: -2px; } .ds-nav-label { font-size: 12px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; font-stretch: 78%; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Household Distribution Board",
+    "overview": "SafeShade is a consumer panel, not a wellness dashboard and not a tactical HUD. The thesis is that safety is circuits — live, off, tripped — and the app is the board that shows which. Everything a guardian needs to know is expressed the way a real board expresses it: an engraved nameplate on the left, a state on the right, a pilot lamp that either burns or does not, and a brass rule dividing one bank of circuits from the next. The material is bone-coloured sheet metal in a lit room and dark plate in a hallway at night; the corners are milled, not moulded; nothing glows, blurs, or floats.\n\nThe density is deliberately generous. Type sits one step larger than a typical phone scale because the guardian of an elderly wearer is often elderly too, and this app gets read in a hurry. Every row — tappable or not — clears a 48dp floor. The board is achromatic almost everywhere, which is what gives the three state hues their force: when something on this screen is coloured, a reader is entitled to assume it is telling them about a live circuit.\n\nConfirmed rejections, all visible in the build: frosted glass and blur (replaced by flat plates with hairline borders), gradients of any kind (the pilot lamp's halo is a flat low-alpha ring, and a local flat interpolation exists specifically so no caller reaches for a gradient brush), 20–28dp pill corners, Material You dynamic colour, per-mode accent hues, and any decorative accent token at all.",
+    "keyCharacteristics": [
+      "Colour means circuit state and nothing else",
+      "Two grounds, one system: bone panel by day, night plate after dark",
+      "Machined corners (2–8dp in practice, 14dp ceiling)",
+      "Separation by hairline and brass rule, never by shadow",
+      "One variable type family at two width axes, plus a mono for readouts",
+      "Mechanical motion: switches throw, lamps warm up",
+      "Honest by construction: sealed, device-only, and unknown are all first-class states"
+    ],
+    "rules": [
+      { "name": "The Colour-Means-State Rule", "body": "Teal, amber and red appear only in pilot lamps, bus ticks, seals, thrown switch chips, trip banners and state words. Grounds, plates, rules and body type are achromatic. There is deliberately no decorative accent token. Audit test: point at any saturated pixel and name the circuit it reports; if you cannot, it does not belong.", "section": "colors" },
+      { "name": "The Two-Form Rule", "body": "Every state token ships as a lamp glass and as an ink. Glass fills, ink speaks. Never set text in a glass colour, and never fill a lamp with an ink colour.", "section": "colors" },
+      { "name": "The No-Dynamic-Colour Rule", "body": "Material You is declined outright. Dynamic colour would repaint the pilot lamps from the user's wallpaper, which destroys the one rule the system is built on. Android's guidance to prefer dynamic colour assumes hue is decorative; here it is load-bearing.", "section": "colors" },
+      { "name": "The Colour-Is-Never-Alone Rule", "body": "Every lamp is paired with a state word, and every lamp carries a spoken state description. Red-versus-teal is exactly the pairing colour vision deficiency costs, and the system survives greyscale because the word is always there.", "section": "colors" },
+      { "name": "The Semantic-Access Rule", "body": "Screens read colours through the theme's semantic accessor, never through the raw constants. That is how a light-only value ends up hardcoded into a dark screen.", "section": "colors" },
+      { "name": "The One-Family-Two-Widths Rule", "body": "Nameplates are Archivo condensed; body is Archivo normal. Do not introduce a second display face to get a condensed look, and do not fake condensation with letter-spacing on the normal width.", "section": "typography" },
+      { "name": "The Engraving Rule", "body": "Uppercase plus tracking is the label voice and is reserved for labels — nameplates, section plates, state words, buttons and nav items. Sentence copy is never uppercased.", "section": "typography" },
+      { "name": "The Digits-Are-Mono Rule", "body": "Any number a person reads one character at a time is set in Azeret Mono. Prose containing a number is not.", "section": "typography" },
+      { "name": "The One-Step-Larger Rule", "body": "The scale sits one step above a typical phone scale, and every field and row grows with the system font scale rather than clipping — heights are floors, never fixed.", "section": "typography" },
+      { "name": "The 48dp Floor Rule", "body": "Every interactive target clears 48dp — and so do non-interactive rows, because a row read at arm's length needs the same vertical room. A field's recess is drawn inside the text field's own decoration, so the full plate is tappable rather than a hairline-thin target.", "section": "layout" },
+      { "name": "The First-Viewport Rule", "body": "The state of the person being protected is above the fold on every screen that has one. Nothing decorative is allowed to push it down.", "section": "layout" },
+      { "name": "The Nothing-Floats Rule", "body": "Surfaces separate by tone, hairline and rule. The bottom bar is divided from content by a rule, not a shadow. If a surface needs to feel raised, step its tone and draw its border; do not lift it.", "section": "elevation" },
+      { "name": "The No-Emitted-Light Rule", "body": "This panel does not emit light, so nothing on it glows. The pilot lamp's halo is a flat low-alpha ring, not a radial gradient, and buttons respond to a press with a 0.985 scale-down rather than a ripple — a ripple spreads light across a surface that has none.", "section": "elevation" },
+      { "name": "The Kit-Is-The-Vocabulary Rule", "body": "No screen invents a card, button, switch or row. A bank of screens may add what the kit genuinely lacks (a pushed-screen header, a text field) as internal helpers in its own package, but nothing state-carrying is redrawn locally. A gallery screen renders the entire kit in both themes at a raised font scale, and is the reference to check before inventing a seventh kind of card.", "section": "components" },
+      { "name": "The Mode-Is-Icon-And-Plate Rule", "body": "The eight adaptive modes are distinguished by icon and engraved nameplate alone. Per-mode accent hues were removed from the data layer deliberately: seven competing hues across a system whose one rule is that colour means circuit state is exactly the thing this world replaces. Icon plus label is how a real panel labels its ways, and it survives greyscale, colour vision deficiency and dark mode without a second thought.", "section": "components" },
+      { "name": "The Honesty Rules", "body": "Three conventions are part of the visual system, not decoration around it. A small dotted stub mark in a card's corner (with its own spoken description) is the only tell that data is representative rather than live, used only where hardware or infrastructure genuinely does not exist. A device-only row draws a readable value and no control where the app has no write path. UNKNOWN is a distinct lamp state meaning 'we cannot currently tell' — rendered unlit and inert, never as a fault, because no link is not the same thing as a failure.", "section": "components" }
+    ],
+    "dos": [
+      "Do use colour only to report circuit state, and always pair it with a word.",
+      "Do pick the lamp-glass token for fills and the matching ink token for text; every state has both for a reason.",
+      "Do build rows from the Way component so a whole screen reads with one learned pattern.",
+      "Do separate surfaces with a 1dp hairline and a tonal step, and mark a bank with a 2dp brass rule.",
+      "Do keep corners machined — 2dp for chips and tracks, 4dp for buttons and fields, 8dp for plates.",
+      "Do set every label uppercase in the condensed nameplate voice, and every readable number in mono.",
+      "Do give every row, tappable or not, at least 48dp of height, and let heights grow with the font scale.",
+      "Do let a switch throw and a lamp warm up; the overshoot and the asymmetry are what make the panel feel mechanical.",
+      "Do mark representative data with a stub mark, and draw a device-only setting as a value with no control.",
+      "Do route the mascot through its host so the emergency suppression rule holds by construction."
+    ],
+    "donts": [
+      "Don't introduce a decorative accent token, a per-screen accent, or a per-mode hue. There is no accent in this system.",
+      "Don't use a gradient anywhere — not for a lamp halo, not for a plate, not for a background.",
+      "Don't use frosted glass, blur, or any translucent card.",
+      "Don't cast a shadow or raise elevation to express hierarchy. Nothing on this panel floats.",
+      "Don't enable Material You dynamic colour; it would repaint the pilot lamps from the wallpaper.",
+      "Don't use pill corners (20–28dp) or pill-shaped controls.",
+      "Don't use a ripple; this surface emits no light, so a press is a small scale-down.",
+      "Don't set body copy in the condensed width or in uppercase.",
+      "Don't set text in a lamp-glass colour, or reach for the raw colour constants instead of the theme's semantic accessor.",
+      "Don't draw a control for a setting the app cannot actually write, and don't show representative data without its stub mark.",
+      "Don't place Shady inside a Way row, beside a pilot lamp, or on any emergency surface — and never give it a speech bubble.",
+      "Don't render an empty instrument (a dash, a '0 / 40') where the lamp or the absence has already said it."
+    ]
+  }
+}
