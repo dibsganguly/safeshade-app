@@ -30,6 +30,7 @@ import com.safeshade.ui.board.ScreenHeader
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.Way
 import com.safeshade.ui.icons.SafeShadeIcons
+import com.safeshade.ui.shady.ShadyMood
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.board
@@ -96,11 +97,13 @@ fun PairedDevicesScreen(
         if (state.devices.isEmpty()) {
             item("empty") {
                 EmptyBay(
-                    withShady = false,
                     message = "No SafeShade device saved yet. Pairing takes a few " +
                         "seconds and only has to be done once.",
                     actionLabel = if (state.permissionsGranted) "Pair a device" else "Grant permissions",
-                    onAction = if (state.permissionsGranted) onPairNew else onRequestPermissions
+                    onAction = if (state.permissionsGranted) onPairNew else onRequestPermissions,
+                    // Nobody has paired anything yet — this app's own doing,
+                    // not a bad-news state.
+                    shadyMood = ShadyMood.DUMBFOUNDED
                 )
             }
         } else {

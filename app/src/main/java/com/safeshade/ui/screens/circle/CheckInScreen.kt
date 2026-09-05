@@ -38,6 +38,7 @@ import com.safeshade.ui.board.ScreenTier
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.Way
 import com.safeshade.ui.icons.SafeShadeIcons
+import com.safeshade.ui.shady.ShadyMood
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.Stroke
@@ -205,7 +206,10 @@ fun CheckInScreen(
             } else {
                 item("idle") {
                     EmptyBay(
-                        message = "Nothing to answer right now. When ${counterpartName(state.role, state.wearerName, state.guardianName)} asks whether you are all right, the question appears here and on the device."
+                        message = "Nothing to answer right now. When ${counterpartName(state.role, state.wearerName, state.guardianName)} asks whether you are all right, the question appears here and on the device.",
+                        // Nobody has asked anything yet — the questioning
+                        // face fits better than a searching one here.
+                        shadyMood = ShadyMood.CURIOUS
                     )
                 }
             }

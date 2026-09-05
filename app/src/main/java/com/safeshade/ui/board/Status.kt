@@ -261,7 +261,18 @@ fun EmptyBay(
      * that was never filled in, a contact list with nobody on it. Those want
      * the plain statement, not a companion.
      */
-    withShady: Boolean = true
+    withShady: Boolean = true,
+    /**
+     * Which face Shady wears while it waits, when [withShady] is on.
+     *
+     * Defaults to the plain [ShadyMood.CALM] so a call site that has not been
+     * given a more specific answer keeps behaving exactly as before. Pick the
+     * mood that matches what the emptiness actually means: [ShadyMood.LOOKING]
+     * for a list that could have content but does not yet,
+     * [ShadyMood.CURIOUS] for something nobody has set up yet, and
+     * [ShadyMood.DUMBFOUNDED] for a gap that is the viewer's own doing.
+     */
+    shadyMood: ShadyMood = ShadyMood.CALM
 ) {
     val colors = MaterialTheme.board
     Column(
@@ -275,7 +286,7 @@ fun EmptyBay(
     ) {
         if (withShady) {
             ShadyHost(
-                mood = ShadyMood.CALM,
+                mood = shadyMood,
                 // An empty bay is never itself an emergency, and `ShadyHost`
                 // enforces the suppression rule anyway if that ever changes.
                 emergencyActive = false,

@@ -29,6 +29,7 @@ import com.safeshade.ui.board.Nameplate
 import com.safeshade.ui.board.ScreenHeader
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.Way
+import com.safeshade.ui.shady.ShadyMood
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.board
@@ -127,9 +128,11 @@ fun DeveloperScreen(
         if (state.scenarios.isEmpty()) {
             item("sim-empty") {
                 EmptyBay(
-                    withShady = false,
                     message = "No scenarios were supplied. The debug source set owns " +
-                        "the list; this screen only renders it."
+                        "the list; this screen only renders it.",
+                    // The debug source set forgot to wire up any scenarios —
+                    // squarely the developer's own doing.
+                    shadyMood = ShadyMood.DUMBFOUNDED
                 )
             }
         } else {

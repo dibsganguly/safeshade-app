@@ -26,6 +26,7 @@ import com.safeshade.ui.board.LampState
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.Way
 import com.safeshade.ui.icons.SafeShadeIcons
+import com.safeshade.ui.shady.ShadyMood
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.board
@@ -98,7 +99,10 @@ fun TripLogScreen(
                     message = "Nothing has tripped. Falls, SOS presses, missed check-ins and " +
                         "safe-zone exits all appear here with the time and place.",
                     actionLabel = "Check fall settings",
-                    onAction = onOpenFallSettings
+                    onAction = onOpenFallSettings,
+                    // A log that could well have entries in it — this is the
+                    // kind of empty a magnifying glass explains best.
+                    shadyMood = ShadyMood.LOOKING
                 )
             }
         }

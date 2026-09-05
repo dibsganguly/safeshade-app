@@ -39,6 +39,7 @@ import com.safeshade.ui.board.Nameplate
 import com.safeshade.ui.board.Readout
 import com.safeshade.ui.board.ScreenHeader
 import com.safeshade.ui.board.SectionPlate
+import com.safeshade.ui.shady.ShadyMood
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.board
@@ -95,14 +96,16 @@ fun TelemetryScreen(
         if (!hasData) {
             item("empty") {
                 EmptyBay(
-                    withShady = false,
                     message = if (state.connection.isUsable) {
                         "No data yet. The wearable sends a reading about once a " +
                             "second once it has settled — this fills in shortly."
                     } else {
                         "No data yet. Telemetry arrives only while the device is " +
                             "connected."
-                    }
+                    },
+                    // Readings that could arrive any second — a magnifying
+                    // glass, not a plain statement.
+                    shadyMood = ShadyMood.LOOKING
                 )
             }
             return@LazyColumn

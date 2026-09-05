@@ -185,16 +185,19 @@ private fun ContactList(
                         "contact to move them to the front."
                 )
             }
-        }
 
-        item("add") {
-            BoardButton(
-                label = "Add a contact",
-                icon = Icons.Outlined.PersonAdd,
-                onClick = onStartAdd,
-                weight = if (state.contacts.isEmpty()) ButtonWeight.PRIMARY else ButtonWeight.SECONDARY,
-                modifier = Modifier.fillMaxWidth()
-            )
+            // The empty bay above already carries this action while there are
+            // no contacts — a second "add" button beside it would just be the
+            // same offer said twice.
+            item("add") {
+                BoardButton(
+                    label = "Add a contact",
+                    icon = Icons.Outlined.PersonAdd,
+                    onClick = onStartAdd,
+                    weight = ButtonWeight.SECONDARY,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
         }
 
         item("how") {

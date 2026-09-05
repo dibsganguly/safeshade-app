@@ -34,6 +34,7 @@ import com.safeshade.ui.board.Nameplate
 import com.safeshade.ui.board.ScreenHeader
 import com.safeshade.ui.board.ScreenTier
 import com.safeshade.ui.board.SectionPlate
+import com.safeshade.ui.shady.ShadyMood
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.board
@@ -154,7 +155,11 @@ fun MessagesScreen(
                 item("empty") {
                     EmptyBay(
                         message = "No messages yet. A short message appears on the device screen and buzzes once.",
-                        modifier = Modifier.padding(top = Spacing.xl)
+                        modifier = Modifier.padding(top = Spacing.xl),
+                        // A thread that could easily have messages in it —
+                        // this is the "still looking" empty, not the "nothing
+                        // configured" one.
+                        shadyMood = ShadyMood.LOOKING
                     )
                 }
             }

@@ -40,6 +40,7 @@ import com.safeshade.ui.board.Readout
 import com.safeshade.ui.board.ScreenHeader
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.icons.SafeShadeIcons
+import com.safeshade.ui.shady.ShadyMood
 import com.safeshade.ui.theme.Radius
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
@@ -182,10 +183,12 @@ fun LocateScreen(
         item("last") {
             if (state.lastKnownPlace == null && state.lastKnownCoordinates == null) {
                 EmptyBay(
-                    withShady = false,
                     message = "No position recorded yet. This fills in the first " +
                         "time your phone has both a location fix and the device " +
-                        "in range."
+                        "in range.",
+                    // A fix that could land at any moment — the searching
+                    // face, not a flat statement.
+                    shadyMood = ShadyMood.LOOKING
                 )
             } else {
                 BoardPlate(modifier = Modifier.fillMaxWidth()) {

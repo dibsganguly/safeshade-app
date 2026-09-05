@@ -74,7 +74,16 @@ enum class ShadyMood {
     CONCERNED,
 
     /** No link at all. Dimmed, antenna dark, no movement. */
-    OFFLINE
+    OFFLINE,
+
+    /** Nothing has been set up here yet. Head tilted, one brow raised. */
+    CURIOUS,
+
+    /** A list that could have content, but does not yet. Eyes sweeping. */
+    LOOKING,
+
+    /** Caught out by something of its own doing. Wide-eyed, frozen, mouth open. */
+    DUMBFOUNDED
 }
 
 // Character palette. Amber skin from the brand mark; teal reserved for the
@@ -110,9 +119,9 @@ fun Shady(
         animationSpec = infiniteRepeatable(
             animation = tween(
                 durationMillis = when (mood) {
-                    ShadyMood.SEARCHING -> 1900
+                    ShadyMood.SEARCHING, ShadyMood.LOOKING -> 1900
                     ShadyMood.CONCERNED -> 2600
-                    ShadyMood.RESTING -> 5200
+                    ShadyMood.RESTING, ShadyMood.DUMBFOUNDED -> 5200
                     else -> 3400
                 },
                 easing = LinearEasing
@@ -125,9 +134,12 @@ fun Shady(
 
     val tiltTarget = when (mood) {
         ShadyMood.WATCHING -> -2f
-        ShadyMood.SEARCHING -> -4f
+        ShadyMood.SEARCHING, ShadyMood.LOOKING -> -4f
         ShadyMood.CONCERNED -> 3f
         ShadyMood.RESTING -> 5f
+        // The classic quizzical head-tilt — steeper than any other mood, since
+        // it is the entire message.
+        ShadyMood.CURIOUS -> -8f
         else -> 0f
     }
     val moodTilt by animateFloatAsState(tiltTarget, tween(600), label = "shady-tilt")
@@ -135,9 +147,12 @@ fun Shady(
     val breath = sin(phase * 2f * PI).toFloat()
     val bob = when (mood) {
         ShadyMood.OFFLINE -> 0f
+        // Barely moving — a body still catching up with what it just saw.
+        ShadyMood.DUMBFOUNDED -> 0.6f
         ShadyMood.RESTING -> 1.2f
         ShadyMood.CONCERNED -> 1.6f
-        ShadyMood.SEARCHING -> 3.5f
+        ShadyMood.CURIOUS -> 2.2f
+        ShadyMood.SEARCHING, ShadyMood.LOOKING -> 3.5f
         else -> 3f
     }
 
@@ -174,6 +189,9 @@ private fun describe(mood: ShadyMood) = when (mood) {
     ShadyMood.RESTING -> "Shady is resting."
     ShadyMood.CONCERNED -> "Shady is concerned. Something needs attention."
     ShadyMood.OFFLINE -> "Shady is offline. No connection to the device."
+    ShadyMood.CURIOUS -> "Shady is curious. Nothing has been set up here yet."
+    ShadyMood.LOOKING -> "Shady is looking around for something to show."
+    ShadyMood.DUMBFOUNDED -> "Shady is stumped."
 }
 
 /**
@@ -216,7 +234,17 @@ private fun DrawScope.drawShady(
     drawHands(s, mood, phase, skin, shade, pose)
     drawBody(s, skin, shade)
     drawFace(s, mood, phase, breath, pose)
-    drawFlourish(s, pose.flourish, phase, stalkInk)
+    // A pose that asks for a specific flourish wins; otherwise the mood picks
+    // one, so a call site that only has a mood to give still gets the mark
+    // that goes with it, rather than nothing.
+    val flourish = if (pose.flourish != Flourish.NONE) pose.flourish else defaultFlourish(mood)
+    drawFlourish(s, flourish, phase, stalkInk)
+}
+
+private fun defaultFlourish(mood: ShadyMood): Flourish = when (mood) {
+    ShadyMood.CURIOUS -> Flourish.QUESTION
+    ShadyMood.LOOKING -> Flourish.MAGNIFY
+    else -> Flourish.NONE
 }
 
 private fun DrawScope.drawBody(s: Float, skin: Color, shade: Color) {
@@ -329,8 +357,14 @@ private fun DrawScope.drawFace(
     val gaze = when {
         pose.gazeX != 0f -> pose.gazeX * outer
         pose.eyes != null -> 0f
-        mood == ShadyMood.SEARCHING -> sin(phase * 2f * PI).toFloat() * outer * 0.6f
+        mood == ShadyMood.SEARCHING || mood == ShadyMood.LOOKING ->
+            sin(phase * 2f * PI).toFloat() * outer * 0.6f
         mood == ShadyMood.CONCERNED -> -outer * 0.28f
+        // Off to one side rather than centred — a straight-ahead stare would
+        // read as surprise, not curiosity.
+        mood == ShadyMood.CURIOUS -> outer * 0.32f
+        // Fixed dead ahead. A dumbfounded stare does not wander.
+        mood == ShadyMood.DUMBFOUNDED -> 0f
         else -> breath * outer * 0.12f
     }
 
@@ -338,10 +372,12 @@ private fun DrawScope.drawFace(
 
     val blinking = pose.eyes == null &&
         mood != ShadyMood.RESTING &&
+        mood != ShadyMood.DUMBFOUNDED &&
         (phase % 0.5f) > 0.475f
 
     val style = pose.eyes ?: when {
         mood == ShadyMood.RESTING || blinking -> EyeStyle.CLOSED
+        mood == ShadyMood.DUMBFOUNDED -> EyeStyle.WIDE
         else -> EyeStyle.NORMAL
     }
 
@@ -421,6 +457,9 @@ private fun DrawScope.drawFace(
     when {
         pose.browRaise != 0f -> drawRaisedBrows(s, eyeY, outer, pose.browRaise)
         mood == ShadyMood.CONCERNED && pose.eyes == null -> drawWorriedBrows(s, eyeY, outer)
+        // The same mismatched pair a raised eyebrow uses elsewhere — one brow
+        // higher than the other is what turns "surprised" into "unconvinced".
+        mood == ShadyMood.CURIOUS && pose.eyes == null -> drawRaisedBrows(s, eyeY, outer, 1f)
     }
 
     drawMouth(s, pose.mouth ?: defaultMouth(mood))
@@ -487,10 +526,15 @@ private fun DrawScope.drawSpiralEye(cx: Float, cy: Float, outer: Float, s: Float
 
 private fun defaultMouth(mood: ShadyMood) = when (mood) {
     ShadyMood.WATCHING, ShadyMood.CALM -> MouthStyle.SMILE
-    ShadyMood.SEARCHING -> MouthStyle.OPEN
+    ShadyMood.SEARCHING, ShadyMood.LOOKING -> MouthStyle.OPEN
     ShadyMood.RESTING -> MouthStyle.FLAT
     ShadyMood.CONCERNED -> MouthStyle.FROWN
     ShadyMood.OFFLINE -> MouthStyle.FLAT
+    // Lopsided, not sunny — the same shape a raised eyebrow pairs with
+    // elsewhere in the reactor's subtle set.
+    ShadyMood.CURIOUS -> MouthStyle.SMIRK
+    // A tall "oh" — caught with nothing to say.
+    ShadyMood.DUMBFOUNDED -> MouthStyle.GASP
 }
 
 /** The mouth is always present — a face without one reads as unfinished. */
@@ -606,6 +650,52 @@ private fun DrawScope.drawFlourish(s: Float, flourish: Flourish, phase: Float, i
                 if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
             }
             drawPath(path, ink, style = Stroke(width = s * 0.014f, cap = StrokeCap.Round))
+        }
+        Flourish.QUESTION -> {
+            val cx = s * 0.755f
+            val hook = Path().apply {
+                moveTo(cx - s * 0.032f, s * 0.075f)
+                cubicTo(
+                    cx - s * 0.032f, s * 0.030f,
+                    cx + s * 0.048f, s * 0.030f,
+                    cx + s * 0.048f, s * 0.075f
+                )
+                cubicTo(
+                    cx + s * 0.048f, s * 0.108f,
+                    cx, s * 0.100f,
+                    cx, s * 0.140f
+                )
+            }
+            drawPath(hook, ink, style = Stroke(width = s * 0.020f, cap = StrokeCap.Round))
+            drawCircle(ink, radius = s * 0.013f, center = Offset(cx, s * 0.172f))
+        }
+        Flourish.MAGNIFY -> {
+            // A gentle side-to-side drift, so a held-up glass reads as
+            // scanning rather than as a fixed sticker.
+            val drift = sin(phase * 2f * PI).toFloat() * s * 0.012f
+            val cx = s * 0.735f + drift
+            val cy = s * 0.135f
+            val r = s * 0.044f
+            drawCircle(ink, radius = r, style = Stroke(width = s * 0.020f), center = Offset(cx, cy))
+            drawArc(
+                color = ink.copy(alpha = 0.55f),
+                startAngle = -150f,
+                sweepAngle = 50f,
+                useCenter = false,
+                topLeft = Offset(cx - r * 0.55f, cy - r * 0.55f),
+                size = Size(r * 1.1f, r * 1.1f),
+                style = Stroke(width = s * 0.010f, cap = StrokeCap.Round)
+            )
+            val handleAngle = PI.toFloat() / 4f
+            val hx = cx + cos(handleAngle) * r
+            val hy = cy + sin(handleAngle) * r
+            drawLine(
+                ink,
+                Offset(hx, hy),
+                Offset(hx + cos(handleAngle) * s * 0.052f, hy + sin(handleAngle) * s * 0.052f),
+                strokeWidth = s * 0.022f,
+                cap = StrokeCap.Round
+            )
         }
     }
 }

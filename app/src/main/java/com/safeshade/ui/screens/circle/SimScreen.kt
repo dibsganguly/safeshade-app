@@ -39,6 +39,7 @@ import com.safeshade.ui.board.ScreenTier
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.Way
 import com.safeshade.ui.icons.SafeShadeIcons
+import com.safeshade.ui.shady.ShadyMood
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.board
@@ -217,7 +218,10 @@ fun SimScreen(
             if (state.allowlist.isEmpty()) {
                 item("allow-empty") {
                     EmptyBay(
-                        message = "No numbers yet, so every sender is accepted. Adding one number turns that off and only the listed numbers get through."
+                        message = "No numbers yet, so every sender is accepted. Adding one number turns that off and only the listed numbers get through.",
+                        // Nothing has been configured yet — the questioning
+                        // face, not "still looking".
+                        shadyMood = ShadyMood.CURIOUS
                     )
                 }
             } else {

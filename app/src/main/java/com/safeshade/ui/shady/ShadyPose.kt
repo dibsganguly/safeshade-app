@@ -121,5 +121,11 @@ enum class Flourish {
     SWIRL,
 
     /** Scuff arcs kicked up at the feet. A landing, a skid, a stumble. */
-    PUFF
+    PUFF,
+
+    /** A curled question mark. Nothing wrong, just nothing here yet. */
+    QUESTION,
+
+    /** A magnifying glass, held up while looking something over. */
+    MAGNIFY
 }

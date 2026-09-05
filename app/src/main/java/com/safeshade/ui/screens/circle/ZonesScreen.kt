@@ -40,6 +40,7 @@ import com.safeshade.ui.board.ScreenTier
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.Way
 import com.safeshade.ui.icons.SafeShadeIcons
+import com.safeshade.ui.shady.ShadyMood
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.board
@@ -176,7 +177,10 @@ fun ZonesScreen(
                             "Reading saved zones."
                         },
                         actionLabel = if (state.isLoaded) "Add a zone" else null,
-                        onAction = if (state.isLoaded) onAddZone else null
+                        onAction = if (state.isLoaded) onAddZone else null,
+                        // Still reading the list back reads as "looking";
+                        // confirmed empty reads as "nothing set up yet".
+                        shadyMood = if (state.isLoaded) ShadyMood.CURIOUS else ShadyMood.LOOKING
                     )
                 }
             } else {
@@ -198,16 +202,19 @@ fun ZonesScreen(
                         }
                     }
                 }
-            }
 
-            item("add") {
-                BoardButton(
-                    label = "Add a safe zone",
-                    icon = Icons.Outlined.Add,
-                    onClick = onAddZone,
-                    weight = ButtonWeight.PRIMARY,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                // The empty bay above already carries this action while the
+                // list has nothing in it — a second "add" button beside it
+                // would just be the same offer said twice.
+                item("add") {
+                    BoardButton(
+                        label = "Add a safe zone",
+                        icon = Icons.Outlined.Add,
+                        onClick = onAddZone,
+                        weight = ButtonWeight.PRIMARY,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             }
 
             item("explainer") {
