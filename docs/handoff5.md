@@ -56,6 +56,12 @@ name and would need exporting into `docs/Icons` as `<name>-stroke-rounded.svg`:
 | Watch device | `watch-01` or `smart-watch-01` |
 | Pendant device | (search `diamond`, `gem`) |
 
+The sync control went **back** to `Icons.Outlined.Sync` after the icon pass
+put `cloud-loading` there: a cloud with a dashed arc reads as *offline* on the
+one screen whose job is saying whether things are connected. A circular-arrow
+reload glyph is the single most valuable addition to the drop - search
+`arrow-reload-horizontal` or `refresh`.
+
 Nine more would clear the remaining one-off Material usages: `history` (trip
 log, ×3), `timer` (overdue journey), `qr-code` (emergency card, ×2), `delete`
 (remove a zone), `user-add` (add a contact), `walking` (journey, ×2), `flash`
@@ -128,6 +134,10 @@ Verified: all 102 render live in the gallery, in dark theme, including
 - The board snackbar, which until the send fix had never been triggered on a
   device at all - it is only reachable from a failure or a blocked SOS.
 - The `adaptive-mode` glyph, in the Device bank.
+- **Dark theme, properly.** The last round of edits was all checked in dark,
+  which closes most of the gap listed below: the Board, the Safety bank, the
+  Device bank, Reminders, Paired devices, the Circle card and the emergency
+  services screen were all swept in it.
 - The message thread on the failure path: a quick reply and a typed one both
   report the reason, and the typed draft stays in the box. That last one is a
   deliberate change of behaviour - the box used to empty on a send that had
@@ -145,6 +155,10 @@ Verified: all 102 render live in the gallery, in dark theme, including
   scales its whole canvas about the pivot rather than re-tiling per frame, and
   an unclipped View paints that wherever it lands — but nobody has watched it.
   **This is the single highest-value thing to confirm by hand.**
+- **Anything that only exists while a wearable is connected.** The amber
+  "Ring Device" button and the ash "Disconnect" are both reasoned from the code
+  path their siblings take and have never been on screen - with nothing in
+  range the Board shows Connect and the paired device shows Connect.
 - **A quick message succeeding.** The failure path is watched; the success
   path needs a paired wearable or a stored SIM number and a real SMS, and
   neither was available. The tick has been seen correctly withheld and never
@@ -225,6 +239,19 @@ Two lessons worth carrying, because both are cheap to repeat:
   old WebView, which could fail to attach its tap handler and leave the map
   inert with no tell. The native map attaches its handler at construction and
   taps work whether or not a tile ever arrives.
+- **A way's icon centres on its title's line, not on its row.** Two requests
+  to "nudge this icon down" turned out to be one layout fault: the icon was
+  anchored to the top of the row, which is right when a detail line puts the
+  title at the top and wrong when there is no detail and the text is centred -
+  worst on a row whose trailing control is a 48dp toggle, where the glyph and
+  the word sat 41px apart. `Way` now anchors the icon to whichever end the
+  title is at. Only one of the two icons needed anything done to the artwork.
+- **`OPTICAL` carries a `dy` as well as a scale.** Same argument as the scale:
+  a nudge is stated in viewBox units in the generator and emitted as a
+  translated group, never as an edit to the SVG, so redropping the file cannot
+  silently undo it. Two entries have one - `call-after-a-fall`, which really
+  did render 13px above its neighbours, and `adaptive-mode`, which is the
+  largest artwork in the drop at 21.6 units against a norm of 18.
 - **A tick means the transport took it, not that it arrived.** An SMS is
   `Sent` when the send call returns and BLE writes have no application-level
   ack, so nothing in this system can honestly draw a delivery receipt. The
@@ -292,8 +319,7 @@ Coordinate before either is edited.
 
 ## 7. State at the end of this pass
 
-`versionCode = 7`, `versionName = "2.4.0"`. Six commits on `master`, not
-pushed. `assembleDebug` green, 28 unit tests pass. Working tree clean apart from
+`versionCode = 7`, `versionName = "2.4.0"`. Eight commits on `master`. `assembleDebug` green, 28 unit tests pass. Working tree clean apart from
 `CLAUDE.md`, `docs/SafeShadev21/SafeShadev21.ino` and untracked `PRODUCT.md` —
 none of them ours.
 

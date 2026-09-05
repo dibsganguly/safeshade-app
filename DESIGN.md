@@ -563,6 +563,10 @@ Everything else in this document was read off the built system.
 - **Don't** use a ripple; this surface emits no light, so a press is a small scale-down.
 - **Don't** set body copy in the condensed width or in uppercase, and don't uppercase a row title. Row titles are sentence case; a prominent button is Title Case.
 - **Don't** explain what the label above already says. Two hundred lines of supporting copy were audited against that one question and about sixty failed it. The test is whether the sentence states a consequence, a cost or a limitation a reader could not have assumed — not whether it is true.
+- **Don't** position an icon against its row. A row is as tall as its tallest
+  part, which may be a 48dp toggle; the thing the icon labels is the title's
+  first line, and that is what it centres on. Anchor it to whichever end of the
+  row the title is at.
 - **Don't** confirm an action before its result is known. A tick, a "Saved" or
   a "Sent" drawn on the tap is not a confirmation, it is an animation, and on
   the paths this app exists for the failure case is the common one - a wearable
