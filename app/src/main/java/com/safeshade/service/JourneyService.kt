@@ -238,7 +238,7 @@ class JourneyService : Service() {
 
         return NotificationCompat.Builder(this, Channels.LINK)
             .setSmallIcon(android.R.drawable.ic_menu_mylocation)
-            .setContentTitle("Walking with you — $label")
+            .setContentTitle("Walking with you – $label")
             .setContentText(
                 if (fix?.isValid == true) {
                     "Location shared with your contacts if you run late"

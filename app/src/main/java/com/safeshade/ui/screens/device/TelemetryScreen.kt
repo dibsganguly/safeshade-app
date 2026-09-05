@@ -98,7 +98,7 @@ fun TelemetryScreen(
                 EmptyBay(
                     message = if (state.connection.isUsable) {
                         "No data yet. The wearable sends a reading about once a " +
-                            "second once it has settled — this fills in shortly."
+                            "second once it has settled – this fills in shortly."
                     } else {
                         "No data yet. Telemetry arrives only while the device is " +
                             "connected."
@@ -339,7 +339,7 @@ private fun magnitudeNote(g: Float): String = when {
 
 /** Plain-language reading of the light sensor. */
 private fun lightNote(level: Int): String = when {
-    level < 40 -> "Dark — a pocket or a bag"
+    level < 40 -> "Dark – a pocket or a bag"
     level < 250 -> "Indoors"
     level < 700 -> "Bright indoors"
     else -> "Outdoors in daylight"

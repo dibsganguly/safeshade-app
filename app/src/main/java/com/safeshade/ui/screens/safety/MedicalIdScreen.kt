@@ -125,20 +125,10 @@ fun MedicalIdScreen(
             onBack = onBack
         )
 
-        Note(text = "A stranger helping $subject reads this off the device, unlocked.")
-        Spacer(Modifier.height(Spacing.xs))
-        WhyDisclosure(
-            label = "Who reads this, and what to put in it",
-            text = "Anyone holding the device can bring this card up without unlocking " +
-                "anything. That is the point — it is meant to be read by whoever reaches " +
-                "$subject first, which is usually somebody who has never met them. Put in " +
-                "what would change how somebody is treated, and leave the rest blank. Blank " +
-                "is a legitimate answer: the card omits an empty field rather than printing a " +
-                "dash beside it, because a dash reads as an answer when it means nobody " +
-                "filled the box in."
-        )
-
-        Spacer(Modifier.height(Spacing.lg))
+        // No Spacer here: CompletenessPlate is the first thing on this screen,
+        // and PanelHeader already supplies the whole header-to-content gap.
+        // A Spacing.lg on top of that was a third gap stacked on the header's
+        // own 20dp, not a separator between two pieces of content.
         CompletenessPlate(medicalId = id)
 
         Spacer(Modifier.height(Spacing.xl))
@@ -154,7 +144,6 @@ fun MedicalIdScreen(
             // nothing else to list them. The chips below are that list now,
             // and one tappable, so repeating them in the helper would be the
             // same eight strings said twice.
-            helper = "Leave blank if you are not certain.",
             maxLength = MAX_BLOOD_TYPE,
             imeAction = ImeAction.Next
         )
@@ -195,7 +184,6 @@ fun MedicalIdScreen(
             value = id.allergies,
             onValueChange = { onChange(id.copy(allergies = stripDeviceDelimiters(it))) },
             placeholder = "Penicillin. Peanuts.",
-            helper = "The single most useful line on this card.",
             maxLength = MAX_FREE_TEXT,
             imeAction = ImeAction.Next
         )
@@ -208,14 +196,14 @@ fun MedicalIdScreen(
             label = "How this differs from the call list",
             text = "The contacts here are printed for a human being to read and ring " +
                 "themselves. They are separate from the emergency contact list the phone " +
-                "dials automatically after a fall — the same person usually belongs in both, " +
+                "dials automatically after a fall – the same person usually belongs in both, " +
                 "and filling one in does not fill in the other."
         )
 
         Spacer(Modifier.height(Spacing.md))
 
         PlateField(
-            label = "First contact — name",
+            label = "First contact – name",
             value = id.contactName,
             onValueChange = { onChange(id.copy(contactName = stripDeviceDelimiters(it))) },
             placeholder = "Priya (daughter)",
@@ -226,7 +214,7 @@ fun MedicalIdScreen(
         Spacer(Modifier.height(Spacing.lg))
 
         PlateField(
-            label = "First contact — number",
+            label = "First contact – number",
             value = id.emergencyContact,
             onValueChange = { onChange(id.copy(emergencyContact = stripDeviceDelimiters(it))) },
             placeholder = "+91 98300 11223",
@@ -306,7 +294,6 @@ fun MedicalIdScreen(
                     name = "Organ donor",
                     state = if (id.organDonor) LampState.LIVE else LampState.OFF,
                     stateLabel = if (id.organDonor) "Yes" else "Not stated",
-                    detail = "Printed on the card only when this is on.",
                     checked = id.organDonor,
                     onCheckedChange = { onChange(id.copy(organDonor = it)) }
                 )
@@ -315,7 +302,7 @@ fun MedicalIdScreen(
             Spacer(Modifier.height(Spacing.lg))
 
             PlateField(
-                label = "Second contact — name",
+                label = "Second contact – name",
                 value = id.secondaryContactName,
                 onValueChange = { onChange(id.copy(secondaryContactName = stripDeviceDelimiters(it))) },
                 placeholder = "Dr Sen",
@@ -326,7 +313,7 @@ fun MedicalIdScreen(
             Spacer(Modifier.height(Spacing.lg))
 
             PlateField(
-                label = "Second contact — number",
+                label = "Second contact – number",
                 value = id.secondaryContact,
                 onValueChange = { onChange(id.copy(secondaryContact = stripDeviceDelimiters(it))) },
                 placeholder = "+91 98300 44556",
@@ -345,11 +332,11 @@ fun MedicalIdScreen(
         Spacer(Modifier.height(Spacing.xl))
 
         BoardButton(
-            label = if (state.linkLive) "Save and send to the device" else "Save",
+            label = if (state.linkLive) "Save and Send to the Device" else "Save",
             supporting = if (state.linkLive) null else "The device is not connected. This is kept and sent when it is.",
             onClick = onSave,
             enabled = state.isDirty,
-            weight = ButtonWeight.PRIMARY,
+            weight = ButtonWeight.COMMIT,
             modifier = Modifier.fillMaxWidth()
         )
 
@@ -362,7 +349,6 @@ fun MedicalIdScreen(
 
         BoardButton(
             label = "Show the emergency card",
-            supporting = "A QR code any phone camera can read.",
             icon = Icons.Outlined.QrCode2,
             onClick = onOpenCard,
             enabled = id.isUsable,

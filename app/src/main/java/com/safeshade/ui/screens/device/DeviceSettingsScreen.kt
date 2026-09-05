@@ -17,6 +17,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -158,9 +162,7 @@ fun DeviceSettingsScreen(
         item("sensitivity") {
             SettingBlock(
                 label = "Fall sensitivity",
-                ack = state.ackFor("fallSensitivity"),
-                supporting = "How hard the accelerometer has to be hit before " +
-                    "the device treats it as a fall."
+                ack = state.ackFor("fallSensitivity")
             ) {
                 // OptionWay rows, the same control the fall-settings screen
                 // uses for this same value.
@@ -306,8 +308,6 @@ fun DeviceSettingsScreen(
             BoardPlate(modifier = Modifier.fillMaxWidth()) {
                 SwitchWay(
                     name = "Medication reminder",
-                    description = "The wearable buzzes and shows the reminder at " +
-                        "this time each day.",
                     icon = SafeShadeIcons.DailyReminder,
                     checked = state.medicationEnabled,
                     ack = state.ackFor("medicationTime"),
@@ -342,6 +342,19 @@ fun DeviceSettingsScreen(
         item("check-in") {
             val ack = state.ackFor("checkInInterval")
             val enabled = state.checkInIntervalMinutes > 0
+            // Dragging is tracked here rather than pushed straight through
+            // `onCheckInIntervalChange` on every frame: that callback is a
+            // real write to the device (`EXT CHECKIN`), and DialControl's
+            // `onCommit` is what exists to keep a whole drag gesture from
+            // spending Android's one-outstanding-GATT-operation budget on
+            // values nobody asked to keep. Resyncs whenever the interval
+            // changes from outside this drag (a device sync, a reconnect).
+            var draftMinutes by remember(state.checkInIntervalMinutes) {
+                mutableFloatStateOf(
+                    (state.checkInIntervalMinutes.takeIf { it > 0 }
+                        ?: DEFAULT_CHECK_IN_INTERVAL_MINUTES).toFloat()
+                )
+            }
             BoardPlate(modifier = Modifier.fillMaxWidth()) {
                 SwitchWay(
                     name = "Repeating check-in",
@@ -353,28 +366,20 @@ fun DeviceSettingsScreen(
                     // Zero minutes *is* off on the wire, so the switch and the
                     // interval are one value and cannot disagree.
                     onCheckedChange = { on ->
-                        onCheckInIntervalChange(if (on) DEFAULT_CHECK_IN_MINUTES else 0)
+                        onCheckInIntervalChange(if (on) DEFAULT_CHECK_IN_INTERVAL_MINUTES else 0)
                     }
                 )
                 Hairline()
-                Column(modifier = Modifier.padding(Spacing.lg)) {
-                    Nameplate("Every", small = true, muted = true)
-                    Spacer(Modifier.height(Spacing.sm))
-                    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                        CHECK_IN_CHOICES.forEach { (minutes, label) ->
-                            BoardButton(
-                                label = label,
-                                onClick = { onCheckInIntervalChange(minutes) },
-                                weight = if (state.checkInIntervalMinutes == minutes) {
-                                    ButtonWeight.PRIMARY
-                                } else {
-                                    ButtonWeight.SECONDARY
-                                },
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-                    }
-                }
+                DialControl(
+                    label = "Every",
+                    value = draftMinutes,
+                    valueRange = CHECK_IN_INTERVAL_RANGE,
+                    step = CHECK_IN_INTERVAL_STEP,
+                    onValueChange = { draftMinutes = it },
+                    onCommit = { onCheckInIntervalChange(draftMinutes.roundToInt()) },
+                    format = { formatCheckInInterval(it.roundToInt()) },
+                    advice = { checkInIntervalAdvice(it.roundToInt()) }
+                )
             }
         }
 
@@ -386,8 +391,7 @@ fun DeviceSettingsScreen(
                 ValueRow(
                     label = "Device name",
                     value = state.deviceName,
-                    supporting = ackWord(state.ackFor("deviceName"))
-                        ?: "Shown on the wearable's own screen and when pairing.",
+                    supporting = ackWord(state.ackFor("deviceName")),
                     ack = state.ackFor("deviceName"),
                     actionLabel = "Rename",
                     onAction = onEditDeviceName
@@ -436,7 +440,7 @@ fun DeviceSettingsScreen(
                         Text(
                             text = "Do Not Disturb is split across the two ends. Turning " +
                                 "it on or off is device-only, but the start and end " +
-                                "hours it uses do travel from this app — they are the " +
+                                "hours it uses do travel from this app – they are the " +
                                 "quiet hours window above.",
                             style = MaterialTheme.typography.bodySmall,
                             color = colors.inkMuted
@@ -525,8 +529,8 @@ private fun SettingBlock(
 @Composable
 private fun SwitchWay(
     name: String,
-    description: String,
     icon: ImageVector,
+    description: String? = null,
     checked: Boolean,
     ack: AckState,
     onCheckedChange: (Boolean) -> Unit
@@ -607,17 +611,6 @@ private fun ValueRow(
 // Wall-clock values, so formatting them in the composable is deterministic —
 // unlike anything relative to "now", which the caller preformats.
 // ============================================================================
-
-/** Kept identical to `RemindersScreen`'s list. Both write `EXT CHECKIN`. */
-private val CHECK_IN_CHOICES = listOf(
-    30 to "30m",
-    60 to "1h",
-    120 to "2h",
-    240 to "4h"
-)
-
-/** What the switch turns on to, when no interval has been chosen yet. */
-private const val DEFAULT_CHECK_IN_MINUTES = 60
 
 /**
  * What a siren level means in practice.

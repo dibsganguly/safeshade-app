@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.LinearProgressIndicator
@@ -19,8 +20,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.tooling.preview.Preview
 import com.safeshade.data.UserRole
 import com.safeshade.ui.board.BoardButton
@@ -115,7 +118,6 @@ fun CheckInScreen(
     modifier: Modifier = Modifier
 ) {
     val colors = MaterialTheme.board
-    val other = counterpartName(state.role, state.wearerName, state.guardianName)
 
     Column(
         modifier = modifier
@@ -124,10 +126,6 @@ fun CheckInScreen(
     ) {
         ScreenHeader(
             title = "Check in",
-            subtitle = when (state.role) {
-                UserRole.GUARDIAN -> "Ask $other whether they are all right"
-                UserRole.COMPANION -> "$other can ask whether you are all right"
-            },
             onBack = onBack,
             backDescription = "Go back to the circle",
             tier = ScreenTier.PUSHED,
@@ -164,7 +162,6 @@ fun CheckInScreen(
                     item("respond") {
                         BoardButton(
                             label = "I am OK",
-                            supporting = "Answers ${counterpartName(state.role, state.wearerName, state.guardianName)} and stops the timer",
                             icon = SafeShadeIcons.CheckIn,
                             onClick = onRespondOk,
                             enabled = !state.isBusy,
@@ -212,7 +209,7 @@ fun CheckInScreen(
             } else {
                 item("idle") {
                     EmptyBay(
-                        message = "Nothing to answer right now. When ${counterpartName(state.role, state.wearerName, state.guardianName)} asks whether you are all right, the question appears here and on the device.",
+                        message = "Nothing to answer right now.",
                         // Nobody has asked anything yet — the questioning
                         // face fits better than a searching one here.
                         shadyMood = ShadyMood.CURIOUS
@@ -306,7 +303,7 @@ private fun OpenRequestPlate(state: CheckInUiState) {
             Text(
                 text = when (state.role) {
                     UserRole.GUARDIAN -> "\"Are you OK?\" is showing on the device."
-                    UserRole.COMPANION -> "\"Are you OK?\" — tap the button below, or press the button on the device."
+                    UserRole.COMPANION -> "\"Are you OK?\" – tap the button below, or press the button on the device."
                 },
                 style = MaterialTheme.typography.bodyLarge,
                 color = colors.ink
@@ -345,12 +342,16 @@ private fun OpenRequestPlate(state: CheckInUiState) {
                 )
             }
 
-            Spacer(Modifier.height(Spacing.md))
-            Text(
-                text = spoken,
-                style = MaterialTheme.typography.bodyMedium,
-                color = colors.inkMuted,
-                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }
+            // Announced to screen readers only. Sighted users already have the
+            // readout above; this used to also render as a visible line that
+            // just restated the same number in words.
+            Spacer(
+                modifier = Modifier
+                    .size(0.dp)
+                    .semantics {
+                        liveRegion = LiveRegionMode.Polite
+                        contentDescription = spoken
+                    }
             )
 
             if (state.answeredLabel != null) {

@@ -765,13 +765,6 @@ private fun GuardianLockDialog(
                     style = MaterialTheme.typography.bodyMedium,
                     color = colors.ink
                 )
-                Text(
-                    text = "Starting fall sensitivity: " +
-                        mode.defaultFallSensitivity.label +
-                        " — " + mode.defaultFallSensitivity.blurb.lowercase() + ".",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colors.inkFaint
-                )
             }
         },
         confirmButton = {

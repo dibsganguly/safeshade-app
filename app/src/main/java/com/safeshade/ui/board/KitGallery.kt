@@ -95,7 +95,7 @@ fun KitGallery(modifier: Modifier = Modifier) {
                     Text("Display small", style = MaterialTheme.typography.displaySmall, color = colors.ink)
                     Text("Headline small", style = MaterialTheme.typography.headlineSmall, color = colors.ink)
                     Text("Title medium", style = MaterialTheme.typography.titleMedium, color = colors.ink)
-                    Text("Body medium — the quick brown fox jumps over the lazy dog.", style = MaterialTheme.typography.bodyMedium, color = colors.inkMuted)
+                    Text("Body medium – the quick brown fox jumps over the lazy dog.", style = MaterialTheme.typography.bodyMedium, color = colors.inkMuted)
                     Nameplate("Nameplate")
                     Nameplate("Nameplate small", small = true, muted = true)
                     Readout(label = "Readout", value = "-62 dBm · 84% · 1.02g")
@@ -159,7 +159,7 @@ fun KitGallery(modifier: Modifier = Modifier) {
                     name = "Adaptive mode",
                     state = LampState.LIVE,
                     stateLabel = "Elderly",
-                    detail = "Managed by you — hidden on the device",
+                    detail = "Managed by you – hidden on the device",
                     sealed = true,
                     onClick = {}
                 )
@@ -196,7 +196,7 @@ fun KitGallery(modifier: Modifier = Modifier) {
         item { SectionPlate("Buttons") }
         item {
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                BoardButton("Test — ring device", onClick = {}, supporting = "Sounds the siren", modifier = Modifier.fillMaxWidth())
+                BoardButton("Test – ring device", onClick = {}, supporting = "Sounds the siren", modifier = Modifier.fillMaxWidth())
                 BoardButton("Secondary", onClick = {}, weight = ButtonWeight.SECONDARY, modifier = Modifier.fillMaxWidth())
                 BoardButton("Call now", onClick = {}, weight = ButtonWeight.DANGER, modifier = Modifier.fillMaxWidth())
                 BoardButton("Disabled", onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth())

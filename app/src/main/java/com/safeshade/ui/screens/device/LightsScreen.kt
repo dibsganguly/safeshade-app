@@ -132,7 +132,6 @@ fun LightsScreen(
         item("title") {
             ScreenHeader(
                 title = "Lights",
-                subtitle = "The pattern the LED ring runs when it is on.",
                 onBack = onBack
             )
         }

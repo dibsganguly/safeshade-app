@@ -129,15 +129,6 @@ fun TripLogScreen(
                 }
             }
         }
-
-        if (state.trips.isNotEmpty()) {
-            item("footer") {
-                Note(
-                    text = "A trip stays open until somebody answers it. Open one to see where " +
-                        "it happened and what the sensors read at the time."
-                )
-            }
-        }
     }
 }
 

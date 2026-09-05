@@ -11,8 +11,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
@@ -47,6 +49,7 @@ import com.safeshade.ui.nav.SosBarState
 import com.safeshade.ui.nav.tabForRoute
 import com.safeshade.ui.screens.IntroScreen
 import com.safeshade.ui.theme.BoardColors
+import com.safeshade.ui.theme.Radius
 import com.safeshade.ui.theme.board
 import com.safeshade.ui.vm.SafeShadeViewModel
 import kotlinx.coroutines.launch
@@ -186,7 +189,7 @@ fun SafeShadeApp(viewModel: SafeShadeViewModel) {
 
             Scaffold(
                 containerColor = colors.ground,
-                snackbarHost = { SnackbarHost(snackbarHostState) },
+                snackbarHost = { BoardSnackbarHost(snackbarHostState) },
                 bottomBar = {
                     BoardBottomBar(
                         navController = navController,
@@ -364,3 +367,45 @@ private fun sosBody(outcome: SosOutcome?, contactCount: Int): String = when (out
         if (outcome.onDevice) append(" The device has been alerted too.")
     }
 }
+
+/**
+ * The app's transient message, in the app's own material.
+ *
+ * This was the last stock Material surface left in the build: a floating,
+ * rounded, elevated card in `inverseSurface`, shadowed, which is four of this
+ * design system's stated don'ts at once and looked like it belonged to a
+ * different app. It only appears for a second or two, which is exactly why it
+ * survived every visual sweep.
+ *
+ * Drawn as a plate instead - night ground, hairline, 4dp corner, no elevation -
+ * and its action set in the amber attention ink rather than Material's
+ * `inversePrimary`, so a snackbar offering "Add one" reads as the same kind of
+ * thing as an amber button offering the next step.
+ */
+@Composable
+private fun BoardSnackbarHost(hostState: SnackbarHostState) {
+    val colors = MaterialTheme.board
+    SnackbarHost(hostState) { data ->
+        Snackbar(
+            snackbarData = data,
+            shape = RoundedCornerShape(Radius.plate),
+            // The night plate in both themes. A transient message is a thing
+            // that arrives over the panel rather than a part of it, and the
+            // tonal step is what says so without a shadow.
+            containerColor = NightPlateForSnackbar,
+            contentColor = colors.plate,
+            actionContentColor = colors.lampAttention,
+            dismissActionContentColor = colors.inkFaint
+        )
+    }
+}
+
+/**
+ * A literal, deliberately.
+ *
+ * The snackbar keeps the night plate in both themes, so it cannot take
+ * `colors.plate` - that is bone in the light theme, and a bone card on a bone
+ * panel with no shadow is invisible. This is the same value `night-plate`
+ * carries in `DESIGN.md`.
+ */
+private val NightPlateForSnackbar = Color(0xFF22282E)

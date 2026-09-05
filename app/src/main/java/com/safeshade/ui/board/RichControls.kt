@@ -1,18 +1,24 @@
 package com.safeshade.ui.board
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -33,6 +39,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.safeshade.ui.theme.BoardColors
 import com.safeshade.ui.theme.Radius
@@ -104,7 +111,7 @@ fun DialControl(
                     )
                 }
             }
-            Slider(
+            BoardSlider(
                 value = current,
                 onValueChange = onValueChange,
                 onValueChangeFinished = onCommit,
@@ -502,3 +509,97 @@ private fun partOfDay(minutesOfDay: Int): String = when (minutesOfDay / 60) {
     in 18..20 -> "evening"
     else -> "night"
 }
+
+/**
+ * A slider in this panel's material.
+ *
+ * Material 3's stock `Slider` was the last piece of another design system
+ * visible in the build, and unlike the snackbar it was on screen the whole time
+ * somebody was choosing a value: a wide pill thumb with three dots milled into
+ * it, a lavender inactive track from a colour role nothing else in this app
+ * uses, and tick marks in a fourth tone. Four decisions, none of them this
+ * app's, on the control that sets a fall countdown.
+ *
+ * Drawn as a handle on a channel instead. The track is the recess this panel
+ * routes everywhere else, the filled part is ink, and the thumb is a
+ * square-shouldered slug at [Radius.tight] - the corner every other small
+ * mechanical part in the system takes. Tick marks are gone: the stepping is
+ * felt when the handle snaps, and eight dots under a handle is decoration that
+ * looks like data.
+ *
+ * The thumb is deliberately narrow and tall rather than round. A circle reads
+ * as a bead sliding on a wire; a slug reads as a control seated in a channel,
+ * which is what everything else on this panel is.
+ */
+// SliderDefaults.Track and the thumb/track slots are still marked experimental.
+// Opted into here rather than at the module level, so the annotation stays next
+// to the one place that actually depends on the API: if a future Compose
+// release changes its shape, this function is what breaks and this comment is
+// what the next person reads.
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun BoardSlider(
+    value: Float,
+    onValueChange: (Float) -> Unit,
+    valueRange: ClosedFloatingPointRange<Float>,
+    steps: Int,
+    modifier: Modifier = Modifier,
+    onValueChangeFinished: (() -> Unit)? = null
+) {
+    val colors = MaterialTheme.board
+    Slider(
+        value = value,
+        onValueChange = onValueChange,
+        onValueChangeFinished = onValueChangeFinished,
+        valueRange = valueRange,
+        steps = steps,
+        modifier = modifier,
+        colors = SliderDefaults.colors(
+            thumbColor = colors.ink,
+            activeTrackColor = colors.ink,
+            inactiveTrackColor = colors.recess,
+            // The ticks are drawn in the track colour so they vanish rather
+            // than being drawn and then hidden - Slider has no way to switch
+            // them off.
+            activeTickColor = colors.ink,
+            inactiveTickColor = colors.recess,
+            disabledThumbColor = colors.inkFaint,
+            disabledActiveTrackColor = colors.inkFaint,
+            disabledInactiveTrackColor = colors.recess
+        ),
+        thumb = {
+            Box(
+                modifier = Modifier
+                    .size(width = SliderThumbW, height = SliderThumbH)
+                    .clip(RoundedCornerShape(Radius.tight))
+                    .background(colors.ink)
+            )
+        },
+        track = { sliderState ->
+            SliderDefaults.Track(
+                sliderState = sliderState,
+                colors = SliderDefaults.colors(
+                    activeTrackColor = colors.ink,
+                    inactiveTrackColor = colors.recess,
+                    activeTickColor = colors.ink,
+                    inactiveTickColor = colors.recess
+                ),
+                // Both of Material's extra marks off. `drawStopIndicator` is
+                // the dot Material 3 parks at the far end of the track, which
+                // on this panel reads as a value sitting there rather than as
+                // the end of a range; `drawTick` is the row of pips, and the
+                // stepping is already felt when the handle snaps.
+                drawStopIndicator = null,
+                drawTick = { _, _ -> },
+                modifier = Modifier.height(SliderTrackH)
+            )
+        }
+    )
+}
+
+/** The handle: a slug seated in a channel, not a bead on a wire. */
+private val SliderThumbW: Dp = 8.dp
+private val SliderThumbH: Dp = 28.dp
+
+/** Thinner than Material's 16dp, which reads as a bar rather than a channel. */
+private val SliderTrackH: Dp = 8.dp

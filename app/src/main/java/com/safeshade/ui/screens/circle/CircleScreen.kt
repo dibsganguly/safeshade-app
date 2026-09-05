@@ -1,5 +1,8 @@
 package com.safeshade.ui.screens.circle
 
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -22,8 +25,15 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -48,10 +58,12 @@ import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.Way
 import com.safeshade.ui.board.rowClickable
 import com.safeshade.ui.icons.SafeShadeIcons
+import com.safeshade.ui.theme.Motion
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.board
 import com.safeshade.ui.theme.boardType
+import kotlinx.coroutines.delay
 
 /**
  * A summary row on the hub, in the shape a `Way` needs.
@@ -277,16 +289,7 @@ fun CircleScreen(
             SectionPlate(
                 title = "Where",
                 modifier = Modifier.padding(top = Spacing.xl),
-                trailing = {
-                    IconButton(onClick = onRefreshLocation, enabled = !state.isRefreshingLocation) {
-                        Icon(
-                            SafeShadeIcons.Gps,
-                            contentDescription = "Ask for a fresh location",
-                            tint = if (state.isRefreshingLocation) colors.inkFaint else colors.inkMuted,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                }
+                trailing = { RefreshLocationButton(state.isRefreshingLocation, onRefreshLocation) }
             )
         }
 
@@ -383,13 +386,12 @@ private fun PersonPlate(state: CircleUiState, name: String, modifier: Modifier =
                     style = MaterialTheme.boardType.rowDetail,
                     color = colors.inkMuted
                 )
+                LampWord(state.linkLabel)
             }
             Spacer(Modifier.width(Spacing.md))
-            Column(horizontalAlignment = Alignment.End) {
-                PilotLamp(state = state.linkState, size = 22.dp, description = state.linkLabel)
-                Spacer(Modifier.height(Spacing.xs))
-                Nameplate(state.linkLabel, small = true, muted = true)
-            }
+            // The lamp alone in the corner. Its word has moved to the foot of
+            // the block on the left - see [LampWord].
+            PilotLamp(state = state.linkState, size = 22.dp, description = state.linkLabel)
         }
 
         Hairline()
@@ -467,13 +469,10 @@ private fun PlacePlate(state: CircleUiState, name: String, modifier: Modifier = 
                     style = MaterialTheme.typography.bodySmall,
                     color = colors.inkMuted
                 )
+                LampWord(freshnessWord)
             }
             Spacer(Modifier.width(Spacing.md))
-            Column(horizontalAlignment = Alignment.End) {
-                PilotLamp(state = state.locationState, description = freshnessWord)
-                Spacer(Modifier.height(Spacing.xs))
-                Nameplate(freshnessWord, small = true, muted = true)
-            }
+            PilotLamp(state = state.locationState, description = freshnessWord)
         }
 
         if (state.lat != null && state.lon != null) {
@@ -498,7 +497,12 @@ private fun PlacePlate(state: CircleUiState, name: String, modifier: Modifier = 
             // Spacing.lg, lat/lon row or not, so this needs no top gap of its
             // own to avoid stacking two margins into one oversized one.
             Text(
-                text = "$name is told nothing when you look at this.",
+                // The name goes in the middle, not at the front. It is not
+                // always a name: with no wearer set it is the fallback noun
+                // "the wearer", and a sentence opening with a lowercase word
+                // reads as a typo. The old wording had the same fault and it
+                // was on screen for two releases.
+                text = "Checking this does not notify $name.",
                 style = MaterialTheme.typography.bodySmall,
                 color = colors.inkFaint,
                 modifier = Modifier.padding(start = Spacing.lg, end = Spacing.lg, bottom = Spacing.lg)
@@ -582,6 +586,75 @@ private val sampleMessages = listOf(
     CircleMessagePreview("2", "I am at the park bench", false, "18:20"),
     CircleMessagePreview("3", "Time for your evening tablets", true, "18:02")
 )
+
+/**
+ * The word under a card's pilot lamp, moved out from under it.
+ *
+ * It used to sit stacked beneath the lamp in the top-right corner, which put a
+ * second, competing text column on a card that already had one and left the
+ * corner top-heavy. The word is still here - a colour with no word beside it is
+ * not something this system does - but it has moved to the foot of the block it
+ * describes and dropped to the faintest ink, so the corner is just the lamp and
+ * the card reads down one column instead of two.
+ */
+@Composable
+private fun LampWord(word: String) {
+    Spacer(Modifier.height(Spacing.sm))
+    Text(
+        text = word,
+        style = MaterialTheme.boardType.nameplateSmall,
+        // Faint, not muted. This is a caption on something that already says
+        // the same thing in colour a few millimetres away.
+        color = MaterialTheme.board.inkFaint
+    )
+}
+
+/**
+ * Ask for a fresh location.
+ *
+ * The glyph nods when pressed. Nothing else acknowledges the tap - a fix can
+ * take several seconds and may never arrive at all - so without it the control
+ * read as dead on the one screen where being told nothing is the complaint.
+ *
+ * A nod rather than a spin: a spinner promises progress the app is not
+ * tracking. This says "asked", not "working".
+ */
+@Composable
+private fun RefreshLocationButton(refreshing: Boolean, onRefresh: () -> Unit) {
+    val colors = MaterialTheme.board
+    var nods by remember { mutableIntStateOf(0) }
+    val tilt = remember { Animatable(0f) }
+
+    LaunchedEffect(nods) {
+        if (nods == 0) return@LaunchedEffect
+        tilt.animateTo(16f, tween(110, easing = Motion.Standard))
+        tilt.animateTo(-8f, tween(150, easing = Motion.Standard))
+        tilt.animateTo(0f, tween(220, easing = Motion.ThrowEasing))
+    }
+
+    IconButton(
+        onClick = {
+            nods++
+            onRefresh()
+        },
+        enabled = !refreshing
+    ) {
+        Icon(
+            SafeShadeIcons.Gps,
+            contentDescription = "Ask for a fresh location",
+            // Asked for in red. `inkTrip` rather than the trip lamp glass, for
+            // the same reason the back chevron takes `inkAttention`: the raw
+            // glass is a fill colour and does not carry a 20dp glyph on the
+            // bone panel. Worth knowing that this is the one place in the app
+            // where a state hue sits on something that is not reporting a
+            // state.
+            tint = if (refreshing) colors.inkFaint else colors.inkTrip,
+            modifier = Modifier
+                .size(20.dp)
+                .graphicsLayer { rotationZ = tilt.value }
+        )
+    }
+}
 
 @Preview(name = "Circle — guardian, light", showBackground = true, heightDp = 1400)
 @Composable
@@ -667,11 +740,33 @@ private fun QuickMessageRow(
     onClick: () -> Unit
 ) {
     val colors = MaterialTheme.board
+    // Which row was tapped, held by the row itself.
+    //
+    // The screen already knows a send is in flight, but only as one flag for
+    // the whole list, so it can dim every row and cannot say which one was
+    // pressed. Sending a quick message otherwise produced no acknowledgement
+    // at all: the row dimmed for a moment along with its neighbours, and that
+    // was the whole feedback for an action that reaches another person.
+    var justSent by remember { mutableStateOf(false) }
+    LaunchedEffect(justSent) {
+        if (justSent) {
+            delay(SENT_MARK_MS)
+            justSent = false
+        }
+    }
+
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
-            .rowClickable(enabled = enabled, role = Role.Button, onClick = onClick)
+            .rowClickable(
+                enabled = enabled,
+                role = Role.Button,
+                onClick = {
+                    justSent = true
+                    onClick()
+                }
+            )
             .defaultMinSize(minHeight = Spacing.touchTarget)
             .padding(horizontal = Spacing.lg, vertical = Spacing.md)
     ) {
@@ -683,11 +778,31 @@ private fun QuickMessageRow(
             muted = !enabled,
             modifier = Modifier.weight(1f)
         )
-        Icon(
-            imageVector = SafeShadeIcons.SmsFeedbackAlert,
-            contentDescription = null,
-            tint = if (enabled) colors.inkMuted else colors.inkFaint,
-            modifier = Modifier.size(18.dp)
-        )
+        // A send arrow that becomes a tick and goes back.
+        //
+        // A crossfade rather than a swap, and the tick keeps the live ink even
+        // while the row is dimmed - the row is disabled because a send is in
+        // flight, which is exactly when the tick is the thing worth seeing.
+        // This is a confirmation on a control rather than a lamp on a circuit,
+        // and it is gone again inside two seconds.
+        Crossfade(
+            targetState = justSent,
+            animationSpec = tween(Motion.normal),
+            label = "quick-sent"
+        ) { sent ->
+            Icon(
+                imageVector = if (sent) SafeShadeIcons.Tick02 else SafeShadeIcons.SendMessageDiagonal,
+                contentDescription = null,
+                tint = when {
+                    sent -> colors.inkLive
+                    enabled -> colors.inkMuted
+                    else -> colors.inkFaint
+                },
+                modifier = Modifier.size(18.dp)
+            )
+        }
     }
 }
+
+/** How long the tick stands in for the send arrow after a quick message. */
+private const val SENT_MARK_MS = 1400L

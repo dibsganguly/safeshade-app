@@ -254,7 +254,7 @@ val DefaultRoadmap: List<BlockedFeature> = listOf(
             "is not open to a one-off build."
     ),
     BlockedFeature(
-        title = "Cloud tier — heatmap, family dashboard, mesh relay, over-the-air updates",
+        title = "Cloud tier – heatmap, family dashboard, mesh relay, over-the-air updates",
         description = "A shared view for a whole family, alerts relayed between nearby " +
             "SafeShade devices, and firmware updates pushed without a cable.",
         blocker = "There is no SafeShade server, and every one of these needs one, plus " +
@@ -263,7 +263,7 @@ val DefaultRoadmap: List<BlockedFeature> = listOf(
     ),
     BlockedFeature(
         title = "SafeShade Spark",
-        description = "A second, smaller device — a clip or a pendant — paired alongside " +
+        description = "A second, smaller device – a clip or a pendant – paired alongside " +
             "the main one.",
         blocker = "Spark is hardware that does not exist yet. The app can already hold " +
             "more than one paired device, which is as far as this half can go on its own."

@@ -126,7 +126,7 @@ object AlertNotifier {
             event = FallAlertEvent(
                 id = TEST_ALERT_ID,
                 kind = TripKind.FALL,
-                note = "Test alert — no call will be placed"
+                note = "Test alert – no call will be placed"
             ),
             countdownSeconds = 20,
             scheduleExpiry = false
@@ -175,7 +175,7 @@ object AlertNotifier {
         val receipt = NotificationCompat.Builder(app, Channels.FALL_ALERT)
             .setSmallIcon(android.R.drawable.stat_sys_warning)
             .setContentTitle("Emergency contact called")
-            .setContentText("No response to the alert — calling $calledContact")
+            .setContentText("No response to the alert – calling $calledContact")
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)

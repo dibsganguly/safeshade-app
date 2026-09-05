@@ -188,7 +188,7 @@ fun DeveloperScreen(
         item("kit-note") {
             Text(
                 text = "The gallery is com.safeshade.ui.board.KitGallery. It is not in " +
-                    "the navigation graph — this row is the only way in — and it is the " +
+                    "the navigation graph – this row is the only way in – and it is the " +
                     "reference to check before inventing a seventh kind of card.",
                 style = MaterialTheme.typography.bodySmall,
                 color = colors.inkFaint

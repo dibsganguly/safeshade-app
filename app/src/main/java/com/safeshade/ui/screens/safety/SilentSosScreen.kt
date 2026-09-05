@@ -119,7 +119,7 @@ fun SilentSosScreen(
                     "The device stays dark and quiet while it does it, so somebody standing " +
                         "next to you sees you put a hand in your pocket and nothing more."
                 } else {
-                    "What it cannot do yet is stay quiet about it — the line under the switch " +
+                    "What it cannot do yet is stay quiet about it – the line under the switch " +
                         "says what the device actually does today."
                 }
         )
@@ -178,7 +178,7 @@ fun SilentSosScreen(
                 label = "What the device does today",
                 text = "On the firmware currently on the device, an SOS always sounds the " +
                     "siren and fills the screen. Until that changes, treat this switch as " +
-                    "representative — the alert goes out to your contacts, but somebody " +
+                    "representative – the alert goes out to your contacts, but somebody " +
                     "standing next to you will know you sent it."
             )
         }
@@ -194,8 +194,7 @@ fun SilentSosScreen(
             text = "Your phone rings after the delay you pick, as though somebody were " +
                 "calling. Nobody is: there is no call and no connection, and it costs " +
                 "nothing. It is a reason to stand up and leave a room, a car or a " +
-                "conversation without explaining yourself — nothing more. Nobody is alerted " +
-                "by this, so it is not a substitute for the switch above."
+                "conversation without explaining yourself – nothing more."
         )
 
         Spacer(Modifier.height(Spacing.md))
@@ -241,12 +240,6 @@ fun SilentSosScreen(
                 )
             }
         }
-
-        Spacer(Modifier.height(Spacing.xl))
-        Note(
-            text = "Neither of these calls the police. If you can safely make a real call, " +
-                "112 reaches police, fire and ambulance together."
-        )
     }
 }
 

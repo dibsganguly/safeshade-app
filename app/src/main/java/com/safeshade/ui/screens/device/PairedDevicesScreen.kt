@@ -97,8 +97,7 @@ fun PairedDevicesScreen(
         if (state.devices.isEmpty()) {
             item("empty") {
                 EmptyBay(
-                    message = "No SafeShade device saved yet. Pairing takes a few " +
-                        "seconds and only has to be done once.",
+                    message = "No SafeShade device saved yet.",
                     actionLabel = if (state.permissionsGranted) "Pair a device" else "Grant permissions",
                     onAction = if (state.permissionsGranted) onPairNew else onRequestPermissions,
                     // Nobody has paired anything yet — this app's own doing,
@@ -120,7 +119,7 @@ fun PairedDevicesScreen(
 
             item("pair") {
                 BoardButton(
-                    label = if (state.isScanning) "Searching" else "Pair another device",
+                    label = if (state.isScanning) "Searching" else "Pair Another Device",
                     supporting = if (state.permissionsGranted) {
                         "Hold the button on the wearable until it shows the pairing screen"
                     } else {
@@ -129,7 +128,7 @@ fun PairedDevicesScreen(
                     icon = SafeShadeIcons.ConnectToTheDevice,
                     onClick = if (state.permissionsGranted) onPairNew else onRequestPermissions,
                     enabled = !state.isScanning,
-                    weight = ButtonWeight.SECONDARY,
+                    weight = ButtonWeight.ATTENTION,
                     modifier = Modifier.fillMaxWidth()
                 )
             }

@@ -205,7 +205,12 @@ val BoardMaterialTypography = Typography(
     displayMedium = TextStyle(fontFamily = BoardSans, fontWeight = FontWeight.W700, fontSize = 32.sp, lineHeight = 38.sp, letterSpacing = (-0.02).em),
     displaySmall = TextStyle(fontFamily = BoardSans, fontWeight = FontWeight.W700, fontSize = 28.sp, lineHeight = 34.sp, letterSpacing = (-0.01).em),
 
-    headlineLarge = TextStyle(fontFamily = BoardSans, fontWeight = FontWeight.W700, fontSize = 26.sp, lineHeight = 32.sp),
+    // The board masthead and nothing else. Larger than the Material step it
+    // occupies, because on the home screen it is a wordmark set beside a 52dp
+    // emblem rather than a heading over a paragraph, and at 26sp the emblem
+    // was winning. No negative tracking: that is what made the intro wordmark
+    // read as squeezed, and this one sits beside the same emblem.
+    headlineLarge = TextStyle(fontFamily = BoardSans, fontWeight = FontWeight.W700, fontSize = 32.sp, lineHeight = 38.sp),
     headlineMedium = TextStyle(fontFamily = BoardSans, fontWeight = FontWeight.W600, fontSize = 22.sp, lineHeight = 28.sp),
     headlineSmall = TextStyle(fontFamily = BoardSans, fontWeight = FontWeight.W600, fontSize = 19.sp, lineHeight = 26.sp),
 

@@ -144,16 +144,6 @@ fun EmergencyCardScreen(
 
         QrPlate(text = cardText, inInspection = inInspection)
 
-        Spacer(Modifier.height(Spacing.lg))
-
-        Text(
-            text = "Hold this up to a phone camera. The details appear as plain text.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = colors.inkMuted,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth()
-        )
-
         Spacer(Modifier.height(Spacing.xl))
 
         // The same content in words, for when the camera will not cooperate.
@@ -169,8 +159,7 @@ fun EmergencyCardScreen(
         Spacer(Modifier.height(Spacing.xl))
 
         BoardButton(
-            label = "Share this card",
-            supporting = "Send the text to a family member so a second person has it.",
+            label = "Share This Card",
             icon = Icons.Outlined.Share,
             onClick = {
                 shareFailure = when (val result = shareText(context, cardText, "Emergency card")) {

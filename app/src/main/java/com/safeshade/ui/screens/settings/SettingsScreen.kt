@@ -64,7 +64,7 @@ internal val DarkModePreference.blurb: String
     get() = when (this) {
         DarkModePreference.SYSTEM -> "Follows the phone, including its night schedule"
         DarkModePreference.LIGHT -> "Always the bone panel, whatever the phone is set to"
-        DarkModePreference.DARK -> "Always the night panel — easier to read in a dark hallway"
+        DarkModePreference.DARK -> "Always the night panel – easier to read in a dark hallway"
     }
 
 internal val DarkModePreference.icon: ImageVector
@@ -148,7 +148,12 @@ fun SettingsScreen(
                 // same three; they are simply here now.
                 ExpandableSection(
                     label = "Appearance",
-                    count = null
+                    // The count is the point of a collapsed section: without it
+                    // "Appearance" is a word with a chevron beside it and no
+                    // hint that there is anything behind it, let alone how
+                    // much. Every other collapsed bank in the app states its
+                    // number; this one was the exception for no reason.
+                    count = DarkModePreference.entries.size
                 ) {
                     DarkModePreference.entries.forEach { option ->
                         Hairline()
@@ -167,7 +172,6 @@ fun SettingsScreen(
                     name = "Your role",
                     state = LampState.LIVE,
                     stateLabel = state.role.label,
-                    detail = state.role.blurb,
                     icon = Icons.Outlined.Person,
                     onClick = { onOpenWay(Routes.SETTINGS_ROLE) }
                 )
@@ -211,7 +215,6 @@ fun SettingsScreen(
                     name = "About SafeShade",
                     state = LampState.OFF,
                     stateLabel = state.versionName.ifBlank { "Version" },
-                    detail = "What this build is, and what it cannot do yet",
                     icon = SafeShadeIcons.Info,
                     onClick = { onOpenWay(Routes.SETTINGS_ABOUT) }
                 )
@@ -221,7 +224,6 @@ fun SettingsScreen(
                         name = "Developer",
                         state = LampState.OFF,
                         stateLabel = "Debug",
-                        detail = "Simulator scenarios and the component gallery",
                         icon = Icons.Outlined.Code,
                         onClick = { onOpenWay(Routes.SETTINGS_DEVELOPER) }
                     )

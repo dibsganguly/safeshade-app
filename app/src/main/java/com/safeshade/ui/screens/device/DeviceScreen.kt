@@ -299,8 +299,7 @@ fun DeviceScreen(
                     name = "Device settings",
                     state = if (state.connection.isUsable) LampState.LIVE else LampState.UNKNOWN,
                     stateLabel = if (state.connection.isUsable) "Open" else "Offline",
-                    detail = state.syncSummary
-                        ?: "Fall sensitivity, siren, calling, quiet hours",
+                    detail = state.syncSummary,
                     icon = SafeShadeIcons.DeviceSettings,
                     onClick = { onOpenWay(Routes.DEVICE_SETTINGS) }
                 )
@@ -309,7 +308,6 @@ fun DeviceScreen(
                     name = "Lights",
                     state = if (state.connection.isUsable) LampState.LIVE else LampState.UNKNOWN,
                     stateLabel = state.ledPattern.label,
-                    detail = "Pattern for the wearable's LED ring",
                     icon = SafeShadeIcons.Lights,
                     onClick = { onOpenWay(Routes.DEVICE_LIGHTS) }
                 )
@@ -321,8 +319,7 @@ fun DeviceScreen(
                     // that it stopped, so this row must not settle on its own.
                     state = if (state.isRinging) LampState.ATTENTION else LampState.OFF,
                     stateLabel = if (state.isRinging) "Ringing" else "Ready",
-                    detail = state.lastSeenLabel?.let { "Last seen $it" }
-                        ?: "Sounds the siren and shows how close it is",
+                    detail = state.lastSeenLabel?.let { "Last seen $it" },
                     icon = SafeShadeIcons.FindTheDevice,
                     onClick = { onOpenWay(Routes.DEVICE_LOCATE) }
                 )
@@ -331,7 +328,6 @@ fun DeviceScreen(
                     name = "Telemetry",
                     state = if (state.hasTelemetry) LampState.LIVE else LampState.UNKNOWN,
                     stateLabel = if (state.hasTelemetry) "Live" else "No data",
-                    detail = "Motion, temperature, light, battery",
                     icon = SafeShadeIcons.Telemetry,
                     onClick = { onOpenWay(Routes.DEVICE_TELEMETRY) }
                 )
@@ -344,7 +340,6 @@ fun DeviceScreen(
                     } else {
                         "None"
                     },
-                    detail = "Medication times and worker check-ins",
                     icon = SafeShadeIcons.Reminders,
                     onClick = { onOpenWay(Routes.DEVICE_REMINDERS) }
                 )
@@ -357,7 +352,6 @@ fun DeviceScreen(
                     } else {
                         "None"
                     },
-                    detail = "Pair another SafeShade, or forget one",
                     icon = SafeShadeIcons.PairedDevices,
                     onClick = { onOpenWay(Routes.DEVICE_PAIRED) }
                 )
@@ -374,7 +368,7 @@ fun DeviceScreen(
  * looking at, and the lamp beside it has already said whether it is connected.
  */
 private fun deviceSubline(state: DeviceUiState): String = when {
-    state.isRinging -> "Ringing — tap the button on the device to stop it"
+    state.isRinging -> "Ringing – tap the button on the device to stop it"
     state.wearerName.isNotBlank() -> "${state.wearerName} · ${state.connection.word()}"
     else -> state.connection.word()
 }

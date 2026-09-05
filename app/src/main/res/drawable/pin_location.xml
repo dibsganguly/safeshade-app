@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The map picker's centre marker.
+
+  A hand transcription of `docs/Icons/pin-location.svg`, because osmdroid's
+  `Marker` takes an Android `Drawable` and the app's icon set is a table of
+  Compose `ImageVector`s built outside composition - there is no route from one
+  to the other that does not involve rendering to a bitmap at runtime.
+
+  Every stroke is drawn twice: a bone-coloured casing first, then the trip red
+  over it. A single red line disappears against OSM's red-brown arterial roads
+  and its pink retail blocks, which is exactly where somebody drawing a safe
+  zone around a shop or a clinic will be looking. The casing is what makes it
+  readable on any tile.
+
+  Sized 36 x 36dp against a 24-unit viewport: this is a marker on a map rather
+  than a glyph in a row, and it has to be findable at a glance while the map
+  moves under it.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="36dp"
+    android:height="36dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+
+    <!-- Casing -->
+    <path
+        android:pathData="M8 6a4 4 0 1 0 8 0a4 4 0 1 0 -8 0"
+        android:strokeColor="#FBF9F5"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M5 16C3.7492 16.6327 3 17.4385 3 18.3158C3 20.3505 7.02944 22 12 22C16.9706 22 21 20.3505 21 18.3158C21 17.4385 20.2508 16.6327 19 16"
+        android:strokeColor="#FBF9F5"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M12 10L12 18"
+        android:strokeColor="#FBF9F5"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+
+    <!-- The mark -->
+    <path
+        android:pathData="M8 6a4 4 0 1 0 8 0a4 4 0 1 0 -8 0"
+        android:strokeColor="#E5484D"
+        android:strokeWidth="1.8"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M5 16C3.7492 16.6327 3 17.4385 3 18.3158C3 20.3505 7.02944 22 12 22C16.9706 22 21 20.3505 21 18.3158C21 17.4385 20.2508 16.6327 19 16"
+        android:strokeColor="#E5484D"
+        android:strokeWidth="1.8"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M12 10L12 18"
+        android:strokeColor="#E5484D"
+        android:strokeWidth="1.8"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+</vector>

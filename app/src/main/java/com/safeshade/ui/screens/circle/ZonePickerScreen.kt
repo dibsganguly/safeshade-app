@@ -5,7 +5,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -14,40 +13,31 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import java.io.File
-import org.osmdroid.views.overlay.Polygon
-import org.osmdroid.views.overlay.Marker
-import org.osmdroid.views.overlay.MapEventsOverlay
-import org.osmdroid.views.MapView
-import org.osmdroid.views.CustomZoomButtonsController
-import org.osmdroid.util.GeoPoint
-import org.osmdroid.tileprovider.tilesource.TileSourceFactory
-import org.osmdroid.events.MapEventsReceiver
-import org.osmdroid.config.Configuration
-import androidx.lifecycle.compose.LocalLifecycleOwner
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.Lifecycle
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.graphics.toArgb
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.safeshade.R
 import com.safeshade.ui.board.BoardButton
 import com.safeshade.ui.board.BoardPlate
 import com.safeshade.ui.board.ButtonWeight
@@ -60,13 +50,31 @@ import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.Stroke
 import com.safeshade.ui.theme.board
+import java.io.File
+import org.osmdroid.config.Configuration
+import org.osmdroid.events.MapEventsReceiver
+import org.osmdroid.tileprovider.tilesource.TileSourceFactory
+import org.osmdroid.util.GeoPoint
+import org.osmdroid.views.CustomZoomButtonsController
+import org.osmdroid.views.MapView
+import org.osmdroid.views.overlay.MapEventsOverlay
+import org.osmdroid.views.overlay.Marker
+import org.osmdroid.views.overlay.Polygon
 
 /** Everything the map picker draws. */
 data class ZonePickerUiState(
     /** The chosen point, or null until one is chosen. */
     val lat: Double? = null,
     val lon: Double? = null,
-    /** Drawn as a ring on the map so the radius is judged against real streets. */
+    /**
+      * Drawn as a ring on the map, and now settable here.
+      *
+      * The radius used to live only on the editor, one screen back, so the one
+      * place it could be judged against real streets was the one place it could
+      * not be changed. It is the same [RadiusControl] as the editor's, over the
+      * same stops, writing the same draft value - so the ring under it moves as
+      * the handle moves.
+      */
     val radiusMeters: Float = 200f,
     /**
      * The coordinate fields as typed.
@@ -75,8 +83,6 @@ data class ZonePickerUiState(
      * ("22.", "-") is not a number and a field that refuses to hold what the
      * user is in the middle of typing is unusable.
      */
-    val latField: String = "",
-    val lonField: String = "",
     /** A reverse-geocoded name when one is known. Never required. */
     val placeLabel: String? = null,
     val isLocating: Boolean = false,
@@ -105,8 +111,7 @@ data class ZonePickerUiState(
 @Composable
 fun ZonePickerScreen(
     state: ZonePickerUiState,
-    onLatFieldChange: (String) -> Unit,
-    onLonFieldChange: (String) -> Unit,
+    onRadiusChange: (Float) -> Unit,
     onUseCurrentLocation: () -> Unit,
     onPointPicked: (Double, Double) -> Unit,
     onConfirm: () -> Unit,
@@ -141,7 +146,7 @@ fun ZonePickerScreen(
         // leaving actually costs.
         ScreenHeader(
             title = "Choose the centre",
-            subtitle = "Tap the map, or type the coordinates below",
+            subtitle = "Tap the map to place it",
             onBack = onCancel,
             backDescription = "Close the map without choosing a place",
             tier = ScreenTier.PUSHED,
@@ -168,24 +173,26 @@ fun ZonePickerScreen(
                 modifier = Modifier.padding(Spacing.lg),
                 verticalArrangement = Arrangement.spacedBy(Spacing.md)
             ) {
-                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
-                    BoardField(
-                        value = state.latField,
-                        onValueChange = onLatFieldChange,
-                        label = "Latitude",
-                        placeholder = "22.5726",
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        modifier = Modifier.weight(1f)
-                    )
-                    BoardField(
-                        value = state.lonField,
-                        onValueChange = onLonFieldChange,
-                        label = "Longitude",
-                        placeholder = "88.3639",
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        modifier = Modifier.weight(1f)
-                    )
-                }
+                // The two coordinate fields are gone.
+                //
+                // They were kept as the route that works when the map does not,
+                // which was a real argument against the WebView this screen used
+                // to carry: that version could fail to attach its tap handler and
+                // leave the map inert with no tell. The native map cannot do
+                // that - its tap handler is attached at construction and works
+                // whether or not a single tile ever arrives - so what the fields
+                // were insuring against no longer exists, and typing a latitude
+                // to six places is not a thing anybody was going to do.
+                //
+                // The radius takes their place, because this is the only screen
+                // where the size of a zone can be judged against the streets it
+                // covers.
+                RadiusControl(
+                    radiusMeters = state.radiusMeters,
+                    minMeters = ZONE_MIN_METERS,
+                    maxMeters = ZONE_MAX_METERS,
+                    onRadiusChange = onRadiusChange
+                )
 
                 if (state.placeLabel != null) {
                     Text(
@@ -213,8 +220,8 @@ fun ZonePickerScreen(
                 )
 
                 BoardButton(
-                    label = "Use this place",
-                    supporting = if (state.canConfirm) null else "Choose a point on the map or type both coordinates",
+                    label = "Use This Place",
+                    supporting = if (state.canConfirm) null else "Tap the map to choose a point",
                     onClick = onConfirm,
                     enabled = state.canConfirm,
                     weight = ButtonWeight.PRIMARY,
@@ -320,7 +327,16 @@ private fun MapSurface(
     }
 
     AndroidView(
-        modifier = modifier,
+        // `clipToBounds`, and it is not cosmetic.
+        //
+        // osmdroid scales its whole canvas about the pinch pivot while a
+        // two-finger zoom is in progress, rather than re-tiling per frame. An
+        // unclipped View paints that scaled canvas wherever it lands, so a
+        // pinch near the top of the map drew map over the header above it -
+        // reported as "the entire map frame moves, and the previous page pokes
+        // through the top". Nothing was moving; the map was painting outside
+        // itself.
+        modifier = modifier.clipToBounds(),
         factory = { mapView },
         update = { view ->
             val lat = state.lat
@@ -347,6 +363,11 @@ private fun MapSurface(
                         position = point
                         setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
                         title = "Zone centre"
+                        // osmdroid's default marker is a stock blue-grey pin
+                        // that is the only thing on this screen not drawn in
+                        // the app's own hand, and it loses itself against a
+                        // built-up tile. See `res/drawable/pin_location.xml`.
+                        icon = ContextCompat.getDrawable(view.context, R.drawable.pin_location)
                     }
                 )
                 view.controller.animateTo(point)
@@ -395,13 +416,10 @@ private fun ZonePickerLightPreview() {
                 lat = 22.5726,
                 lon = 88.3639,
                 radiusMeters = 250f,
-                latField = "22.5726",
-                lonField = "88.3639",
                 placeLabel = "Near Salt Lake Sector V",
                 canConfirm = true
             ),
-            onLatFieldChange = {},
-            onLonFieldChange = {},
+            onRadiusChange = {},
             onUseCurrentLocation = {},
             onPointPicked = { _, _ -> },
             onConfirm = {},
@@ -418,8 +436,7 @@ private fun ZonePickerDarkPreview() {
             state = ZonePickerUiState(
                 locationError = "Location is switched off on this phone. Type the coordinates instead."
             ),
-            onLatFieldChange = {},
-            onLonFieldChange = {},
+            onRadiusChange = {},
             onUseCurrentLocation = {},
             onPointPicked = { _, _ -> },
             onConfirm = {},

@@ -296,12 +296,13 @@ private fun ContactEditor(
     ) {
         PanelHeader(
             title = if (isNew) "Add a contact" else "Edit contact",
-            subtitle = "This person is called and texted during an emergency.",
             onBack = onBack
         )
 
-        Spacer(Modifier.height(Spacing.xl))
-
+        // No Spacer here: the Name field is the first thing on this screen,
+        // and PanelHeader already supplies the whole header-to-content gap.
+        // A Spacing.xl on top of that was a third gap stacked on the header's
+        // own 20dp, not a separator between two pieces of content.
         PlateField(
             label = "Name",
             value = draft.name,
@@ -364,7 +365,6 @@ private fun ContactEditor(
                 name = "Call this person first",
                 state = if (draft.isPrimary) LampState.LIVE else LampState.OFF,
                 stateLabel = if (draft.isPrimary) "First" else "Not first",
-                detail = "Moves them to the top of the list.",
                 checked = draft.isPrimary,
                 onCheckedChange = { onDraftChange(draft.copy(isPrimary = it)) }
             )
@@ -373,10 +373,10 @@ private fun ContactEditor(
         Spacer(Modifier.height(Spacing.xl))
 
         BoardButton(
-            label = if (isNew) "Add contact" else "Save changes",
+            label = if (isNew) "Add Contact" else "Save Changes",
             onClick = onSave,
             enabled = canSave,
-            weight = ButtonWeight.PRIMARY,
+            weight = ButtonWeight.COMMIT,
             modifier = Modifier.fillMaxWidth()
         )
 

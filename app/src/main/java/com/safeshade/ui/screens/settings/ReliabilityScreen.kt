@@ -228,7 +228,7 @@ fun ReliabilityScreen(
                         text = "Every check above can pass and an alert can still be " +
                             "killed by something this app cannot see. Sending a test " +
                             "is the only way to turn that into something you can watch " +
-                            "happen — or watch not happen.",
+                            "happen – or watch not happen.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = colors.ink
                     )
@@ -296,7 +296,7 @@ private fun CheckWay(
             CheckStatus.UNKNOWN -> "Unknown"
         },
         detail = when (status) {
-            CheckStatus.PASSING -> "Working. Tap to review the setting."
+            CheckStatus.PASSING -> null
             else -> consequence
         },
         icon = icon,

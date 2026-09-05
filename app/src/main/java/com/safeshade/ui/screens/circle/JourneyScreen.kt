@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
@@ -22,10 +23,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import com.safeshade.data.UserRole
 import com.safeshade.ui.board.BoardButton
 import com.safeshade.ui.board.BoardPlate
@@ -212,8 +215,7 @@ private fun LazyListScope.journeySetup(
                     onValueChange = onCustomEtaChange,
                     label = "Minutes",
                     placeholder = "35",
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    supporting = "Between 1 and 600 minutes."
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                 )
             }
         }
@@ -303,7 +305,6 @@ private fun LazyListScope.activeJourney(
     item("arrived") {
         BoardButton(
             label = "I have arrived",
-            supporting = "Ends the journey. Nobody is contacted.",
             icon = SafeShadeIcons.Tick02,
             onClick = onArrived,
             enabled = !state.isBusy,
@@ -323,7 +324,6 @@ private fun LazyListScope.activeJourney(
     item("cancel") {
         BoardButton(
             label = "Cancel this journey",
-            supporting = "Stops the timer without recording an arrival",
             onClick = onCancelJourney,
             enabled = !state.isBusy,
             weight = ButtonWeight.QUIET,
@@ -343,7 +343,7 @@ private fun JourneyClock(state: JourneyUiState) {
         else -> LampState.LIVE
     }
     val word = when {
-        state.escalated -> "Overdue — contacts told"
+        state.escalated -> "Overdue – contacts told"
         state.isOverdue -> "Past the time"
         else -> "Running"
     }
@@ -402,12 +402,16 @@ private fun JourneyClock(state: JourneyUiState) {
                         .height(Stroke.heavy)
                 )
             }
-            Spacer(Modifier.height(Spacing.md))
-            Text(
-                text = spoken,
-                style = MaterialTheme.typography.bodyMedium,
-                color = colors.inkMuted,
-                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }
+            // Announced to screen readers only. Sighted users already have the
+            // readout above; this used to also render as a visible line that
+            // just restated the same number in words.
+            Spacer(
+                modifier = Modifier
+                    .size(0.dp)
+                    .semantics {
+                        liveRegion = LiveRegionMode.Polite
+                        contentDescription = spoken
+                    }
             )
         }
     }

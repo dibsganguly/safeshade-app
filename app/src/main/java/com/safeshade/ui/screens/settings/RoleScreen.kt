@@ -166,7 +166,7 @@ private fun SamplePlate(
         verticalArrangement = Arrangement.spacedBy(Spacing.xs)
     ) {
         Nameplate(
-            text = if (active) "${role.label} — in use" else role.label,
+            text = if (active) "${role.label} – in use" else role.label,
             small = true,
             muted = !active
         )

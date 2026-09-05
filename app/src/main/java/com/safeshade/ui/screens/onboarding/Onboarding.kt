@@ -201,7 +201,7 @@ fun WelcomeScreen(onStart: () -> Unit, modifier: Modifier = Modifier) {
         Spacer(Modifier.height(Spacing.xxl))
 
         Text(
-            "This app pairs with your SafeShade device over Bluetooth. Nothing is sent to a server — alerts travel straight between the device and this phone.",
+            "This app pairs with your SafeShade device over Bluetooth. Nothing is sent to a server – alerts travel straight between the device and this phone.",
             style = MaterialTheme.typography.bodyMedium,
             color = colors.inkMuted
         )
@@ -227,7 +227,7 @@ fun WearerScreen(
         totalSteps = 5,
         title = if (role == UserRole.GUARDIAN) "Who wears it?" else "What should we call you?",
         body = if (role == UserRole.GUARDIAN) {
-            "Their name appears on the board, so you can tell at a glance whose device you are looking at."
+            null
         } else {
             "Used on the emergency card a responder would see."
         },

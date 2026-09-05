@@ -649,14 +649,14 @@ fun MainNavGraph(
                     lat = parsedLat,
                     lon = parsedLon,
                     radiusMeters = zoneDraftRadius,
-                    latField = pickLatField,
-                    lonField = pickLonField,
                     isLocating = pickLocating || isSyncing,
                     locationError = pickError,
                     canConfirm = parsedLat != null && parsedLon != null
                 ),
-                onLatFieldChange = { pickLatField = it },
-                onLonFieldChange = { pickLonField = it },
+                // The picker sets the radius now as well as the centre, writing
+                // the same draft the editor writes. Both screens read it back,
+                // so a size chosen over the map is the size the editor shows.
+                onRadiusChange = { zoneDraftRadius = it },
                 onUseCurrentLocation = {
                     pickError = null
                     if (hasFineLocation(context)) {

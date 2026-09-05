@@ -193,6 +193,11 @@ fun BoardScreen(
 
         item("mains") {
             MainsPlate(
+                // A little more air under the masthead than the list's own
+                // rhythm gives. The masthead is a brand lockup rather than a
+                // list item, and reading it as one made the first card sit
+                // right up against the wordmark.
+                modifier = Modifier.padding(top = Spacing.sm),
                 state = lamp,
                 headline = state.headline,
                 subline = state.subline,
@@ -236,7 +241,7 @@ fun BoardScreen(
         item("primary-action") {
             if (lamp == LampState.LIVE) {
                 BoardButton(
-                    label = if (state.isRinging) "Ringing" else "Test — ring device",
+                    label = if (state.isRinging) "Ringing" else "Test – Ring Device",
                     supporting = if (state.isRinging) {
                         "Tap the button on the device to stop the siren"
                     } else {
@@ -250,11 +255,14 @@ fun BoardScreen(
                 )
             } else {
                 BoardButton(
-                    label = if (state.permissionsGranted) connectLabel(state.connection) else "Grant permissions",
+                    label = if (state.permissionsGranted) connectLabel(state.connection) else "Grant Permissions",
                     supporting = if (state.permissionsGranted) null else "Bluetooth and location are needed to find the device",
                     icon = if (state.permissionsGranted) SafeShadeIcons.ConnectToTheDevice else null,
                     onClick = if (state.permissionsGranted) onConnectToggle else onRequestPermissions,
-                    weight = ButtonWeight.PRIMARY,
+                    // Amber, not charcoal. With no wearable paired this is the
+                    // only thing on the screen worth pressing and it looked
+                    // exactly like every other plate on it.
+                    weight = ButtonWeight.ATTENTION,
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -370,9 +378,9 @@ private fun connectLabel(connection: ConnectionState): String = when (connection
     is ConnectionState.Connecting -> "Connecting…"
     is ConnectionState.Found -> "Found ${connection.name}"
     is ConnectionState.Connected -> "Starting up…"
-    is ConnectionState.BluetoothUnavailable -> "Turn on Bluetooth"
-    is ConnectionState.ScanFailed -> "Try again"
-    else -> "Connect to the device"
+    is ConnectionState.BluetoothUnavailable -> "Turn On Bluetooth"
+    is ConnectionState.ScanFailed -> "Try Again"
+    else -> "Connect to the Device"
 }
 
 /**
@@ -393,9 +401,9 @@ private fun ConnectionState.toLampState(): LampState = when (this) {
 }
 
 private fun uvAdvice(uv: Float): String = when {
-    uv >= 11f -> "Extreme — stay inside"
-    uv >= 8f -> "Very high — cover up"
-    uv >= 6f -> "High — use shade"
+    uv >= 11f -> "Extreme – stay inside"
+    uv >= 8f -> "Very high – cover up"
+    uv >= 6f -> "High – use shade"
     uv >= 3f -> "Moderate"
     else -> "Low"
 }

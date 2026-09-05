@@ -47,7 +47,15 @@ import com.safeshade.ui.theme.boardType
 fun MainsPlate(
     state: LampState,
     headline: String,
-    subline: String,
+    /**
+     * The line under the headline, or null where there is nothing to say.
+     *
+     * Nullable because a caller that had nothing to put here was passing an
+     * empty string, which is not the same thing: an empty Text still occupies
+     * a line box and still takes the 4dp above it, so the card carried a gap
+     * where a sentence used to be.
+     */
+    subline: String?,
     modifier: Modifier = Modifier,
     batteryPercent: Int? = null,
     signalDbm: Int? = null,
@@ -71,12 +79,14 @@ fun MainsPlate(
                     style = MaterialTheme.typography.headlineSmall,
                     color = colors.ink
                 )
-                Spacer(Modifier.height(Spacing.xs))
-                Text(
-                    text = subline,
-                    style = MaterialTheme.boardType.rowDetail,
-                    color = colors.inkMuted
-                )
+                if (!subline.isNullOrBlank()) {
+                    Spacer(Modifier.height(Spacing.xs))
+                    Text(
+                        text = subline,
+                        style = MaterialTheme.boardType.rowDetail,
+                        color = colors.inkMuted
+                    )
+                }
             }
 
             trailing?.invoke()

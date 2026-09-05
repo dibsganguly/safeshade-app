@@ -113,10 +113,14 @@ fun TripDetailScreen(
             onBack = onBack
         )
 
+        // `MainsPlate.subline` is a required parameter in the shared board kit
+        // (ui/board/Status.kt is out of scope for this pass), so it cannot be
+        // omitted outright; left blank because the sentence it used to carry
+        // only restated the headline directly above it.
         MainsPlate(
             state = trip.outcome.lamp,
             headline = trip.outcome.label,
-            subline = outcomeExplanation(trip, subject, state.contactedName)
+            subline = ""
         )
 
         Spacer(Modifier.height(Spacing.xl))
@@ -164,7 +168,7 @@ fun TripDetailScreen(
         val lon = state.lon
         if (lat != null && lon != null) {
             BoardButton(
-                label = "Open in maps",
+                label = "Open in Maps",
                 supporting = trip.location?.takeIf { it.isNotBlank() },
                 icon = SafeShadeIcons.PinLocation,
                 onClick = {
@@ -180,8 +184,7 @@ fun TripDetailScreen(
         }
 
         BoardButton(
-            label = "Share as text",
-            supporting = "Send this account to a doctor or another family member.",
+            label = "Share as Text",
             icon = Icons.Outlined.Share,
             onClick = {
                 failure = when (val result = shareText(context, account, "Share this trip")) {
@@ -270,18 +273,6 @@ private fun SensorPlate(sensor: LiveSensorData) {
     }
 }
 
-private fun outcomeExplanation(
-    trip: FallAlertEvent,
-    subject: String,
-    contactedName: String?
-): String = when (trip.outcome) {
-    TripOutcome.PENDING -> "Nobody has said what happened yet."
-    TripOutcome.DISMISSED -> "Marked as a false alarm."
-    TripOutcome.CONTACTED -> contactedName?.let { "$it was called about this." }
-        ?: "An emergency contact was called."
-    TripOutcome.AUTO_RESOLVED -> "$subject answered on the device, so it closed itself."
-}
-
 /**
  * The shareable account of a trip.
  *
@@ -290,7 +281,7 @@ private fun outcomeExplanation(
  * this product at all.
  */
 private fun tripAccount(state: TripDetailUiState, subject: String): String = buildString {
-    appendLine("SafeShade — ${state.trip.kind.label}")
+    appendLine("SafeShade – ${state.trip.kind.label}")
     appendLine("Who: $subject")
     appendLine("When: ${formatFullTimestamp(state.trip.timestamp, state.today)}")
     if (!state.trip.location.isNullOrBlank()) appendLine("Where: ${state.trip.location}")

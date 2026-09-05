@@ -191,11 +191,11 @@ fun SimScreen(
 
             item("number-save") {
                 BoardButton(
-                    label = if (state.isSaving) "Saving" else "Save the number",
+                    label = if (state.isSaving) "Saving" else "Save the Number",
                     supporting = if (state.hasUnsavedNumber) null else "Nothing has changed",
                     onClick = onSaveSimNumber,
                     enabled = state.hasUnsavedNumber && !state.isSaving,
-                    weight = ButtonWeight.PRIMARY,
+                    weight = ButtonWeight.COMMIT,
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -282,16 +282,14 @@ fun SimScreen(
                 }
             }
 
-            item("sync") {
-                Text(
-                    text = state.syncLabel ?: if (state.isDeviceLinked) {
-                        "Changes are sent to the device straight away."
-                    } else {
-                        "The device is not connected. Changes are saved here and sent the next time it connects."
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colors.inkFaint
-                )
+            if (state.syncLabel != null) {
+                item("sync") {
+                    Text(
+                        text = state.syncLabel,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colors.inkFaint
+                    )
+                }
             }
         }
     }

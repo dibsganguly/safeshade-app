@@ -118,7 +118,7 @@ fun ServicesScreen(
             // information, not just long information.
             item("primary") {
                 BoardButton(
-                    label = "112 — ${primary.label}",
+                    label = "112 – ${primary.label}",
                     supporting = primary.blurb,
                     icon = SafeShadeIcons.Police,
                     onClick = { dial(primary.number) },
@@ -143,7 +143,7 @@ fun ServicesScreen(
                         // remembers "the ambulance one" is scanning for three
                         // digits, and burying them in the state column would
                         // set them in the faintest ink on the row.
-                        name = "${service.number} — ${service.label}",
+                        name = "${service.number} – ${service.label}",
                         // A public line has no circuit state to report, so the
                         // lamp stays unlit and the state word says what the
                         // row does rather than pretending to be a status.
@@ -154,14 +154,6 @@ fun ServicesScreen(
                     )
                 }
             }
-        }
-
-        item("footer") {
-            Note(
-                text = "Tapping any of these opens your dialer with the number already in it. " +
-                    "Nothing is dialled until you press the call button, so a mis-tap costs " +
-                    "nothing. These are Indian numbers and will not work abroad."
-            )
         }
     }
 }

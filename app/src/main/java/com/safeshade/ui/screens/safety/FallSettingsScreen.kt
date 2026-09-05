@@ -16,6 +16,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
@@ -27,6 +31,7 @@ import com.safeshade.data.PersonaMode
 import com.safeshade.data.SafetySettings
 import com.safeshade.data.UserRole
 import com.safeshade.ui.board.BoardPlate
+import com.safeshade.ui.board.DialControl
 import com.safeshade.ui.board.ExpandableSection
 import com.safeshade.ui.board.Hairline
 import com.safeshade.ui.board.LampState
@@ -39,6 +44,7 @@ import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.board
 import kotlin.math.abs
+import kotlin.math.roundToInt
 
 /** Everything the fall-settings screen draws. */
 data class FallSettingsUiState(
@@ -52,9 +58,6 @@ data class FallSettingsUiState(
     /** Shown under the PIN field when the entered PIN is not usable yet. */
     val pinError: String? = null
 )
-
-/** The countdown lengths offered. Long enough to react, short enough to matter. */
-private val CountdownChoices = listOf(15, 30, 45, 60)
 
 /**
  * The siren levels offered.
@@ -152,17 +155,27 @@ fun FallSettingsScreen(
         } else {
             "Saved on this phone. They reach the device the next time it connects."
         }
+        // Tracks whether LockPlate or the sync note rendered above, because
+        // that decides what the xl Spacer below is doing: a separator after
+        // real content, or a stray third gap stacked on the header's own
+        // 20dp when neither one appears and Sensitivity is the first thing
+        // on the screen.
+        var contentAboveSensitivity = false
         if (locked) {
             LockPlate(mode = mode, subject = subject)
+            contentAboveSensitivity = true
             if (!state.settingsSynced) {
                 Spacer(Modifier.height(Spacing.lg))
                 Note(text = syncNoteText)
             }
         } else if (!state.settingsSynced) {
             Note(text = syncNoteText)
+            contentAboveSensitivity = true
         }
 
-        Spacer(Modifier.height(Spacing.xl))
+        if (contentAboveSensitivity) {
+            Spacer(Modifier.height(Spacing.xl))
+        }
         SectionPlate(title = "Sensitivity")
         Spacer(Modifier.height(Spacing.sm))
 
@@ -250,17 +263,26 @@ fun FallSettingsScreen(
         SectionPlate(title = "Countdown")
         Spacer(Modifier.height(Spacing.sm))
 
-        BoardPlate(modifier = Modifier.fillMaxWidth()) {
-            CountdownChoices.forEachIndexed { index, seconds ->
-                if (index > 0) Hairline()
-                OptionWay(
-                    name = formatDuration(seconds),
-                    detail = countdownDetail(seconds),
-                    selected = settings.fallCountdownSeconds == seconds,
-                    onSelect = { onCountdownChange(seconds) }
-                )
-            }
+        // A slider, not the four-row list this used to be. `onCountdownChange`
+        // is the one callback there is for this value — there is no separate
+        // cheap-vs-committed pair the way the siren volume gets — so dragging
+        // is tracked in this local draft and only pushed out once, in
+        // `onCommit`, on release. Resyncs from `settings.fallCountdownSeconds`
+        // whenever that changes out from under the drag (a fresh device sync,
+        // a different persona's settings loading in).
+        var countdownDraft by remember(settings.fallCountdownSeconds) {
+            mutableFloatStateOf(settings.fallCountdownSeconds.toFloat())
         }
+        DialControl(
+            label = "Countdown",
+            value = countdownDraft,
+            valueRange = 15f..60f,
+            step = 15f,
+            onValueChange = { countdownDraft = it },
+            onCommit = { onCountdownChange(countdownDraft.roundToInt()) },
+            unit = "seconds",
+            advice = { countdownDetail(it.roundToInt()) }
+        )
 
         Spacer(Modifier.height(Spacing.sm))
         Note(text = "The device waits five seconds of its own before this starts.")
@@ -268,7 +290,7 @@ fun FallSettingsScreen(
         WhyDisclosure(
             label = "Why there are two countdowns",
             text = "Two waits, one after the other. The device holds a detected fall for five " +
-                "seconds first — a double-click on the device in that time cancels it and " +
+                "seconds first – a double-click on the device in that time cancels it and " +
                 "nobody is told. Only then does this countdown start on the phone. Conflating " +
                 "the two is how people end up expecting a call sooner, or later, than it comes."
         )
@@ -348,7 +370,6 @@ fun FallSettingsScreen(
                     name = "Require a PIN on the device",
                     state = if (settings.parentalControlsEnabled) LampState.LIVE else LampState.OFF,
                     stateLabel = if (settings.parentalControlsEnabled) "On" else "Off",
-                    detail = "Stops these settings being changed on the device itself.",
                     checked = settings.parentalControlsEnabled,
                     onCheckedChange = onParentalControlsChange
                 )
@@ -361,7 +382,6 @@ fun FallSettingsScreen(
                     value = settings.parentalPin,
                     onValueChange = { onPinChange(it.filter(Char::isDigit)) },
                     placeholder = "4 digits",
-                    helper = "Digits only. Four to six of them.",
                     error = state.pinError,
                     maxLength = 6,
                     keyboardType = KeyboardType.NumberPassword,
@@ -379,17 +399,6 @@ fun FallSettingsScreen(
                 )
             }
         }
-
-        // The honesty line stays in the open. A disclaimer somebody has to
-        // choose to open is a disclaimer that has not been given.
-        Spacer(Modifier.height(Spacing.xl))
-        Note(text = "A second pair of eyes, not a guarantee.")
-        Spacer(Modifier.height(Spacing.xs))
-        WhyDisclosure(
-            label = "What it can miss",
-            text = "Fall detection uses movement, so it can miss a slow slide to the floor and " +
-                "it can call a dropped bag a fall. Nothing here replaces somebody checking in."
-        )
     }
 }
 

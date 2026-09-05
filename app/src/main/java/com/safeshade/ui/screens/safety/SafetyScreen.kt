@@ -41,7 +41,6 @@ import com.safeshade.ui.board.ScreenTier
 import com.safeshade.ui.board.Seal
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.Way
-import com.safeshade.ui.board.WhyDisclosure
 import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
@@ -146,13 +145,9 @@ fun SafetyScreen(
             // rhythm supplies the header's other 16dp the same way every
             // pattern-A screen gets it. Going through PanelHeader here would
             // add its own Spacer(Spacing.lg) on top and double the gap.
+            // No subtitle: the bank below already shows what this screen is for.
             ScreenHeader(
                 title = "Safety",
-                subtitle = if (state.role == UserRole.GUARDIAN) {
-                    "What happens if something happens to $subject."
-                } else {
-                    "What happens if something happens to you."
-                },
                 tier = ScreenTier.ROOT
             )
         }
@@ -173,9 +168,9 @@ fun SafetyScreen(
         // on a narrow phone at a raised font scale.
         item("services") {
             BoardButton(
-                label = "Emergency numbers",
-                supporting = "112 and 7 more. Opens the dialer — never calls by itself.",
-                icon = SafeShadeIcons.Police,
+                label = "Emergency Numbers",
+                supporting = "112 and 7 more. Opens the dialer – never calls by itself.",
+                icon = SafeShadeIcons.Cross,
                 onClick = onOpenServices,
                 weight = ButtonWeight.DANGER,
                 modifier = Modifier.fillMaxWidth()
@@ -289,7 +284,6 @@ fun SafetyScreen(
                     name = "Emergency card",
                     state = if (state.medicalId.isUsable) LampState.LIVE else LampState.OFF,
                     stateLabel = if (state.medicalId.isUsable) "Ready" else "Empty",
-                    detail = "A QR code any phone camera can read. No app, no internet.",
                     icon = Icons.Outlined.QrCode2,
                     onClick = onOpenEmergencyCard
                 )
@@ -313,7 +307,6 @@ fun SafetyScreen(
                     name = "Silent SOS",
                     state = if (state.silentSosEnabled) LampState.LIVE else LampState.OFF,
                     stateLabel = if (state.silentSosEnabled) "Armed" else "Off",
-                    detail = "Raise an alert without a sound, and stage a call to leave a situation.",
                     icon = SafeShadeIcons.SilentSos,
                     onClick = onOpenSilentSos
                 )
@@ -329,22 +322,6 @@ fun SafetyScreen(
             }
         }
 
-        item("footer") {
-            // The claim stays in the open; the elaboration does not. A
-            // disclaimer somebody has to choose to open is a disclaimer that
-            // has not been given.
-            Column {
-                Note(text = "All of this is a help, not a guarantee.")
-                Spacer(Modifier.height(Spacing.xs))
-                WhyDisclosure(
-                    label = "What this cannot do",
-                    text = "Fall detection can miss a fall and it can report one that did not " +
-                        "happen. Everything on this board depends on a charged device, a " +
-                        "reachable phone and somebody at the other end of a contact number. " +
-                        "Nothing here replaces calling for help."
-                )
-            }
-        }
     }
 }
 

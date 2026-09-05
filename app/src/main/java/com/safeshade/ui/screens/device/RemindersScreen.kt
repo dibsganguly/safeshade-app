@@ -17,6 +17,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
@@ -29,6 +33,7 @@ import com.safeshade.device.ConnectionState
 import com.safeshade.ui.board.BoardButton
 import com.safeshade.ui.board.BoardPlate
 import com.safeshade.ui.board.ButtonWeight
+import com.safeshade.ui.board.DialControl
 import com.safeshade.ui.board.Hairline
 import com.safeshade.ui.board.LampState
 import com.safeshade.ui.board.Nameplate
@@ -41,6 +46,7 @@ import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.board
+import kotlin.math.roundToInt
 
 /** Everything the reminders screen draws. */
 data class RemindersUiState(
@@ -135,8 +141,7 @@ fun RemindersScreen(
                     name = "Daily reminder",
                     state = ackLamp(ack, if (enabled) LampState.LIVE else LampState.OFF),
                     stateLabel = if (enabled) "On" else "Off",
-                    detail = ackWord(ack)
-                        ?: "The wearable buzzes and shows the reminder at this time.",
+                    detail = ackWord(ack),
                     icon = SafeShadeIcons.DailyReminder,
                     checked = enabled,
                     onCheckedChange = onMedicationEnabledChange
@@ -176,9 +181,21 @@ fun RemindersScreen(
         item("checkin-heading") { SectionPlate(title = "Check-in") }
 
         item("checkin") {
+            val enabled = state.checkIn?.enabled == true
+            val ack = state.ackFor("checkInInterval")
+            // Dragging is tracked here rather than pushed straight through
+            // `onCheckInIntervalChange` on every frame: that callback is a
+            // real write to the device (`EXT CHECKIN`), and DialControl's
+            // `onCommit` is what exists to keep a whole drag gesture from
+            // spending Android's one-outstanding-GATT-operation budget on
+            // values nobody asked to keep. Resyncs whenever the interval
+            // changes from outside this drag (a device sync, a reconnect).
+            var draftMinutes by remember(state.checkIn?.intervalMinutes) {
+                mutableFloatStateOf(
+                    (state.checkIn?.intervalMinutes ?: DEFAULT_CHECK_IN_INTERVAL_MINUTES).toFloat()
+                )
+            }
             BoardPlate(modifier = Modifier.fillMaxWidth()) {
-                val enabled = state.checkIn?.enabled == true
-                val ack = state.ackFor("checkInInterval")
                 Way(
                     name = "Repeating check-in",
                     state = ackLamp(ack, if (enabled) LampState.LIVE else LampState.OFF),
@@ -191,24 +208,17 @@ fun RemindersScreen(
                     onCheckedChange = onCheckInEnabledChange
                 )
                 Hairline()
-                Column(modifier = Modifier.padding(Spacing.lg)) {
-                    Nameplate("Every", small = true, muted = true)
-                    Spacer(Modifier.height(Spacing.sm))
-                    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                        INTERVAL_CHOICES.forEach { (minutes, label) ->
-                            BoardButton(
-                                label = label,
-                                onClick = { onCheckInIntervalChange(minutes) },
-                                weight = if (state.checkIn?.intervalMinutes == minutes) {
-                                    ButtonWeight.PRIMARY
-                                } else {
-                                    ButtonWeight.SECONDARY
-                                },
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-                    }
-                    Spacer(Modifier.height(Spacing.sm))
+                DialControl(
+                    label = "Every",
+                    value = draftMinutes,
+                    valueRange = CHECK_IN_INTERVAL_RANGE,
+                    step = CHECK_IN_INTERVAL_STEP,
+                    onValueChange = { draftMinutes = it },
+                    onCommit = { onCheckInIntervalChange(draftMinutes.roundToInt()) },
+                    format = { formatCheckInInterval(it.roundToInt()) },
+                    advice = { checkInIntervalAdvice(it.roundToInt()) }
+                )
+                Column(modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.md)) {
                     Text(
                         text = timingNote(state.exactAlarmsAllowed),
                         style = MaterialTheme.typography.bodySmall,
@@ -267,7 +277,6 @@ private fun InexactAlarmNotice(
             if (grantable) {
                 BoardButton(
                     label = "Allow exact alarms",
-                    supporting = "Opens the Android setting for this app",
                     onClick = onGrant,
                     weight = ButtonWeight.PRIMARY,
                     modifier = Modifier.fillMaxWidth()
@@ -307,13 +316,51 @@ private fun ProfileNote(
     )
 }
 
-/** Kept identical to `DeviceSettingsScreen`'s list. Both write `EXT CHECKIN`. */
-private val INTERVAL_CHOICES = listOf(
-    30 to "30m",
-    60 to "1h",
-    120 to "2h",
-    240 to "4h"
-)
+/**
+ * The check-in interval control's range, step, default and formatting.
+ *
+ * Shared with `DeviceSettingsScreen` — both screens write the same
+ * `EXT CHECKIN` field, and a user who changes this in one place and finds a
+ * different control offering different options in the other is exactly the
+ * confusion a second, drifted copy of this would cause. This screen is the
+ * one home for it; `DeviceSettingsScreen` is `internal`-visible to these from
+ * the same package rather than keeping its own copy.
+ *
+ * This used to be a row of four buttons — 30m / 1h / 2h / 4h — which is why
+ * the range now reaching every half hour in between (1h30, 2h30, 3h, 3h30)
+ * is a deliberate change, not scope creep: a slider that only ever lands on
+ * four of its eight possible ticks looks broken, so the step is the true
+ * minute resolution the device honours rather than the old row's arbitrary
+ * subset of it.
+ */
+internal val CHECK_IN_INTERVAL_RANGE = 30f..240f
+internal const val CHECK_IN_INTERVAL_STEP = 30f
+
+/** What a newly-enabled check-in defaults to, before anyone has chosen. */
+internal const val DEFAULT_CHECK_IN_INTERVAL_MINUTES = 60
+
+/** "30m" / "1h" / "1h 30m" / "2h" ... from a minute count. Never "90m". */
+internal fun formatCheckInInterval(minutes: Int): String {
+    val hours = minutes / 60
+    val mins = minutes % 60
+    return when {
+        hours == 0 -> "${mins}m"
+        mins == 0 -> "${hours}h"
+        else -> "${hours}h ${mins}m"
+    }
+}
+
+/** What a shorter or longer check-in interval trades off, in plain English. */
+internal fun checkInIntervalAdvice(minutes: Int): String = when {
+    minutes <= 30 ->
+        "Asks most often. Catches a missed check-in fastest, at the cost of the most interruptions."
+    minutes <= 90 ->
+        "A frequent check, without asking constantly."
+    minutes <= 150 ->
+        "A middle ground: noticeable gaps between checks, still catches trouble within a couple of hours."
+    else ->
+        "Asks least often. Least intrusive, but a problem can go unnoticed for longer before it is caught."
+}
 
 private fun timingNote(exact: Boolean): String = if (exact) {
     "Fires at this time."

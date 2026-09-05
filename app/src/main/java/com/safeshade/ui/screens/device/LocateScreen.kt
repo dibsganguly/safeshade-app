@@ -137,7 +137,6 @@ fun LocateScreen(
                 Column {
                     BoardButton(
                         label = "Ring the device",
-                        supporting = "Sounds the siren so you can hear where it is",
                         icon = SafeShadeIcons.RingTheDevice,
                         onClick = onArmRing,
                         enabled = state.connection.isUsable,
@@ -265,7 +264,7 @@ private fun RingConfirm(
             Text(
                 text = "The wearable will show its full emergency screen, sound the " +
                     "siren and flash red. It will not stop on its own and this app " +
-                    "cannot stop it — somebody has to tap the button on the device.",
+                    "cannot stop it – somebody has to tap the button on the device.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = colors.ink
             )

@@ -33,6 +33,7 @@ import com.safeshade.data.UserRole
 import com.safeshade.ui.board.BoardButton
 import com.safeshade.ui.board.BoardPlate
 import com.safeshade.ui.board.ButtonWeight
+import com.safeshade.ui.board.DialControl
 import com.safeshade.ui.board.Hairline
 import com.safeshade.ui.board.LampState
 import com.safeshade.ui.board.Readout
@@ -316,53 +317,43 @@ fun ZoneEditorScreen(
  * a user to fiddle for a precision the platform cannot honour.
  */
 @Composable
-private fun RadiusControl(
+internal fun RadiusControl(
     radiusMeters: Float,
     minMeters: Float,
     maxMeters: Float,
     onRadiusChange: (Float) -> Unit
 ) {
-    val colors = MaterialTheme.board
-    val steps = (((maxMeters - minMeters) / STEP_METERS).roundToInt() - 1).coerceAtLeast(0)
-    val metres = radiusMeters.roundToInt()
-
-    BoardPlate(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(Spacing.lg)) {
-            Row(verticalAlignment = Alignment.Bottom) {
-                Readout(label = "Radius", value = "$metres", large = true)
-                Spacer(Modifier.weight(1f))
-                Text(
-                    text = "metres across the circle's edge",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colors.inkFaint,
-                    modifier = Modifier.padding(bottom = Spacing.sm)
-                )
-            }
-            Slider(
-                value = radiusMeters.coerceIn(minMeters, maxMeters),
-                onValueChange = onRadiusChange,
-                valueRange = minMeters..maxMeters,
-                steps = steps,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    // The slider's own value is announced as a bare fraction
-                    // otherwise, which is meaningless for a distance.
-                    .semantics {
-                        contentDescription = "Zone radius"
-                        stateDescription = "$metres metres"
-                    }
-            )
-            Text(
-                text = radiusAdvice(metres),
-                style = MaterialTheme.typography.bodySmall,
-                color = colors.inkMuted
-            )
-        }
-    }
+    // `DialControl`, not a second hand-rolled slider.
+    //
+    // This control is where `DialControl` came from - the readout, the stepped
+    // track, the advice line that changes as it moves - but it was never
+    // converted to use it, so the kit had two implementations of one pattern
+    // and only one of them got the board's own slider material. Now there is
+    // one, and the map picker draws the same control over a live map.
+    DialControl(
+        label = "Radius",
+        value = radiusMeters.coerceIn(minMeters, maxMeters),
+        valueRange = minMeters..maxMeters,
+        step = STEP_METERS,
+        onValueChange = onRadiusChange,
+        unit = "metres across the circle's edge",
+        advice = { radiusAdvice(it.roundToInt()) },
+        spokenValue = { "${it.roundToInt()} metres" }
+    )
 }
 
 /** 50 m increments. See [RadiusControl] for why it is stepped at all. */
 private const val STEP_METERS = 50f
+
+/**
+ * The range the radius control offers, shared with the map picker.
+ *
+ * The picker draws the same control over a live map, so both screens have to
+ * offer the same stops or a zone would change size by being looked at on the
+ * other screen.
+ */
+internal const val ZONE_MIN_METERS = 50f
+internal const val ZONE_MAX_METERS = 1000f
 
 /**
  * What a radius means in practice.
@@ -371,7 +362,7 @@ private const val STEP_METERS = 50f
  * time someone walks to the end of the drive is the most common way a safe
  * zone becomes noise, so the trade-off is stated at the point of choosing.
  */
-private fun radiusAdvice(metres: Int): String = when {
+internal fun radiusAdvice(metres: Int): String = when {
     metres <= 100 -> "Tight. Good for a single building, but ordinary movement indoors can trip it."
     metres <= 300 -> "A house and the street around it. This is the usual choice."
     metres <= 600 -> "A block or a small park. Fewer alerts, and later ones."

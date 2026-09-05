@@ -172,7 +172,7 @@ fun emergencyAlertText(
     append("SafeShade alert: ")
     append(what)
     if (wearerName.isNotBlank()) {
-        append(" — ")
+        append(" – ")
         append(wearerName)
     }
     append(".")

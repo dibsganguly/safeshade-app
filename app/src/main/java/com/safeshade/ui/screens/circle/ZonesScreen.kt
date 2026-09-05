@@ -223,19 +223,6 @@ fun ZonesScreen(
                     )
                 }
             }
-
-            item("explainer") {
-                Text(
-                    text = when (state.role) {
-                        UserRole.GUARDIAN ->
-                            "A safe zone is a circle on a map. When the device crosses its edge you get a notification, and the crossing is recorded on the board."
-                        UserRole.COMPANION ->
-                            "A safe zone is a circle on a map. When you cross its edge your guardian gets a notification, and the crossing is recorded on the board."
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colors.inkFaint
-                )
-            }
         }
     }
 }

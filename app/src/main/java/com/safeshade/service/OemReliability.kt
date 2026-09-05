@@ -123,7 +123,7 @@ object OemReliability {
                 // worse than saying plainly that we cannot tell.
                 satisfied = null,
                 explanation = "MIUI stops apps from restarting on their own. " +
-                    "SafeShade cannot check this setting — please confirm it is on.",
+                    "SafeShade cannot check this setting – please confirm it is on.",
                 intent = autostartIntent()
             )
         )
