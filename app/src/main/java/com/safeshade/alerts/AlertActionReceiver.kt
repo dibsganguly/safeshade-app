@@ -14,6 +14,7 @@ import com.safeshade.data.SafetySettings
 import com.safeshade.data.TripOutcome
 import com.safeshade.emergencyAlertText
 import com.safeshade.placeEmergencyCall
+import com.safeshade.platform.PhoneNumbers
 import com.safeshade.sendEmergencySms
 import com.safeshade.service.LastKnownLocation
 import kotlinx.coroutines.flow.first
@@ -161,7 +162,7 @@ class AlertActionReceiver : BroadcastReceiver() {
             contacted = true
         )
 
-        AlertNotifier.showExpired(app, event, calledContact = contact.name.ifBlank { contact.phone })
+        AlertNotifier.showExpired(app, event, calledContact = contact.name.ifBlank { PhoneNumbers.format(contact.phone) })
 
         // SMS before the call: dialling hands the foreground to the dialer, and
         // an SMS is the message that survives a call going unanswered.

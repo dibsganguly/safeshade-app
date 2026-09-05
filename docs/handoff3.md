@@ -180,3 +180,55 @@ segments.
 came from the device's physical button. Enum values are persisted by name (`Dtos.kt`,
 `enumOrDefault`), so an older build reading a newer store degrades it to `FALL` rather than shifting
 ordinals — still an alert in the log.
+
+### 3.4 The number shown was not the number dialled
+
+Found while verifying the SOS path on the Redmi Note 10S, and the reason that verification was worth
+doing: one stored contact produced **three different numbers**.
+
+The contact editor stored whatever was typed — `+91 891736 60065`, spaces and country code included
+— even though `PhoneNumbers`' own header states "the stored value is always bare digits". Nothing
+enforced it, so every consumer re-derived the digits its own way:
+
+| Path | Result for that contact |
+|---|---|
+| The list row | `+91 891736 60065` — the raw string |
+| The editor field (`IndianPhoneTransformation`) | `+91 91891 73660` — first ten digits, country code **not** stripped |
+| `dialable`, i.e. what `SmsManager` and `tel:` actually got | `+918917366006` — country code stripped, then truncated to ten |
+
+The third row is the dangerous one. `digitsOf` ended in `take(LOCAL_LENGTH)`, so an eleven-digit
+number was silently trimmed into a ten-digit one that `isComplete` then called valid and `dialable`
+dialled with full confidence — **a different, entirely plausible-looking number**. This is not an
+edge case: it also fired for the ordinary act of typing a number with its country code, which the
+field's own placeholder (`+91 98300 11223`) invites.
+
+Four fixes, all in `PhoneNumbers.kt` and `ContactsScreen.kt`:
+
+1. `digitsOf` no longer truncates. Length capping belongs at the input field, where the user can see
+   a character count, not in the function the dialler calls.
+2. `IndianPhoneTransformation` uses `PhoneNumbers.digitsOf` instead of its own filter, so the number
+   the user proof-reads is the number that will be dialled.
+3. The contact field normalises to bare digits on input, which makes the documented contract true
+   rather than aspirational.
+4. A number longer than ten digits is now an error on the field and blocks the save, instead of
+   being accepted and quietly mangled later.
+
+`PhoneNumbersTest` covers all four and fails against the old code on three of its four cases.
+
+**Needs the owner's attention, not a guess:** the emergency contact currently stored on the test
+device has *eleven* digits after the country code. It cannot be repaired from here — `...66006` and
+`...60065` are both plausible ten-digit numbers and picking one would be inventing an emergency
+contact. The app now says so on the contact screen and refuses to save until it is corrected. Every
+SMS and call that contact has ever received from this app went to the truncated number.
+
+### 3.5 Two things the SOS still cannot tell you
+
+- **`ActionResult.Sent` means "handed to the radio", not "delivered".** `sendMultipartTextMessage` is
+  called with null `sentIntents`/`deliveryIntents`, so a message accepted by a phone with no
+  coverage reports success. The banner's "Sent to <name>" inherits that limit. Closing it means
+  passing `PendingIntent`s and resolving the outcome asynchronously — worth doing on a channel whose
+  whole purpose is that it works when nothing else does.
+- **The phone SOS has never been fired end to end.** Firing it sends real SMS; the only emergency
+  contact on the test device is the owner's own number, and it is the malformed one above. The
+  arming path, both guard snackbars and the permission round trip were verified on device; the
+  send, the banner body and the trip-log entry were not.

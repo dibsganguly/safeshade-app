@@ -38,10 +38,21 @@ object PhoneNumbers {
         var digits = raw.filter { it.isDigit() }
         if (digits.length > LOCAL_LENGTH && digits.startsWith("91")) digits = digits.removePrefix("91")
         if (digits.length > LOCAL_LENGTH && digits.startsWith("0")) digits = digits.trimStart('0')
-        return digits.take(LOCAL_LENGTH)
+        // Deliberately NOT truncated to ten. `take(LOCAL_LENGTH)` used to sit
+        // here, and it was the most dangerous line in the file: an eleven-digit
+        // number — a typo, or a genuine number from a plan this formatter does
+        // not know — became a ten-digit one that `dialable` then treated as
+        // complete and dialled with full confidence. A wrong number that looks
+        // right is worse than one that visibly does not, and this is the code
+        // path an SOS text takes. Length capping belongs at the input field,
+        // where the user can see the character count.
+        return digits
     }
 
-    /** `+91 98765 43210`. Partial input formats as far as it can. */
+    /**
+     * `+91 98765 43210`. Partial input formats as far as it can, and an
+     * over-long number is shown over-long rather than trimmed to look correct.
+     */
     fun format(raw: String): String {
         val d = digitsOf(raw)
         if (d.isEmpty()) return ""
@@ -75,7 +86,13 @@ object PhoneNumbers {
 class IndianPhoneTransformation : VisualTransformation {
 
     override fun filter(text: AnnotatedString): TransformedText {
-        val digits = text.text.filter { it.isDigit() }.take(10)
+        // `PhoneNumbers.digitsOf`, not a local filter. This used to strip
+        // non-digits itself and take the first ten, which does not strip a
+        // country code — so a contact stored as "+91 98300 11223" was *shown*
+        // as "+91 91983 00112" while `dialable` sent to +919830011223. The user
+        // proof-reads the number here; if this disagrees with what is dialled,
+        // the check they are performing is worthless.
+        val digits = PhoneNumbers.digitsOf(text.text)
         val formatted = PhoneNumbers.format(digits)
 
         val mapping = object : OffsetMapping {
@@ -84,7 +101,7 @@ class IndianPhoneTransformation : VisualTransformation {
                 digits.isEmpty() -> 0
                 offset <= 0 -> 4
                 offset <= 5 -> 4 + offset
-                else -> 5 + offset.coerceAtMost(10)
+                else -> 5 + offset
             }.coerceAtMost(formatted.length)
 
             override fun transformedToOriginal(offset: Int): Int = when {

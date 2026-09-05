@@ -554,7 +554,16 @@ private fun ModeCard(
                     Hairline()
                     Spacer(Modifier.height(Spacing.sm))
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Nameplate("Starting fall sensitivity", small = true, muted = true)
+                        // The label takes the weight so the *value* is measured
+                        // first and stays whole. Without it a large text scale
+                        // leaves "Medium" too little room and breaks it across
+                        // two lines mid-word.
+                        Nameplate(
+                            "Starting fall sensitivity",
+                            small = true,
+                            muted = true,
+                            modifier = Modifier.weight(1f)
+                        )
                         Spacer(Modifier.width(Spacing.sm))
                         Text(
                             text = mode.defaultFallSensitivity.label,
@@ -652,7 +661,12 @@ private fun AutoHero(
                 Hairline()
                 Spacer(Modifier.height(Spacing.md))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Nameplate("Starting fall sensitivity", small = true, muted = true)
+                    Nameplate(
+                        "Starting fall sensitivity",
+                        small = true,
+                        muted = true,
+                        modifier = Modifier.weight(1f)
+                    )
                     Spacer(Modifier.width(Spacing.sm))
                     Text(
                         text = PersonaMode.AUTO.defaultFallSensitivity.label,

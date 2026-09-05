@@ -1,6 +1,7 @@
 package com.safeshade.ui.screens.safety
 
 import com.safeshade.platform.IndianPhoneTransformation
+import com.safeshade.platform.PhoneNumbers
 import android.content.res.Configuration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -171,7 +172,7 @@ private fun ContactList(
                             // as well, so the lamp is never the only signal.
                             state = if (isFirst) LampState.LIVE else LampState.OFF,
                             stateLabel = if (isFirst) "Called first" else "Standby",
-                            detail = contact.phone,
+                            detail = PhoneNumbers.format(contact.phone),
                             onClick = { onStartEdit(index) }
                         )
                     }
@@ -233,12 +234,21 @@ private fun ContactEditor(
     // a form the user has not touched yet — an add form that opens covered in
     // red reads as an accusation.
     val nameError = if (draft.name.isNotEmpty() && draft.name.isBlank()) "Enter a name" else null
+    val phoneDigits = PhoneNumbers.digitsOf(draft.phone)
     val phoneError = when {
         draft.phone.isEmpty() -> null
         !isPlausiblePhone(draft.phone) -> "Numbers, spaces, + and - only"
+        // Surfaced rather than tolerated. A number with more digits than the
+        // dialling plan has is a typo, and an emergency contact carrying one
+        // fails at the only moment it is ever used. It was previously accepted
+        // and then quietly trimmed to ten digits somewhere downstream, which
+        // produced a different, entirely valid-looking number.
+        phoneDigits.length > 10 -> "That is ${phoneDigits.length} digits. Indian numbers have 10."
         else -> null
     }
-    val canSave = draft.name.isNotBlank() && isPlausiblePhone(draft.phone)
+    val canSave = draft.name.isNotBlank() &&
+        isPlausiblePhone(draft.phone) &&
+        phoneDigits.length <= 10
 
     // A single confirming step for the destructive action, held locally
     // because it is a property of this press and nothing else needs to know.
@@ -279,7 +289,12 @@ private fun ContactEditor(
         PlateField(
             label = "Phone number",
             value = draft.phone,
-            onValueChange = { onDraftChange(draft.copy(phone = it)) },
+            // Normalised on the way in, which is what makes the whole file's
+            // stated contract ("the stored value is always bare digits") true:
+            // nothing enforced it before, so contacts were stored exactly as
+            // typed — country codes, spaces and all — and every consumer
+            // re-derived the digits its own slightly different way.
+            onValueChange = { onDraftChange(draft.copy(phone = PhoneNumbers.digitsOf(it))) },
             placeholder = "+91 98300 11223",
             helper = "Include the country code if this phone might be roaming.",
             error = phoneError,
@@ -314,7 +329,17 @@ private fun ContactEditor(
 
         if (!canSave) {
             Spacer(Modifier.height(Spacing.sm))
-            Note(text = "A name and a number are both needed before this can be saved.")
+            // Names the actual blocker. "A name and a number are both needed"
+            // was the only hint, and it is plainly wrong when both are filled
+            // in and it is the number's length that is holding the save —
+            // leaving the user to stare at a dead button with no explanation.
+            Note(
+                text = when {
+                    phoneError != null -> "Correct the number before saving."
+                    draft.name.isBlank() -> "A name is needed before this can be saved."
+                    else -> "A name and a number are both needed before this can be saved."
+                }
+            )
         }
 
         if (!isNew) {

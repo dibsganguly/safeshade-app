@@ -31,9 +31,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.safeshade.MainActivity
+import com.safeshade.data.EmergencyContact
 import com.safeshade.data.SosBlocker
+import com.safeshade.data.SosOutcome
 import com.safeshade.data.TripKind
 import com.safeshade.data.TripOutcome
+import com.safeshade.placeEmergencyCall
 import com.safeshade.repo.AppState
 import com.safeshade.ui.board.TripBanner
 import com.safeshade.ui.nav.BoardBottomBar
@@ -98,6 +101,13 @@ fun SafeShadeApp(viewModel: SafeShadeViewModel) {
         return
     }
 
+    // Read here rather than inside the trip layer because the banner lives
+    // outside the navigation branch. Durable state, not a one-shot event: the
+    // trip is recorded *before* the messages are sent, so the banner is already
+    // on screen while the sends are still in flight and has to be able to tell
+    // the truth at every point in between.
+    val sosOutcome by viewModel.sosOutcome.collectAsStateWithLifecycle()
+
     Box(Modifier.fillMaxSize().background(colors.ground)) {
         if (!ready.onboardingSeen) {
             OnboardingNavGraph(viewModel = viewModel, state = ready)
@@ -125,12 +135,16 @@ fun SafeShadeApp(viewModel: SafeShadeViewModel) {
             // Held here rather than inside the bar so the charging rule above
             // the bar and the ring around the glyph animate off one value.
             val sosProgress = remember { Animatable(0f) }
-            val permissionsGranted by viewModel.permissionsGranted.collectAsStateWithLifecycle()
-            // permissionsGranted is not itself the SMS grant, but it changes on
-            // every resume, which is exactly when a grant made in the system
-            // dialog becomes true. Reading checkSelfPermission in composition
-            // would otherwise never see it.
-            val canFireSos = remember(permissionsGranted, ready.safetySettings.emergencyContacts, ready.activeAlert) {
+            // Keyed on the SMS grant specifically, not on the Bluetooth one.
+            // An earlier version keyed this on `permissionsGranted` on the
+            // reasoning that it "changes on every resume" — it does not: it
+            // holds the link permissions, and a StateFlow does not emit when
+            // the value is unchanged. Granting SEND_SMS therefore left the
+            // control disarmed, on the one install where arming it is the whole
+            // point. `smsGranted` is refreshed by the same `refreshPermissions`
+            // call, from both the permission-result callback and onResume.
+            val smsGranted by viewModel.smsGranted.collectAsStateWithLifecycle()
+            val canFireSos = remember(smsGranted, ready.safetySettings.emergencyContacts, ready.activeAlert) {
                 viewModel.canFireSos()
             }
 
@@ -225,17 +239,44 @@ fun SafeShadeApp(viewModel: SafeShadeViewModel) {
         ) {
             val alert = ready.activeAlert
             if (alert != null) {
+                val phoneSos = alert.kind == TripKind.PHONE_SOS
+                // Who the escalate button actually calls. Named on the button,
+                // because "Call for help now" told the user nothing about who
+                // would be dialled — and, worse, dialled nobody: it only wrote
+                // CONTACTED to the log and closed the banner.
+                val firstContact: EmergencyContact? =
+                    ready.safetySettings.emergencyContacts.firstOrNull()
+
                 TripBanner(
                     title = alert.kind.label,
-                    body = tripBody(alert.kind, ready.deviceSettings.wearerName),
+                    body = if (phoneSos) {
+                        sosBody(sosOutcome, ready.safetySettings.emergencyContacts.size)
+                    } else {
+                        tripBody(alert.kind, ready.deviceSettings.wearerName)
+                    },
                     onDismiss = {
-                        viewModel.resolveActiveAlert(TripOutcome.DISMISSED, contacted = false)
+                        // On a phone SOS the messages have gone out, so closing
+                        // this is "I am safe now", not "nothing happened" — the
+                        // history entry has to say somebody was contacted or a
+                        // guardian reading it later sees an alert that appears
+                        // to have reached nobody.
+                        viewModel.resolveActiveAlert(
+                            TripOutcome.DISMISSED,
+                            contacted = phoneSos && (sosOutcome as? SosOutcome.Sent)?.anyReached == true
+                        )
+                        viewModel.clearSosOutcome()
                     },
-                    dismissLabel = "Everything is fine",
-                    onEscalate = {
-                        viewModel.resolveActiveAlert(TripOutcome.CONTACTED, contacted = true)
+                    dismissLabel = if (phoneSos) "I am safe now" else "Everything is fine",
+                    // No contact means nothing to call, so the button is absent
+                    // rather than drawn and dead.
+                    onEscalate = firstContact?.let { contact ->
+                        {
+                            placeEmergencyCall(context, contact)
+                            viewModel.resolveActiveAlert(TripOutcome.CONTACTED, contacted = true)
+                            viewModel.clearSosOutcome()
+                        }
                     },
-                    escalateLabel = "Call for help now"
+                    escalateLabel = firstContact?.let { "Call ${it.name}" } ?: "Call for help now"
                 )
             }
         }
@@ -287,9 +328,62 @@ private fun tripBody(kind: TripKind, wearerName: String): String {
     return when (kind) {
         TripKind.FALL -> "The device detected a fall. If $who is fine, close this. Otherwise call for help."
         TripKind.SOS -> "The SOS button was held on the device. $who is asking for help."
-        TripKind.PHONE_SOS -> "You raised an SOS from this phone. Your emergency contacts have been messaged."
+        // Never reached in practice — a phone SOS renders `sosBody` instead,
+        // which knows whether the messages actually went. Kept honest anyway,
+        // because a stale trip restored from history has no outcome to read.
+        TripKind.PHONE_SOS -> "You raised an SOS from this phone."
         TripKind.MISSED_CHECKIN -> "$who did not answer a check-in."
         TripKind.ZONE_EXIT -> "$who left a safe zone."
         TripKind.JOURNEY_OVERDUE -> "$who has not arrived, and the journey time has passed."
+    }
+}
+
+/**
+ * What the phone SOS actually did, in one sentence.
+ *
+ * This exists because the previous body asserted "your emergency contacts have
+ * been messaged" unconditionally, and it was on screen *before* a single
+ * message had been attempted — the trip is recorded first, deliberately, so the
+ * banner is up while the sends are still in flight. If `SmsManager` then failed
+ * on every number, the screen still said they had been told.
+ *
+ * `EmergencyActions`' own header names this exact failure as the reason that
+ * file exists: "a UI that looked like it had sent an emergency alert and a
+ * logcat line nobody was reading." So the three states are distinct and none of
+ * them overstates: in flight, some or all reached, none reached.
+ *
+ * @param contactCount how many were being written to, so the in-flight line can
+ *   be specific before any result exists.
+ */
+private fun sosBody(outcome: SosOutcome?, contactCount: Int): String = when (outcome) {
+    null -> if (contactCount == 1) {
+        "Sending to your emergency contact…"
+    } else {
+        "Sending to your $contactCount emergency contacts…"
+    }
+
+    SosOutcome.NoContact ->
+        "There was nobody to send to. Add an emergency contact in Safety."
+
+    is SosOutcome.Sent -> buildString {
+        when {
+            outcome.reached.isEmpty() ->
+                append("The message could not be sent. Call for help directly.")
+
+            outcome.failed.isEmpty() ->
+                append("Sent to ${outcome.reached.joinToString(", ")}.")
+
+            else -> append(
+                "Sent to ${outcome.reached.joinToString(", ")}. " +
+                    "Could not reach ${outcome.failed.joinToString(", ")}."
+            )
+        }
+        // Both of these change what the reader should do next, so they are
+        // worth the extra clause. Without the location note a person cannot
+        // tell whether anyone knows where they are.
+        if (outcome.reached.isNotEmpty() && !outcome.hasLocation) {
+            append(" No location was available to include.")
+        }
+        if (outcome.onDevice) append(" The device has been alerted too.")
     }
 }

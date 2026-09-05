@@ -87,9 +87,24 @@ class SafeShadeViewModel(
     private val _permissionsGranted = MutableStateFlow(hasLinkPermissions())
     val permissionsGranted = _permissionsGranted.asStateFlow()
 
+    /**
+     * Whether this app may send a text.
+     *
+     * Separate from [permissionsGranted] rather than folded into it, and that
+     * separation is load-bearing. `hasLinkPermissions` reads only the Bluetooth
+     * and location grants, and `MutableStateFlow` conflates equal values — so
+     * granting SEND_SMS from the system dialog changed none of those three keys
+     * and emitted nothing. Anything keyed on [permissionsGranted] alone stayed
+     * stale, which meant the SOS could never arm on a fresh install: the only
+     * path to arming it is the very grant that failed to notify.
+     */
+    private val _smsGranted = MutableStateFlow(hasSmsPermission())
+    val smsGranted = _smsGranted.asStateFlow()
+
     /** Re-checked on resume, since the user may have granted from system settings. */
     fun refreshPermissions() {
         _permissionsGranted.value = hasLinkPermissions()
+        _smsGranted.value = hasSmsPermission()
     }
 
     private fun hasLinkPermissions(): Boolean {
