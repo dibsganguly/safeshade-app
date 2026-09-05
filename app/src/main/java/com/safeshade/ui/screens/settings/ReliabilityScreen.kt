@@ -18,10 +18,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Alarm
 import androidx.compose.material.icons.outlined.Bolt
 import androidx.compose.material.icons.outlined.Fullscreen
-import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.RestartAlt
 import androidx.compose.material3.MaterialTheme
@@ -41,6 +39,7 @@ import com.safeshade.ui.board.Nameplate
 import com.safeshade.ui.board.ScreenHeader
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.Way
+import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.board
@@ -175,7 +174,7 @@ fun ReliabilityScreen(
                         name = "Exact alarms",
                         consequence = "Without this, medication reminders and check-in " +
                             "deadlines drift by up to 15 minutes.",
-                        icon = Icons.Outlined.Alarm,
+                        icon = SafeShadeIcons.DailyReminder,
                         onOpen = { context.openExactAlarmSettings() }
                     )
                 }
@@ -185,7 +184,7 @@ fun ReliabilityScreen(
                     name = "Location all the time",
                     consequence = "Without this, safe-zone alerts stop as soon as the " +
                         "app is not on screen.",
-                    icon = Icons.Outlined.LocationOn,
+                    icon = SafeShadeIcons.Gps,
                     // There is no dialog for "allow all the time" after the
                     // first refusal; the app details page is the only route.
                     onOpen = { context.openAppDetails() }

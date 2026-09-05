@@ -16,7 +16,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.SimCard
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -37,6 +36,7 @@ import com.safeshade.ui.board.LampState
 import com.safeshade.ui.board.Readout
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.Way
+import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.board
@@ -155,7 +155,7 @@ fun SimScreen(
                         } else {
                             "Messages fall back to SMS when Bluetooth drops"
                         },
-                        icon = Icons.Outlined.SimCard
+                        icon = SafeShadeIcons.SimAndSms
                     )
                 }
             }

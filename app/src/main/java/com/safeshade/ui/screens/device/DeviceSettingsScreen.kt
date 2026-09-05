@@ -14,13 +14,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Alarm
-import androidx.compose.material.icons.outlined.Bedtime
-import androidx.compose.material.icons.outlined.Call
-import androidx.compose.material.icons.outlined.Lock
-import androidx.compose.material.icons.outlined.Sms
-import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
@@ -47,6 +40,7 @@ import com.safeshade.ui.board.Readout
 import com.safeshade.ui.board.ScreenHeader
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.Way
+import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.board
@@ -224,7 +218,7 @@ fun DeviceSettingsScreen(
                     name = "Auto-call on a fall",
                     description = "Places the call to your first emergency " +
                         "contact when nobody answers the countdown.",
-                    icon = Icons.Outlined.Call,
+                    icon = SafeShadeIcons.CallAfterAFall,
                     checked = state.autoCallEnabled,
                     ack = state.ackFor("autoCall"),
                     onCheckedChange = onAutoCallChange
@@ -234,7 +228,7 @@ fun DeviceSettingsScreen(
                     name = "Parental controls",
                     description = "Asks for the PIN before the wearable's own " +
                         "settings can be changed.",
-                    icon = Icons.Outlined.Lock,
+                    icon = SafeShadeIcons.ParentalControl,
                     checked = state.parentalControlsEnabled,
                     ack = state.ackFor("parentalControls"),
                     onCheckedChange = onParentalControlsChange
@@ -244,7 +238,7 @@ fun DeviceSettingsScreen(
                     name = "SMS fallback alert",
                     description = "Sends the alert by text as well, in case the " +
                         "phone is out of Bluetooth range.",
-                    icon = Icons.Outlined.Sms,
+                    icon = SafeShadeIcons.TextAsWell,
                     checked = state.smsFallbackEnabled,
                     ack = state.ackFor("smsFallback"),
                     onCheckedChange = onSmsFallbackChange
@@ -261,7 +255,7 @@ fun DeviceSettingsScreen(
                     name = "Quiet hours",
                     description = "The device stays silent between these times. " +
                         "Emergencies still sound.",
-                    icon = Icons.Outlined.Bedtime,
+                    icon = SafeShadeIcons.QuietHours,
                     checked = state.quietHoursEnabled,
                     ack = state.ackFor("quietHours"),
                     onCheckedChange = onQuietHoursChange
@@ -286,7 +280,7 @@ fun DeviceSettingsScreen(
                     name = "Medication reminder",
                     description = "The wearable buzzes and shows the reminder at " +
                         "this time each day.",
-                    icon = Icons.Outlined.Alarm,
+                    icon = SafeShadeIcons.DailyReminder,
                     checked = state.medicationEnabled,
                     ack = state.ackFor("medicationTime"),
                     onCheckedChange = onMedicationChange
@@ -313,7 +307,7 @@ fun DeviceSettingsScreen(
                     name = "Repeating check-in",
                     description = "The device asks the wearer to confirm they are " +
                         "all right. Missing one raises a trip.",
-                    icon = Icons.Outlined.Timer,
+                    icon = SafeShadeIcons.RepeatingCheckIn,
                     checked = enabled,
                     ack = ack,
                     // Zero minutes *is* off on the wire, so the switch and the

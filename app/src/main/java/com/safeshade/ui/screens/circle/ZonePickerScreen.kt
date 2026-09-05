@@ -21,7 +21,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.MyLocation
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -42,6 +41,7 @@ import com.safeshade.ui.board.BoardButton
 import com.safeshade.ui.board.BoardPlate
 import com.safeshade.ui.board.ButtonWeight
 import com.safeshade.ui.board.Nameplate
+import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.theme.Radius
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
@@ -196,7 +196,7 @@ fun ZonePickerScreen(
 
                 BoardButton(
                     label = if (state.isLocating) "Finding you" else "Use my current location",
-                    icon = Icons.Outlined.MyLocation,
+                    icon = SafeShadeIcons.Gps,
                     onClick = onUseCurrentLocation,
                     enabled = !state.isLocating,
                     weight = ButtonWeight.SECONDARY,

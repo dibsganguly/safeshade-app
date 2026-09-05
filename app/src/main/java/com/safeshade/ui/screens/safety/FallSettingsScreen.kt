@@ -13,9 +13,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Phone
-import androidx.compose.material.icons.outlined.Sms
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -37,6 +34,7 @@ import com.safeshade.ui.board.Seal
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.Way
 import com.safeshade.ui.board.WhyDisclosure
+import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.board
@@ -229,7 +227,7 @@ fun FallSettingsScreen(
                 } else {
                     "Calls ${settings.primaryContact?.name.orEmpty().ifBlank { "the first contact" }} when the countdown ends."
                 },
-                icon = Icons.Outlined.Phone,
+                icon = SafeShadeIcons.CallAfterAFall,
                 checked = settings.autoCallEmergency,
                 onCheckedChange = onAutoCallChange
             )
@@ -315,7 +313,7 @@ fun FallSettingsScreen(
                     state = if (settings.smsFallbackEnabled) LampState.LIVE else LampState.OFF,
                     stateLabel = if (settings.smsFallbackEnabled) "On" else "Off",
                     detail = "Texts every contact with the last known location.",
-                    icon = Icons.Outlined.Sms,
+                    icon = SafeShadeIcons.TextAsWell,
                     checked = settings.smsFallbackEnabled,
                     onCheckedChange = onSmsFallbackChange
                 )

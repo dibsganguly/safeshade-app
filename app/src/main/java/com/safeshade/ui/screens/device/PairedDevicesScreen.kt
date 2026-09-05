@@ -11,8 +11,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Bluetooth
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -31,6 +29,7 @@ import com.safeshade.ui.board.LampState
 import com.safeshade.ui.board.ScreenHeader
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.Way
+import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.board
@@ -124,7 +123,7 @@ fun PairedDevicesScreen(
                     } else {
                         "Bluetooth permission is needed before the app can search"
                     },
-                    icon = Icons.Outlined.Bluetooth,
+                    icon = SafeShadeIcons.ConnectToTheDevice,
                     onClick = if (state.permissionsGranted) onPairNew else onRequestPermissions,
                     enabled = !state.isScanning,
                     weight = ButtonWeight.SECONDARY,
@@ -178,7 +177,7 @@ private fun DevicePlate(
             stateLabel = if (isConnected) "Connected" else "Saved",
             detail = lastConnectedLabel?.let { "Last connected $it · ${device.address}" }
                 ?: device.address,
-            icon = Icons.Outlined.Bluetooth
+            icon = SafeShadeIcons.PairedDevices
         )
         Hairline()
         Row(

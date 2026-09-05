@@ -53,8 +53,15 @@ import kotlin.random.Random
 @Composable
 fun ShadyStage(
     modifier: Modifier = Modifier,
-    height: Dp = 104.dp,
-    characterSize: Dp = 76.dp
+    /**
+     * How tall the stage is.
+     *
+     * Grows with [characterSize] and is not independent of it: the character is
+     * bottom-aligned in a box of exactly this height, so a taller character in
+     * an unchanged stage has its hops and stretches clipped off at the top.
+     */
+    height: Dp = 132.dp,
+    characterSize: Dp = 100.dp
 ) {
     val reactor = rememberShadyReactor(ReactionStyle.BOLD)
     val isStatic = LocalInspectionMode.current

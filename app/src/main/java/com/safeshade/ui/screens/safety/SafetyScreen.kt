@@ -16,15 +16,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Contacts
-import androidx.compose.material.icons.outlined.Fence
 import androidx.compose.material.icons.outlined.History
-import androidx.compose.material.icons.outlined.LocalHospital
-import androidx.compose.material.icons.outlined.PersonalInjury
-import androidx.compose.material.icons.outlined.Phone
 import androidx.compose.material.icons.outlined.QrCode2
-import androidx.compose.material.icons.outlined.Sms
-import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -47,6 +40,7 @@ import com.safeshade.ui.board.Seal
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.Way
 import com.safeshade.ui.board.WhyDisclosure
+import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.board
@@ -155,16 +149,24 @@ fun SafetyScreen(
             )
         }
 
-        // Top of the screen, above everything, always. Not a DANGER button:
-        // that weight is reserved for actions that place a real call, and this
-        // one opens a list. Nothing here dials on its own.
+        // Top of the screen, above everything, always - and in the SOS's red.
+        //
+        // This used to argue the opposite: that DANGER was reserved for actions
+        // which place a real call, and that opening a list did not qualify. The
+        // reasoning was sound and the result was wrong. Someone reaching for
+        // emergency numbers is not reading a taxonomy of button weights; they
+        // are looking for the one thing on this screen that is about an
+        // emergency happening now, and it looked exactly like every other row.
+        // Matching the SOS makes it findable at a glance, which is the only
+        // property that matters here. Nothing dials on its own; the supporting
+        // line still says so.
         item("services") {
             BoardButton(
                 label = "Emergency numbers",
                 supporting = "112 and seven other Indian services. Opens the dialer; never calls by itself.",
-                icon = Icons.Outlined.LocalHospital,
+                icon = SafeShadeIcons.Police,
                 onClick = onOpenServices,
-                weight = ButtonWeight.PRIMARY,
+                weight = ButtonWeight.DANGER,
                 modifier = Modifier.fillMaxWidth()
             )
         }
@@ -201,7 +203,7 @@ fun SafetyScreen(
                     } else {
                         "Off in ${state.activeMode.label} mode. Movement would trip it constantly."
                     },
-                    icon = Icons.Outlined.PersonalInjury,
+                    icon = SafeShadeIcons.FallDetection,
                     sealed = locked,
                     onClick = onOpenFallSettings
                 )
@@ -215,7 +217,7 @@ fun SafetyScreen(
                     } else {
                         "Calls ${state.settings.primaryContact?.name.orEmpty().ifBlank { "your first contact" }} if the countdown runs out."
                     },
-                    icon = Icons.Outlined.Phone,
+                    icon = SafeShadeIcons.CallAfterAFall,
                     checked = state.settings.autoCallEmergency,
                     onCheckedChange = onAutoCallChange
                 )
@@ -225,7 +227,7 @@ fun SafetyScreen(
                     state = if (state.settings.smsFallbackEnabled) LampState.LIVE else LampState.OFF,
                     stateLabel = if (state.settings.smsFallbackEnabled) "On" else "Off",
                     detail = "Sends contacts a message with the last known location. Works without Bluetooth.",
-                    icon = Icons.Outlined.Sms,
+                    icon = SafeShadeIcons.TextAsWell,
                     checked = state.settings.smsFallbackEnabled,
                     onCheckedChange = onSmsFallbackChange
                 )
@@ -259,7 +261,7 @@ fun SafetyScreen(
                     state = if (contacts.isEmpty()) LampState.ATTENTION else LampState.LIVE,
                     stateLabel = if (contacts.isEmpty()) "None" else "${contacts.size}",
                     detail = contactsDetail(contacts),
-                    icon = Icons.Outlined.Contacts,
+                    icon = SafeShadeIcons.EmergencyContacts,
                     onClick = onOpenContacts
                 )
                 Hairline()
@@ -268,7 +270,7 @@ fun SafetyScreen(
                     state = medicalLamp(state.medicalId),
                     stateLabel = medicalLabel(state.medicalId),
                     detail = "${state.medicalId.filledFieldCount} of 11 details filled in. This is what a responder reads on the device.",
-                    icon = Icons.Outlined.LocalHospital,
+                    icon = SafeShadeIcons.MedicalId,
                     onClick = onOpenMedicalId
                 )
                 Hairline()
@@ -292,7 +294,7 @@ fun SafetyScreen(
                     state = safeZoneLamp(state.safeZoneCount, state.insideSafeZone),
                     stateLabel = safeZoneLabel(state.safeZoneCount, state.insideSafeZone),
                     detail = safeZoneDetail(state.safeZoneCount, state.insideSafeZone, subject),
-                    icon = Icons.Outlined.Fence,
+                    icon = SafeShadeIcons.SafeZone,
                     onClick = onOpenZones
                 )
                 Hairline()
@@ -301,7 +303,7 @@ fun SafetyScreen(
                     state = if (state.silentSosEnabled) LampState.LIVE else LampState.OFF,
                     stateLabel = if (state.silentSosEnabled) "Armed" else "Off",
                     detail = "Raise an alert without a sound, and stage a call to leave a situation.",
-                    icon = Icons.Outlined.VisibilityOff,
+                    icon = SafeShadeIcons.SilentSos,
                     onClick = onOpenSilentSos
                 )
                 Hairline()

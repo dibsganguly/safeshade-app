@@ -15,7 +15,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.DeleteOutline
-import androidx.compose.material.icons.outlined.Place
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -38,6 +37,7 @@ import com.safeshade.ui.board.Hairline
 import com.safeshade.ui.board.LampState
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.Way
+import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.board
@@ -249,7 +249,7 @@ private fun ZoneListRow(
                 state = zone.presence.toLampState(),
                 stateLabel = zone.presence.label,
                 detail = listOfNotNull(zone.detail, zone.lastChangeLabel).joinToString(" · "),
-                icon = Icons.Outlined.Place,
+                icon = SafeShadeIcons.SafeZone,
                 onClick = onEdit,
                 modifier = Modifier.weight(1f)
             )

@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.CheckCircleOutline
 import androidx.compose.material.icons.outlined.HelpOutline
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -36,6 +35,7 @@ import com.safeshade.ui.board.PilotLamp
 import com.safeshade.ui.board.Readout
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.Way
+import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.Stroke
@@ -151,7 +151,7 @@ fun CheckInScreen(
                         BoardButton(
                             label = "I am OK",
                             supporting = "Answers ${counterpartName(state.role, state.wearerName, state.guardianName)} and stops the timer",
-                            icon = Icons.Outlined.CheckCircleOutline,
+                            icon = SafeShadeIcons.CheckIn,
                             onClick = onRespondOk,
                             enabled = !state.isBusy,
                             weight = ButtonWeight.PRIMARY,

@@ -1,5 +1,6 @@
 package com.safeshade.ui.board
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -111,7 +112,15 @@ fun ScreenHeader(
             }
             if (trailing != null) {
                 Spacer(Modifier.width(Spacing.sm))
-                trailing()
+                // The mirror of the back arrow's correction, and applied here
+                // rather than at the call site for the same reason: a trailing
+                // IconButton centres its 24dp glyph inside a 48dp touch box, so
+                // against a top-aligned headline it sits visibly low and inset
+                // from the gutter. The Device screen passed one with no offset
+                // at all and it read as misaligned with the word beside it.
+                Box(modifier = Modifier.offset(x = 12.dp, y = (-10).dp)) {
+                    trailing()
+                }
             }
         }
         Spacer(Modifier.height(Spacing.md))

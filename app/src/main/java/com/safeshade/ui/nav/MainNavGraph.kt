@@ -68,6 +68,7 @@ import com.safeshade.repo.SyncStatus
 import com.safeshade.ui.board.BoardPlate
 import com.safeshade.ui.board.KitGallery
 import com.safeshade.ui.board.LampState
+import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.screens.board.BoardScreen
 import com.safeshade.ui.screens.board.BoardUiState
 import com.safeshade.ui.screens.board.BoardWay
@@ -1724,7 +1725,7 @@ private fun boardWays(state: AppState.Ready): List<BoardWay> {
             state = zones.state,
             stateLabel = zones.stateLabel,
             detail = zones.detail,
-            icon = Icons.Outlined.Place,
+            icon = SafeShadeIcons.SafeZone,
             route = Routes.CIRCLE_ZONES
         ),
         BoardWay(
@@ -1732,7 +1733,7 @@ private fun boardWays(state: AppState.Ready): List<BoardWay> {
             name = "Check-in",
             state = if (checkInOpen) LampState.ATTENTION else LampState.OFF,
             stateLabel = if (checkInOpen) "Waiting" else "None open",
-            icon = Icons.Outlined.Schedule,
+            icon = SafeShadeIcons.CheckIn,
             route = Routes.CIRCLE_CHECKIN
         ),
         BoardWay(
@@ -1767,7 +1768,7 @@ private fun boardWays(state: AppState.Ready): List<BoardWay> {
             // does nothing when it matters.
             state = if (contacts.isEmpty()) LampState.ATTENTION else LampState.LIVE,
             stateLabel = if (contacts.isEmpty()) "None" else "${contacts.size} set",
-            icon = Icons.Outlined.Contacts,
+            icon = SafeShadeIcons.EmergencyContacts,
             route = Routes.SAFETY_CONTACTS
         ),
         BoardWay(
@@ -1776,7 +1777,7 @@ private fun boardWays(state: AppState.Ready): List<BoardWay> {
             state = if (state.medicalId.isUsable) LampState.LIVE else LampState.ATTENTION,
             stateLabel = if (state.medicalId.isUsable) "Filled in" else "Incomplete",
             detail = "${state.medicalId.filledFieldCount} of 11 fields",
-            icon = Icons.Outlined.MedicalServices,
+            icon = SafeShadeIcons.MedicalId,
             route = Routes.SAFETY_MEDICAL
         ),
         BoardWay(
@@ -1785,7 +1786,7 @@ private fun boardWays(state: AppState.Ready): List<BoardWay> {
             state = linkLamp(state.connection),
             stateLabel = linkLabel(state.connection),
             detail = "${state.pairedDevices.size} remembered",
-            icon = Icons.Outlined.Bluetooth,
+            icon = SafeShadeIcons.PairedDevices,
             // Deliberately DEVICE_PAIRED and not BOARD_LINK: the most prominent
             // row on the panel must not lead to a placeholder.
             route = Routes.DEVICE_PAIRED

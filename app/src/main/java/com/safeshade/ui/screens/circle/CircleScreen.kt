@@ -16,12 +16,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Send
 import androidx.compose.material.icons.outlined.DirectionsWalk
 import androidx.compose.material.icons.outlined.HelpOutline
-import androidx.compose.material.icons.outlined.MyLocation
-import androidx.compose.material.icons.outlined.Place
-import androidx.compose.material.icons.outlined.SimCard
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -52,6 +48,7 @@ import com.safeshade.ui.board.ScreenTier
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.Way
 import com.safeshade.ui.board.rowClickable
+import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.board
@@ -264,7 +261,7 @@ fun CircleScreen(
                 trailing = {
                     IconButton(onClick = onRefreshLocation, enabled = !state.isRefreshingLocation) {
                         Icon(
-                            Icons.Outlined.MyLocation,
+                            SafeShadeIcons.Gps,
                             contentDescription = "Ask for a fresh location",
                             tint = if (state.isRefreshingLocation) colors.inkFaint else colors.inkMuted,
                             modifier = Modifier.size(20.dp)
@@ -290,7 +287,7 @@ fun CircleScreen(
                     state = state.zones.state,
                     stateLabel = state.zones.stateLabel,
                     detail = state.zones.detail,
-                    icon = Icons.Outlined.Place,
+                    icon = SafeShadeIcons.SafeZone,
                     onClick = onOpenZones
                 )
                 Hairline()
@@ -317,7 +314,7 @@ fun CircleScreen(
                     state = state.sms.state,
                     stateLabel = state.sms.stateLabel,
                     detail = state.sms.detail,
-                    icon = Icons.Outlined.SimCard,
+                    icon = SafeShadeIcons.SimAndSms,
                     onClick = onOpenSim
                 )
             }
@@ -577,7 +574,7 @@ private fun CircleCompanionDarkPreview() {
  *
  * Deliberately not a `Way`: a way describes a circuit's state, and this is an
  * action. It borrows the row geometry so the screen still reads as one system,
- * but carries a send glyph instead of a lamp.
+ * but carries an outbound-message glyph instead of a lamp.
  */
 @Composable
 private fun QuickMessageRow(
@@ -603,7 +600,7 @@ private fun QuickMessageRow(
             modifier = Modifier.weight(1f)
         )
         Icon(
-            imageVector = Icons.Outlined.Send,
+            imageVector = SafeShadeIcons.SmsFeedbackAlert,
             contentDescription = null,
             tint = if (enabled) colors.inkMuted else colors.inkFaint,
             modifier = Modifier.size(18.dp)

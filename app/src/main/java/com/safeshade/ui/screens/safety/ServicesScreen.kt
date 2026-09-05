@@ -7,8 +7,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Call
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -30,6 +28,7 @@ import com.safeshade.ui.board.Hairline
 import com.safeshade.ui.board.LampState
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.Way
+import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.board
@@ -110,7 +109,7 @@ fun ServicesScreen(
                 BoardButton(
                     label = "112 — ${primary.label}",
                     supporting = "${primary.blurb}. Opens the dialer; you press call.",
-                    icon = Icons.Outlined.Call,
+                    icon = SafeShadeIcons.Police,
                     onClick = { dial(primary.number) },
                     weight = ButtonWeight.PRIMARY,
                     modifier = Modifier.fillMaxWidth()

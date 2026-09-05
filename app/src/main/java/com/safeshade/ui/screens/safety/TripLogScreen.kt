@@ -8,10 +8,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Fence
-import androidx.compose.material.icons.outlined.NotificationsActive
-import androidx.compose.material.icons.outlined.PersonalInjury
-import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -29,6 +25,7 @@ import com.safeshade.ui.board.Hairline
 import com.safeshade.ui.board.LampState
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.Way
+import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.board
@@ -184,11 +181,11 @@ internal val TripOutcome.shortLabel: String
 
 internal val TripKind.icon: ImageVector
     get() = when (this) {
-        TripKind.FALL -> Icons.Outlined.PersonalInjury
-        TripKind.SOS -> Icons.Outlined.NotificationsActive
-        TripKind.PHONE_SOS -> Icons.Outlined.NotificationsActive
-        TripKind.MISSED_CHECKIN -> Icons.Outlined.Schedule
-        TripKind.ZONE_EXIT -> Icons.Outlined.Fence
+        TripKind.FALL -> SafeShadeIcons.FallDetection
+        TripKind.SOS -> SafeShadeIcons.SilentSos
+        TripKind.PHONE_SOS -> SafeShadeIcons.SilentSos
+        TripKind.MISSED_CHECKIN -> SafeShadeIcons.CheckIn
+        TripKind.ZONE_EXIT -> SafeShadeIcons.SafeZone
         TripKind.JOURNEY_OVERDUE -> Icons.Outlined.Timer
     }
 

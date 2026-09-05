@@ -11,14 +11,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Alarm
-import androidx.compose.material.icons.outlined.Bluetooth
-import androidx.compose.material.icons.outlined.Lightbulb
-import androidx.compose.material.icons.outlined.MyLocation
-import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material.icons.outlined.Timeline
-import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -41,6 +33,7 @@ import com.safeshade.ui.board.Way
 import com.safeshade.ui.board.icon
 import com.safeshade.ui.board.ScreenHeader
 import com.safeshade.ui.board.ScreenTier
+import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.nav.Routes
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
@@ -258,7 +251,7 @@ fun DeviceScreen(
                 trailing = {
                     IconButton(onClick = onOpenSettings) {
                         Icon(
-                            Icons.Outlined.Settings,
+                            SafeShadeIcons.TopRightSettings,
                             // Not "Settings": this screen already carries a
                             // "Device settings" row a few items down, and
                             // TalkBack would announce two identical controls
@@ -307,7 +300,7 @@ fun DeviceScreen(
                     stateLabel = if (state.connection.isUsable) "Open" else "Offline",
                     detail = state.syncSummary
                         ?: "Fall sensitivity, siren, calling, quiet hours",
-                    icon = Icons.Outlined.Tune,
+                    icon = SafeShadeIcons.DeviceSettings,
                     onClick = { onOpenWay(Routes.DEVICE_SETTINGS) }
                 )
                 Hairline()
@@ -316,7 +309,7 @@ fun DeviceScreen(
                     state = if (state.connection.isUsable) LampState.LIVE else LampState.UNKNOWN,
                     stateLabel = state.ledPattern.label,
                     detail = "Pattern for the wearable's LED ring",
-                    icon = Icons.Outlined.Lightbulb,
+                    icon = SafeShadeIcons.Lights,
                     onClick = { onOpenWay(Routes.DEVICE_LIGHTS) }
                 )
                 Hairline()
@@ -329,7 +322,7 @@ fun DeviceScreen(
                     stateLabel = if (state.isRinging) "Ringing" else "Ready",
                     detail = state.lastSeenLabel?.let { "Last seen $it" }
                         ?: "Sounds the siren and shows how close it is",
-                    icon = Icons.Outlined.MyLocation,
+                    icon = SafeShadeIcons.FindTheDevice,
                     onClick = { onOpenWay(Routes.DEVICE_LOCATE) }
                 )
                 Hairline()
@@ -338,7 +331,7 @@ fun DeviceScreen(
                     state = if (state.hasTelemetry) LampState.LIVE else LampState.UNKNOWN,
                     stateLabel = if (state.hasTelemetry) "Live" else "No data",
                     detail = "Motion, temperature, light, battery",
-                    icon = Icons.Outlined.Timeline,
+                    icon = SafeShadeIcons.Telemetry,
                     onClick = { onOpenWay(Routes.DEVICE_TELEMETRY) }
                 )
                 Hairline()
@@ -351,7 +344,7 @@ fun DeviceScreen(
                         "None"
                     },
                     detail = "Medication times and worker check-ins",
-                    icon = Icons.Outlined.Alarm,
+                    icon = SafeShadeIcons.Reminders,
                     onClick = { onOpenWay(Routes.DEVICE_REMINDERS) }
                 )
                 Hairline()
@@ -364,7 +357,7 @@ fun DeviceScreen(
                         "None"
                     },
                     detail = "Pair another SafeShade, or forget one",
-                    icon = Icons.Outlined.Bluetooth,
+                    icon = SafeShadeIcons.PairedDevices,
                     onClick = { onOpenWay(Routes.DEVICE_PAIRED) }
                 )
             }

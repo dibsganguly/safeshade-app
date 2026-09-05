@@ -12,8 +12,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.PhoneCallback
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -29,6 +27,7 @@ import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.StubMark
 import com.safeshade.ui.board.Way
 import com.safeshade.ui.board.WhyDisclosure
+import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.board
@@ -222,7 +221,7 @@ fun SilentSosScreen(
             BoardButton(
                 label = "Cancel the staged call",
                 supporting = "A call is set for ${formatDuration(staged)} from when you chose it.",
-                icon = Icons.Outlined.PhoneCallback,
+                icon = SafeShadeIcons.SilentSos,
                 onClick = onCancelStagedCall,
                 weight = ButtonWeight.SECONDARY,
                 modifier = Modifier.fillMaxWidth()

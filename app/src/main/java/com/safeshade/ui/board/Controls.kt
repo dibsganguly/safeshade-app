@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -122,9 +123,14 @@ fun BoardButton(
                     icon,
                     contentDescription = null,
                     tint = content,
-                    // Optical centring against the first line's cap height. A
-                    // flush top edge sits visibly high next to text.
-                    modifier = Modifier.padding(top = 1.dp).size(18.dp)
+                    // Optical centring against the first line's *cap height*,
+                    // not its line box. An 18dp glyph is taller than the cap of
+                    // a 15sp nameplate, so top-aligning it flush leaves the
+                    // glyph hanging below the baseline and reading as dropped -
+                    // visible on the emergency-numbers button, where the badge
+                    // sat a clear two points under the E beside it. Lifting it
+                    // puts the two optical centres together.
+                    modifier = Modifier.offset(y = (-2).dp).size(18.dp)
                 )
                 Spacer(Modifier.width(Spacing.sm))
             }

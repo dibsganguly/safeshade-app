@@ -14,9 +14,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Alarm
-import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -38,6 +35,7 @@ import com.safeshade.ui.board.PilotLamp
 import com.safeshade.ui.board.ScreenHeader
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.Way
+import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.board
@@ -133,7 +131,7 @@ fun RemindersScreen(
                     stateLabel = if (enabled) "On" else "Off",
                     detail = ackWord(ack)
                         ?: "The wearable buzzes and shows the reminder at this time.",
-                    icon = Icons.Outlined.Alarm,
+                    icon = SafeShadeIcons.DailyReminder,
                     checked = enabled,
                     onCheckedChange = onMedicationEnabledChange
                 )
@@ -172,7 +170,7 @@ fun RemindersScreen(
                     detail = ackWord(ack)
                         ?: "The device asks the wearer to confirm they are all " +
                         "right. A missed check-in raises a trip.",
-                    icon = Icons.Outlined.Timer,
+                    icon = SafeShadeIcons.RepeatingCheckIn,
                     checked = enabled,
                     onCheckedChange = onCheckInEnabledChange
                 )

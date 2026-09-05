@@ -9,8 +9,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Lightbulb
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -28,6 +26,7 @@ import com.safeshade.ui.board.Nameplate
 import com.safeshade.ui.board.ScreenHeader
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.Way
+import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.board
@@ -118,10 +117,11 @@ fun LightsScreen(
                                 "Confirmed by the device"
                             else -> describe(pattern)
                         },
-                        // The same icon on every row on purpose. A different
-                        // glyph per pattern would be decoration standing in for
-                        // a preview it cannot actually give.
-                        icon = Icons.Outlined.Lightbulb,
+                        // Each pattern gets its own glyph, matched to what the
+                        // name and description actually evoke — Police is the
+                        // one pattern with no obvious match in the set, so it
+                        // falls back to the plain lights glyph.
+                        icon = iconFor(pattern),
                         onClick = { onSelectPattern(pattern) }
                     )
                 }
@@ -172,6 +172,24 @@ private fun describe(pattern: LedPattern): String = when (pattern) {
     LedPattern.FIRE -> "An irregular warm flicker"
     LedPattern.OCEAN -> "A slow wash between blue and green"
     LedPattern.PULSE -> "One colour breathing in and out"
+}
+
+/**
+ * The glyph for each pattern, matched to its own name and meaning rather than
+ * a shared placeholder.
+ *
+ * Police has no counterpart in the custom set — inventing one would be a
+ * mismatch of its own — so it keeps the plain lights glyph this whole screen
+ * used to share.
+ */
+private fun iconFor(pattern: LedPattern) = when (pattern) {
+    LedPattern.TORCH -> SafeShadeIcons.Torch
+    LedPattern.RAINBOW -> SafeShadeIcons.Rainbow
+    LedPattern.CYBER -> SafeShadeIcons.Cyber
+    LedPattern.POLICE -> SafeShadeIcons.Police
+    LedPattern.FIRE -> SafeShadeIcons.Fire
+    LedPattern.OCEAN -> SafeShadeIcons.Ocean
+    LedPattern.PULSE -> SafeShadeIcons.Pulse
 }
 
 // ============================================================================

@@ -29,7 +29,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.NotificationsActive
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material3.Icon
@@ -57,6 +56,7 @@ import com.safeshade.ui.board.MainsPlate
 import com.safeshade.ui.board.Nameplate
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.Way
+import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.nav.BottomDestination
 import com.safeshade.ui.nav.tabForRoute
 import com.safeshade.ui.shady.ShadyHost
@@ -169,19 +169,23 @@ fun BoardScreen(
                     .fillMaxWidth()
                     .padding(top = Spacing.sm)
             ) {
-                Spacer(Modifier.weight(1f))
-                Text(
-                    text = "SafeShade",
-                    style = MaterialTheme.typography.headlineMedium,
-                    color = colors.ink
-                )
-                Spacer(Modifier.width(Spacing.sm))
+                // Emblem hard left, wordmark hard right, the width of the
+                // screen between them. The previous version put one weighted
+                // spacer in front of *both*, which packed them together against
+                // the right edge and left the masthead reading as a caption.
+                //
                 // The emblem is a full-colour raster, so it is an Image rather
                 // than an Icon - an Icon would flatten it to a single tint.
                 Image(
                     painter = painterResource(R.drawable.splash_emblem),
                     contentDescription = null,
-                    modifier = Modifier.size(40.dp)
+                    modifier = Modifier.size(56.dp)
+                )
+                Spacer(Modifier.weight(1f))
+                Text(
+                    text = "SafeShade",
+                    style = MaterialTheme.typography.headlineLarge,
+                    color = colors.ink
                 )
             }
         }
@@ -237,7 +241,7 @@ fun BoardScreen(
                     } else {
                         "Sounds the siren so you can find it"
                     },
-                    icon = Icons.Outlined.NotificationsActive,
+                    icon = SafeShadeIcons.RingTheDevice,
                     onClick = onRing,
                     enabled = !state.isRinging,
                     weight = ButtonWeight.PRIMARY,
@@ -247,6 +251,7 @@ fun BoardScreen(
                 BoardButton(
                     label = if (state.permissionsGranted) connectLabel(state.connection) else "Grant permissions",
                     supporting = if (state.permissionsGranted) null else "Bluetooth and location are needed to find the device",
+                    icon = if (state.permissionsGranted) SafeShadeIcons.ConnectToTheDevice else null,
                     onClick = if (state.permissionsGranted) onConnectToggle else onRequestPermissions,
                     weight = ButtonWeight.PRIMARY,
                     modifier = Modifier.fillMaxWidth()
@@ -344,16 +349,10 @@ fun BoardScreen(
             }
         }
 
-        if (state.lastSyncLabel != null) {
-            item("sync-note") {
-                Text(
-                    text = state.lastSyncLabel,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colors.inkFaint,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        }
+        // The last-synced time used to be repeated here, orphaned under the
+        // gauges, rendering the identical `state.lastSyncLabel` string the
+        // Conditions heading now carries beside its sync button. One reading,
+        // next to the control that changes it.
 
         item("shady-stage") {
             // Below everything that matters, on purpose. You reach it only by

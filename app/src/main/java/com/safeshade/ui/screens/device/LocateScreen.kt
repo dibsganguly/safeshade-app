@@ -14,9 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.LocationOn
-import androidx.compose.material.icons.outlined.NotificationsActive
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -42,6 +39,7 @@ import com.safeshade.ui.board.PilotLamp
 import com.safeshade.ui.board.Readout
 import com.safeshade.ui.board.ScreenHeader
 import com.safeshade.ui.board.SectionPlate
+import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.theme.Radius
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
@@ -139,7 +137,7 @@ fun LocateScreen(
                     BoardButton(
                         label = "Ring the device",
                         supporting = "Sounds the siren so you can hear where it is",
-                        icon = Icons.Outlined.NotificationsActive,
+                        icon = SafeShadeIcons.RingTheDevice,
                         onClick = onArmRing,
                         enabled = state.connection.isUsable,
                         weight = ButtonWeight.SECONDARY,
@@ -229,7 +227,7 @@ fun LocateScreen(
                         Spacer(Modifier.height(Spacing.md))
                         BoardButton(
                             label = "Open in maps",
-                            icon = Icons.Outlined.LocationOn,
+                            icon = SafeShadeIcons.Gps,
                             onClick = onOpenLastKnownLocation,
                             weight = ButtonWeight.SECONDARY,
                             modifier = Modifier.fillMaxWidth()

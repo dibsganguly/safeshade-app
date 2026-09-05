@@ -14,11 +14,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.Emergency
-import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Shield
-import androidx.compose.material.icons.filled.Watch
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.remember
@@ -46,21 +43,21 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Dashboard
-import androidx.compose.material.icons.outlined.Groups
 import androidx.compose.material.icons.outlined.Shield
-import androidx.compose.material.icons.outlined.Watch
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import com.safeshade.ui.theme.BoardColors
+import com.safeshade.ui.icons.SafeShadeIcons
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.selection.selectable
 import androidx.navigation.NavController
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -166,75 +163,92 @@ fun BoardBottomBar(
                 // into Safety still knows where they are.
                 val selected = currentTab == destination
 
-                NavigationBarItem(
-                    selected = selected,
-                    onClick = {
-                        when {
-                            // Already at this tab's root. Android's convention
-                            // is "take me to the top of the list", not "do
-                            // nothing".
-                            currentRoute == destination.route -> onReselect(destination)
+                // A plain selectable Box, not NavigationBarItem.
+                //
+                // The item component draws Material's press state layer and
+                // exposes no `indication` or `interactionSource` parameter to
+                // turn it off, so the grey flash on every tab press could not
+                // be removed while using it. The *container* is still
+                // NavigationBar, which is where the window insets, the 80dp
+                // height and `selectableGroup()` come from - so replacing the
+                // item costs none of those, and TalkBack still announces
+                // "<label>, tab, N of 4".
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .weight(1f)
+                        // A fixed height, never fillMaxHeight. Scaffold measures
+                        // its bottomBar with the whole screen height as the max
+                        // constraint, so a child that fills it drags the whole
+                        // NavigationBar to full height and the bar ends up
+                        // floating in the middle of a blank screen. This has
+                        // caught this file once before.
+                        .height(Spacing.touchTarget)
+                        .selectable(
+                            selected = selected,
+                            role = Role.Tab,
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = {
+                                when {
+                                    // Already at this tab's root. Android's
+                                    // convention is "take me to the top of the
+                                    // list", not "do nothing".
+                                    currentRoute == destination.route -> onReselect(destination)
 
-                            // Somewhere beneath this tab. A real pop, so the
-                            // graph plays its *pop* transitions and the motion
-                            // reads as coming back up rather than going
-                            // sideways. Short-circuits to the branch below when
-                            // it returns false — which is the case where the
-                            // tab root was never pushed, i.e. every one of the
-                            // Board's seven deep links.
-                            currentTab == destination &&
-                                navController.popBackStack(destination.route, inclusive = false) -> Unit
+                                    // Somewhere beneath this tab. A real pop, so
+                                    // the graph plays its *pop* transitions and
+                                    // the motion reads as coming back up rather
+                                    // than going sideways. Falls through to the
+                                    // branch below when it returns false - the
+                                    // case where the tab root was never pushed,
+                                    // i.e. every one of the Board's deep links.
+                                    currentTab == destination &&
+                                        navController.popBackStack(destination.route, inclusive = false) -> Unit
 
-                            else -> navController.navigate(destination.route) {
-                                // Anchored to the graph's real start destination
-                                // rather than a hardcoded route: the previous
-                                // version pinned this to "home", which breaks the
-                                // moment onboarding is the start destination.
-                                popUpTo(navController.graph.findStartDestination().id) {
-                                    inclusive = false
+                                    else -> navController.navigate(destination.route) {
+                                        // Anchored to the graph's real start
+                                        // destination rather than a hardcoded
+                                        // route: the previous version pinned
+                                        // this to "home", which breaks the
+                                        // moment onboarding is the start.
+                                        popUpTo(navController.graph.findStartDestination().id) {
+                                            inclusive = false
+                                        }
+                                        launchSingleTop = true
+                                    }
                                 }
-                                launchSingleTop = true
                             }
-                        }
-                    },
-                    icon = {
-                        Icon(
-                            imageVector = destination.icon(selected),
-                            // Mandatory now the labels are gone. The label used
-                            // to carry the name for a screen reader; with it
-                            // removed, a null description leaves four anonymous
-                            // buttons. Uses the same role-aware string the label
-                            // did, so a COMPANION still hears "Guardian".
-                            contentDescription = destination.labelFor(role)
                         )
-                    },
-                    // Drawn on the item's own modifier rather than inside the
-                    // icon lambda: M3 centres the icon's measurable, so a rule
-                    // added there becomes part of what gets centred and shoves
-                    // the glyph up relative to the four unselected items.
-                    modifier = Modifier.drawBehind {
-                        if (!selected) return@drawBehind
-                        val w = size.width * 0.34f
-                        val h = Stroke.brass.toPx()
-                        drawRect(
-                            color = colors.brass,
-                            topLeft = Offset((size.width - w) / 2f, size.height - h - 14.dp.toPx()),
-                            size = Size(w, h)
+                        .semantics { contentDescription = destination.labelFor(role) }
+                ) {
+                    // Selection is a colour *and* a shape, still. The brass rule
+                    // is gone, but a disc of the tab's own accent stays behind
+                    // the glyph: a tint change on its own is invisible to a
+                    // colourblind reader, and this system has said so from the
+                    // start. The disc is the accent at low alpha, so it reads as
+                    // the icon being filled in rather than as a lamp.
+                    val accent = destination.accent(colors)
+                    if (selected) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(accent.copy(alpha = 0.16f))
                         )
-                    },
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = colors.ink,
-                        unselectedIconColor = colors.inkFaint,
-                        // Transparent, and the selection is carried by the brass
-                        // rule above plus a filled rather than outlined glyph.
-                        // Two reasons: the indicator's shape is a token-fixed
-                        // pill with no parameter to square it off, and with the
-                        // labels gone the only remaining signal would have been
-                        // ink versus inkFaint — colour alone, which is exactly
-                        // what the rest of this system forbids.
-                        indicatorColor = Color.Transparent
+                    }
+                    Icon(
+                        imageVector = destination.icon(selected),
+                        // Mandatory now the labels are gone. The label used to
+                        // carry the name for a screen reader; with it removed a
+                        // null description leaves four anonymous buttons. The
+                        // description is set on the selectable above so it is
+                        // announced once, not twice.
+                        contentDescription = null,
+                        tint = if (selected) accent else colors.inkFaint,
+                        modifier = Modifier.size(24.dp)
                     )
-                )
+                }
             }
         }
     }
@@ -475,13 +489,35 @@ internal fun BottomDestination.labelFor(role: UserRole): String =
 /**
  * Outlined when unselected, filled when selected.
  *
- * The second half of the non-colour selection signal, alongside the brass rule.
- * With the labels gone one signal was not enough, and weight is legible to a
- * colourblind reader in a way a tint change is not.
+ * The glyph for a tab.
+ *
+ * Three of the four are the app's own icons, which are stroke drawings with no
+ * heavier twin - so the selected/unselected difference they carry is colour
+ * plus the accent disc behind them, not weight. Safety, still on Material,
+ * keeps its filled variant.
  */
 private fun BottomDestination.icon(selected: Boolean): ImageVector = when (this) {
-    BottomDestination.BOARD -> if (selected) Icons.Filled.Dashboard else Icons.Outlined.Dashboard
-    BottomDestination.CIRCLE -> if (selected) Icons.Filled.Groups else Icons.Outlined.Groups
+    BottomDestination.BOARD -> SafeShadeIcons.NavbarBoard
+    BottomDestination.CIRCLE -> SafeShadeIcons.NavbarCircle
+    // The acquired set has no Safety glyph, so this one slot stays on Material
+    // rather than borrowing a mismatched icon from elsewhere in the set. It
+    // keeps its weight change, which the three custom ones cannot have.
     BottomDestination.SAFETY -> if (selected) Icons.Filled.Shield else Icons.Outlined.Shield
-    BottomDestination.DEVICE -> if (selected) Icons.Filled.Watch else Icons.Outlined.Watch
+    BottomDestination.DEVICE -> SafeShadeIcons.NavbarDevice
+}
+
+/**
+ * The colour a tab wears when it is the one you are on.
+ *
+ * Four fixed picks rather than the usual hash, and spread around the wheel on
+ * purpose: these four are the only accents ever seen *side by side and at the
+ * same moment*, so two neighbours landing on close hues would read as a
+ * mistake. Everywhere else in the app a colour only has to differ from the row
+ * above it.
+ */
+private fun BottomDestination.accent(colors: BoardColors): Color = when (this) {
+    BottomDestination.BOARD -> colors.accentClay
+    BottomDestination.CIRCLE -> colors.accentSky
+    BottomDestination.SAFETY -> colors.accentSage
+    BottomDestination.DEVICE -> colors.accentPlum
 }
