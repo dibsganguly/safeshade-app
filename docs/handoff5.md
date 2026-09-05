@@ -115,13 +115,23 @@ Verified: all 102 render live in the gallery, in dark theme, including
 - The amber Connect button, charcoal label, in **both** themes.
 - The enlarged Board masthead beside the 52dp emblem.
 - The Circle card with the lamp alone in its corner and its word at the foot.
-- A quick message's send arrow crossfading to a teal tick (caught mid-fade).
+- A quick message **failing**: the arrow stays an arrow and the reason
+  appears in the snackbar. This entry read "the send arrow crossfading to a
+  teal tick" for most of this pass and that was a false pass - the tick was set
+  on the tap and the send behind it had failed. See §3a.
 - The red location-refresh glyph in the Where heading.
 - Fall detection's header gap, and its countdown as a `DialControl`.
 - Collapsed-section counts, including `Appearance, 3 settings` as spoken.
 - The map picker: no coordinate fields, a working radius slider, the custom
   red-on-bone pin, live OSM tiles.
 - The board slider's material, cropped and inspected at pixel level.
+- The board snackbar, which until the send fix had never been triggered on a
+  device at all - it is only reachable from a failure or a blocked SOS.
+- The `adaptive-mode` glyph, in the Device bank.
+- The message thread on the failure path: a quick reply and a typed one both
+  report the reason, and the typed draft stays in the box. That last one is a
+  deliberate change of behaviour - the box used to empty on a send that had
+  failed - so it is here rather than in the list below.
 - The empty-state magnifying glass, held over Shady's shoulder.
 - All 102 icons in the kit gallery, dark theme.
 - The intro lockup, measured programmatically off five device captures against
@@ -135,17 +145,56 @@ Verified: all 102 render live in the gallery, in dark theme, including
   scales its whole canvas about the pivot rather than re-tiling per frame, and
   an unclipped View paints that wherever it lands — but nobody has watched it.
   **This is the single highest-value thing to confirm by hand.**
+- **A quick message succeeding.** The failure path is watched; the success
+  path needs a paired wearable or a stored SIM number and a real SMS, and
+  neither was available. The tick has been seen correctly withheld and never
+  seen correctly shown.
 - The location-refresh **nod** animation. It fires on tap; a still cannot show
   it.
 - **Raised font scale.** Nothing this pass was checked at 1.3×, and several
   things changed size: the masthead, the header, the slider, the lamp word.
   (`adb shell settings put system font_scale 1.3`, and **put it back to 1.0**.)
+  The generator's `OPTICAL` correction is a particular unknown here: it scales
+  inside the vector while `Way` draws at a fixed 20dp, so at 1.3× the glyph
+  holds still while the text beside it grows and the correction stops meaning
+  what it was measured to mean.
+- **A second density.** Every intro measurement was taken on one device.
+  `lineGap` is measured at runtime and self-corrects, but `EMBLEM_GAP`,
+  `WORDMARK_W` and `TAGLINE_GAP` carry corrections derived from this screen.
+  Related: the wordmark is fitted by measuring Archivo at a probe size, and
+  font resolution is asynchronous - if the probe ever runs before the face
+  loads it fits to the fallback's width for one frame. All five captures were
+  post-load, so this has not been seen.
 - **Dark theme beyond two screens.** The Board and the kit gallery were swept;
   the map picker, the intro and the Circle cards were not.
 - Anything reaching the firmware. Nothing was connected at any point.
 - The paired-device write path — still the highest-value hardware check,
   carried forward from `handoff4.md` §4.
 - The phone SOS has still never been fired end to end.
+
+---
+
+## 3a. The one thing this pass got wrong and then fixed
+
+The quick-message tick added in `4bbe2c3` was set on the tap, not on the
+result, so it appeared just as readily for a send that failed - and with
+nothing paired and no SIM number stored, which is what a fresh install and this
+test phone both are, every send fails. The confirmation was watched, filmed and
+written down as verified without anybody asking what it was confirming.
+
+`MessagingRepository` had returned a `SendResult` for this the whole time, with
+a `Failed.reason` written to be shown to a person, and its own comment says a
+message that reports success and reaches nobody is worse than one that reports
+failure. Every layer above it discarded the value. Fixed in `bdcff39`.
+
+Two lessons worth carrying, because both are cheap to repeat:
+
+- **A screenshot of an affordance is not a test of it.** The tick was captured
+  mid-fade and the capture proved only that the animation ran.
+- **A dead flag reads as live state.** `isSendingQuickMessage` and
+  `MessagesUiState.isSending` were both defaulted `false` and never set by
+  anything, and both had comments and UI written around them as though they
+  worked. Grep for the setter, not the field.
 
 ---
 
@@ -176,6 +225,17 @@ Verified: all 102 render live in the gallery, in dark theme, including
   old WebView, which could fail to attach its tap handler and leave the map
   inert with no tell. The native map attaches its handler at construction and
   taps work whether or not a tile ever arrives.
+- **A tick means the transport took it, not that it arrived.** An SMS is
+  `Sent` when the send call returns and BLE writes have no application-level
+  ack, so nothing in this system can honestly draw a delivery receipt. The
+  ceiling is written where the tick is drawn. Closing it needs a firmware
+  change, and belongs with the SOS relay gap in §6.
+- **The Device bank's mode row takes a fixed glyph.** It drew the selected
+  persona's icon, so a row named "Adaptive mode" showed a backpack. The other
+  reading of the user's item 5 - keep the row varying and only change what
+  `AUTO` maps to - was done as well and turned out to be invisible, because
+  `AUTO` is drawn as a hero plate with no icon. If the varying icon is wanted
+  back, it is one line in `DeviceScreen.kt`.
 - **Title Case** is the ordinary kind — principal words capitalised, articles
   and short prepositions left alone unless they lead. "Connect to the Device",
   not "Connect To The Device".
@@ -187,6 +247,10 @@ Verified: all 102 render live in the gallery, in dark theme, including
 - **`OptionWay` still lives in `ui/screens/safety/SafetyCommon.kt`** and is
   imported from `device/DeviceSettingsScreen.kt`. Carried over from
   `handoff4.md` §3; it belongs in `ui/board/`.
+- **The back chevron's touch target overlaps the title's first 8dp.** The slot
+  reserves 28dp of layout and the button is a 48dp box offset -12dp, so it
+  spans -12 to 36 while the title starts at 28. Harmless today because no
+  header title is clickable; it would stop being harmless the moment one is.
 - **`ChipRow` has no visible focus ring** (`selectable(indication = null)`).
   Flagged two passes ago, still true.
 - The check-in interval's shared constants now live in
@@ -228,7 +292,7 @@ Coordinate before either is edited.
 
 ## 7. State at the end of this pass
 
-`versionCode = 7`, `versionName = "2.4.0"`. Three commits on `master`, not
+`versionCode = 7`, `versionName = "2.4.0"`. Six commits on `master`, not
 pushed. `assembleDebug` green, 28 unit tests pass. Working tree clean apart from
 `CLAUDE.md`, `docs/SafeShadev21/SafeShadev21.ino` and untracked `PRODUCT.md` —
 none of them ours.

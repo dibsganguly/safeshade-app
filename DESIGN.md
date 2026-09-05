@@ -563,6 +563,12 @@ Everything else in this document was read off the built system.
 - **Don't** use a ripple; this surface emits no light, so a press is a small scale-down.
 - **Don't** set body copy in the condensed width or in uppercase, and don't uppercase a row title. Row titles are sentence case; a prominent button is Title Case.
 - **Don't** explain what the label above already says. Two hundred lines of supporting copy were audited against that one question and about sixty failed it. The test is whether the sentence states a consequence, a cost or a limitation a reader could not have assumed — not whether it is true.
+- **Don't** confirm an action before its result is known. A tick, a "Saved" or
+  a "Sent" drawn on the tap is not a confirmation, it is an animation, and on
+  the paths this app exists for the failure case is the common one - a wearable
+  out of range, no SIM number stored. Where a repository returns a result, wait
+  for it; where it returns a reason, show the reason. A control that reports
+  success and reaches nobody is worse than one that reports nothing.
 - **Don't** hedge. "This is a help, not a guarantee" and its relatives were deleted outright: a person setting up fall detection for their parent is not reassured by the app doubting itself, and the honest limitations are already stated where they apply.
 - **Don't** set text in a lamp-glass colour, or reach for the raw colour constants instead of the theme's semantic accessor.
 - **Don't** draw a control for a setting the app cannot actually write, and don't show representative data without its stub mark.
