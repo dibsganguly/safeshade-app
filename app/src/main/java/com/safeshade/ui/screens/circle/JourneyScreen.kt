@@ -15,8 +15,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.CheckCircleOutline
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -38,6 +36,7 @@ import com.safeshade.ui.board.Readout
 import com.safeshade.ui.board.ScreenHeader
 import com.safeshade.ui.board.ScreenTier
 import com.safeshade.ui.board.SectionPlate
+import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.Stroke
@@ -305,7 +304,7 @@ private fun LazyListScope.activeJourney(
         BoardButton(
             label = "I have arrived",
             supporting = "Ends the journey. Nobody is contacted.",
-            icon = Icons.Outlined.CheckCircleOutline,
+            icon = SafeShadeIcons.Tick02,
             onClick = onArrived,
             enabled = !state.isBusy,
             weight = ButtonWeight.PRIMARY,

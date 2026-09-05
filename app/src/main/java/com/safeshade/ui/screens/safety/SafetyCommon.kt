@@ -80,15 +80,20 @@ import java.time.format.FormatStyle
  * separate tier argument would only be a second chance to get it wrong.
  *
  * This is also where this bank supplies its half of [ScreenHeader]'s
- * documented 28dp header gap. The five pushed screens in this bank scroll a
- * plain `Column`, not a list rhythmed with `Arrangement.spacedBy`, so nothing
- * else here would ever contribute the other 16dp — which is exactly how those
- * five screens ended up each hand-placing their own `Spacer` and drifting to
- * different values. Putting the `Spacer` here instead means the five call
- * sites do not get to choose again, and the hub, which already scrolls a
- * `spacedBy(Spacing.lg)` list, works out to the same 28dp by the same
- * arithmetic pattern-A screens use — see [SafetyScreen], which calls
- * [ScreenHeader] directly for that reason rather than through this adapter.
+ * documented 20dp header gap. The pushed screens in this bank scroll a plain
+ * `Column`, not a list rhythmed with `Arrangement.spacedBy`, so nothing else
+ * here would ever contribute the other 16dp — which is exactly how those
+ * screens ended up each hand-placing their own `Spacer` and drifting to
+ * different values. Putting the `Spacer` here instead means those call sites
+ * do not get to choose again.
+ *
+ * **This adapter is for `Column` screens only.** A screen whose list already
+ * carries `spacedBy(Spacing.lg)` must call [ScreenHeader] directly, or it
+ * takes the 16dp twice. An earlier revision of this note asserted the opposite
+ * — that a list screen "works out to the same gap by the same arithmetic" —
+ * and three screens were built on that reading and measured 44dp against
+ * everyone else's 28dp for a whole release. Contacts, Emergency numbers and
+ * Trip log now call [ScreenHeader] directly, as [SafetyScreen] already did.
  */
 @Composable
 internal fun PanelHeader(

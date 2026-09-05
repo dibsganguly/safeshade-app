@@ -15,7 +15,6 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.filled.Emergency
-import androidx.compose.material.icons.filled.Shield
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.remember
@@ -43,7 +42,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -238,7 +236,7 @@ fun BoardBottomBar(
                         )
                     }
                     Icon(
-                        imageVector = destination.icon(selected),
+                        imageVector = destination.icon,
                         // Mandatory now the labels are gone. The label used to
                         // carry the name for a screen reader; with it removed a
                         // null description leaves four anonymous buttons. The
@@ -487,24 +485,25 @@ internal fun BottomDestination.labelFor(role: UserRole): String =
     }
 
 /**
- * Outlined when unselected, filled when selected.
- *
  * The glyph for a tab.
  *
- * Three of the four are the app's own icons, which are stroke drawings with no
+ * All four are the app's own icons now, which are stroke drawings with no
  * heavier twin - so the selected/unselected difference they carry is colour
- * plus the accent disc behind them, not weight. Safety, still on Material,
- * keeps its filled variant.
+ * plus the accent disc behind them, not weight.
+ *
+ * Safety was the last holdout, on Material only because the set had no shield.
+ * It has one now, and a single Material glyph sitting between three custom ones
+ * on the most-looked-at surface in the app was the most visible seam left. The
+ * weight change it used to carry goes with it; the other three never had one
+ * and the bar reads consistently without it.
  */
-private fun BottomDestination.icon(selected: Boolean): ImageVector = when (this) {
-    BottomDestination.BOARD -> SafeShadeIcons.NavbarBoard
-    BottomDestination.CIRCLE -> SafeShadeIcons.NavbarCircle
-    // The acquired set has no Safety glyph, so this one slot stays on Material
-    // rather than borrowing a mismatched icon from elsewhere in the set. It
-    // keeps its weight change, which the three custom ones cannot have.
-    BottomDestination.SAFETY -> if (selected) Icons.Filled.Shield else Icons.Outlined.Shield
-    BottomDestination.DEVICE -> SafeShadeIcons.NavbarDevice
-}
+private val BottomDestination.icon: ImageVector
+    get() = when (this) {
+        BottomDestination.BOARD -> SafeShadeIcons.NavbarBoard
+        BottomDestination.CIRCLE -> SafeShadeIcons.NavbarCircle
+        BottomDestination.SAFETY -> SafeShadeIcons.NavbarSafety
+        BottomDestination.DEVICE -> SafeShadeIcons.NavbarDevice
+    }
 
 /**
  * The colour a tab wears when it is the one you are on.

@@ -17,8 +17,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -35,9 +33,11 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
+import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.theme.Motion
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.board
+import com.safeshade.ui.theme.boardType
 
 /**
  * A bank of ways that starts closed.
@@ -116,16 +116,23 @@ fun ExpandableSection(
                 }
         ) {
             Nameplate(label, modifier = Modifier.weight(1f), muted = true)
-            if (count != null && !open) {
+            if (count != null) {
+                // Shown open as well as closed. It used to disappear on open,
+                // which is the wrong way round twice over: a section whose
+                // count is the only thing telling you there is anything behind
+                // it should not withhold that until after you have found out,
+                // and a number that vanishes makes the row reflow every time it
+                // is tapped. Set in the readout face so it reads as a quantity
+                // rather than as part of the label.
                 Text(
                     text = "$count",
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.boardType.readout,
                     color = colors.inkFaint
                 )
                 Spacer(Modifier.width(Spacing.sm))
             }
             Icon(
-                imageVector = Icons.Outlined.ExpandMore,
+                imageVector = SafeShadeIcons.ArrowDown01,
                 contentDescription = null,
                 tint = colors.inkMuted,
                 modifier = Modifier.size(20.dp).rotate(chevron)
@@ -192,7 +199,7 @@ fun WhyDisclosure(
             )
             Spacer(Modifier.width(Spacing.xs))
             Icon(
-                imageVector = Icons.Outlined.ExpandMore,
+                imageVector = SafeShadeIcons.ArrowDown01,
                 contentDescription = null,
                 tint = colors.inkMuted,
                 modifier = Modifier.size(18.dp).rotate(chevron)

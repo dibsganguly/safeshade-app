@@ -36,6 +36,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import com.safeshade.ui.theme.BrandCharcoal
 import com.safeshade.ui.theme.Motion
 import com.safeshade.ui.theme.Radius
 import com.safeshade.ui.theme.Spacing
@@ -44,7 +45,33 @@ import com.safeshade.ui.theme.board
 import com.safeshade.ui.theme.boardType
 
 /** How much visual weight a button carries. */
-enum class ButtonWeight { PRIMARY, SECONDARY, QUIET, DANGER }
+enum class ButtonWeight {
+    PRIMARY,
+    SECONDARY,
+    QUIET,
+
+    /**
+     * Brand amber on charcoal ink: the one thing on this screen to do next.
+     *
+     * For the action a screen exists to offer when nothing else has been done
+     * yet - connecting a wearable, pairing a second one. Charcoal on amber,
+     * because amber is a light hue and bone-coloured ink on it measures under
+     * 2:1; the charcoal pairing clears 8:1.
+     */
+    ATTENTION,
+
+    /**
+     * Brand teal on charcoal ink: this writes something down.
+     *
+     * Saving is the one action in this app that is neither routine navigation
+     * nor an emergency, and it was previously indistinguishable from both. Teal
+     * is the live hue, which is the right association - a saved setting is a
+     * circuit that is now on.
+     */
+    COMMIT,
+
+    DANGER
+}
 
 /**
  * A panel button.
@@ -53,8 +80,25 @@ enum class ButtonWeight { PRIMARY, SECONDARY, QUIET, DANGER }
  * press response is a small scale-down rather than a ripple, because a ripple
  * spreads light across the surface and this surface does not emit light.
  *
- * [ButtonWeight.DANGER] is the only variant that carries a hue, and it is
- * reserved for actions that place a real call or fire a real alert.
+ * ## The three hued weights
+ *
+ * [ButtonWeight.DANGER] used to be the only variant carrying a hue, on the
+ * argument that colour means circuit state and a button is not a circuit. That
+ * held while every other button was charcoal, and stopped holding once a screen
+ * carried four of them: "Connect to the device", "Save", "Pair another device"
+ * and "Emergency numbers" all arrived at the same weight, so the one that
+ * mattered on each screen had to be found by reading rather than seen.
+ *
+ * The three hues are the three lamp glasses and nothing else is added:
+ * [ButtonWeight.ATTENTION] is amber (do this next), [ButtonWeight.COMMIT] is
+ * teal (this writes something down), [ButtonWeight.DANGER] is trip red (this
+ * places a real call or fires a real alert). All three carry charcoal ink,
+ * because all three glasses are light hues - the pairing is not a style choice,
+ * it is the only one that measures.
+ *
+ * This does mean colour on this panel now says one of two things rather than
+ * exactly one. The saturation rule still separates them from the twelve
+ * decorative accents, and every hued button still states its action in words.
  */
 @Composable
 fun BoardButton(
@@ -78,6 +122,8 @@ fun BoardButton(
     val container = when {
         !enabled -> colors.recess
         weight == ButtonWeight.PRIMARY -> colors.ink
+        weight == ButtonWeight.ATTENTION -> colors.lampAttention
+        weight == ButtonWeight.COMMIT -> colors.lampLive
         weight == ButtonWeight.DANGER -> colors.lampTrip
         weight == ButtonWeight.SECONDARY -> colors.plate
         else -> colors.ground
@@ -85,6 +131,10 @@ fun BoardButton(
     val content = when {
         !enabled -> colors.inkFaint
         weight == ButtonWeight.PRIMARY -> colors.plate
+        // Charcoal on both glasses in both themes. The lamp hues do not darken
+        // for the night panel - they are the same glass - so the ink that works
+        // on them does not change either.
+        weight == ButtonWeight.ATTENTION || weight == ButtonWeight.COMMIT -> BrandCharcoal
         weight == ButtonWeight.DANGER -> if (colors.isDark) colors.ground else colors.plate
         else -> colors.ink
     }

@@ -6,12 +6,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.requiredSize
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.board
 
@@ -44,9 +45,19 @@ import com.safeshade.ui.theme.board
  * complaint; leaving it to call sites is how it comes back on one screen in
  * six months.
  *
+ * ## Where the subtitle sits
+ *
+ * The subtitle is **not** inside the title's column. It sits below the whole
+ * top row, starting at the gutter — level with the back control rather than
+ * indented to the title. Indenting it made the two lines read as a single
+ * block hanging off the arrow, which is wrong: the arrow belongs to the title
+ * it sits beside, and the subtitle belongs to the screen. It also cost the
+ * subtitle the width of a touch target on every pushed screen, which is where
+ * the wrapping came from.
+ *
  * ## The header-to-content gap
  *
- * The trailing [Spacing.md] below the title is fixed and not a parameter, for
+ * The trailing [Spacing.xs] below the header is fixed and not a parameter, for
  * the same reason the top margin isn't: it used to be a call site's choice,
  * three different banks made three different choices, and sub-pages ended up
  * starting their content at three different distances from the header. The
@@ -55,13 +66,19 @@ import com.safeshade.ui.theme.board
  * double up if it also emitted that much itself, and roughly nineteen screens
  * already depend on exactly that combination. Instead the gap is one number
  * decided in one place and assembled the same way everywhere: this trailing
- * [Spacing.md], plus [Spacing.lg] of rhythm supplied by whatever holds the
+ * [Spacing.xs], plus [Spacing.lg] of rhythm supplied by whatever holds the
  * header — a list's `spacedBy`, the Safety bank's header adapter, or a body
- * list's top `contentPadding` — for a fixed total of 28dp. The rule that makes
+ * list's top `contentPadding` — for a fixed total of 20dp. The rule that makes
  * this hold is: **no call site ever places its own `Spacer` after a header.**
  * A screen that needs the 16dp and has no natural list rhythm to source it
  * from is a screen whose container is missing something, not a screen that
  * gets to invent its own number.
+ *
+ * It was 28dp until the total was measured across the app rather than assumed.
+ * Three screens were reaching 44dp because they used the Safety bank's `Column`
+ * adapter inside a list that already carried the rhythm, and two were reaching
+ * 12dp because their container carried none. The number is smaller now and, for
+ * the first time, actually the same everywhere.
  *
  * @param onBack null means no back control — correct for a tab root, which has
  *   nowhere to go. Every pushed screen passes one. It is nullable rather than
@@ -84,67 +101,88 @@ fun ScreenHeader(
     Column(modifier = modifier.fillMaxWidth()) {
         Spacer(Modifier.height(if (tier == ScreenTier.ROOT) Spacing.lg else Spacing.sm))
         Row(
-            // Top, not centre. On a header with a subtitle the row is as tall
-            // as both lines, so a centred arrow drifts down beside the subtitle
-            // and stops reading as belonging to the title it sits next to —
-            // the same mistake the row icons used to make.
-            verticalAlignment = Alignment.Top,
+            // Centre, now that the subtitle has moved out of this row. The row
+            // is one line of text tall (or one touch target, whichever wins),
+            // so centring is what puts the chevron on the title's own optical
+            // middle. It had to be Top while the row held both lines, because a
+            // centred arrow then drifted down beside the subtitle.
+            verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .fillMaxWidth()
                 .defaultMinSize(minHeight = Spacing.touchTarget)
         ) {
             if (onBack != null) {
-                IconButton(
-                    onClick = onBack,
-                    // Pulled back into the gutter so the arrow's optical edge
-                    // lines up with the text below it rather than its 48dp
-                    // touch box, which would leave the title indented. The
-                    // vertical nudge centres the 24dp glyph against the title's
-                    // own line box rather than against the 48dp touch target.
-                    modifier = Modifier.offset(x = (-12).dp, y = (-10).dp)
+                // The slot is narrower than the control inside it. The chevron
+                // keeps a full 48dp touch target — `requiredSize` is what lets
+                // it ignore this Box's width — while the Box reserves only
+                // [BackSlotWidth] of layout, so the title sits close beside the
+                // glyph instead of a touch box away from it. Pulling the button
+                // into the gutter with an offset alone could not do this: an
+                // offset moves what is drawn and not what is measured, so the
+                // title stayed put and the trailing slot lost the same width at
+                // the other end.
+                Box(
+                    modifier = Modifier.width(BackSlotWidth),
+                    contentAlignment = Alignment.CenterStart
                 ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                        contentDescription = backDescription,
-                        tint = colors.inkMuted
-                    )
+                    IconButton(
+                        onClick = onBack,
+                        modifier = Modifier
+                            .requiredSize(Spacing.touchTarget)
+                            .offset(x = (-12).dp)
+                    ) {
+                        Icon(
+                            imageVector = SafeShadeIcons.ArrowLeft01,
+                            contentDescription = backDescription,
+                            // The amber *ink*, not the amber lamp glass. Raw
+                            // brand amber on the bone panel measures about
+                            // 1.9:1, which is not a contrast a control glyph
+                            // can be drawn at; `inkAttention` is the same hue
+                            // family darkened for exactly this and clears 7:1
+                            // in both themes.
+                            tint = colors.inkAttention,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                 }
             }
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = title,
-                    style = when (tier) {
-                        ScreenTier.ROOT -> MaterialTheme.typography.displaySmall
-                        ScreenTier.PUSHED -> MaterialTheme.typography.headlineMedium
-                    },
-                    color = colors.ink,
-                    modifier = Modifier.semantics { heading() }
-                )
-                if (subtitle != null) {
-                    Spacer(Modifier.height(Spacing.xs))
-                    Text(
-                        text = subtitle,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = colors.inkMuted
-                    )
-                }
-            }
+            Text(
+                text = title,
+                style = when (tier) {
+                    ScreenTier.ROOT -> MaterialTheme.typography.displaySmall
+                    ScreenTier.PUSHED -> MaterialTheme.typography.headlineMedium
+                },
+                color = colors.ink,
+                modifier = Modifier
+                    .weight(1f)
+                    .semantics { heading() }
+            )
             if (trailing != null) {
                 Spacer(Modifier.width(Spacing.sm))
-                // The mirror of the back arrow's correction, and applied here
-                // rather than at the call site for the same reason: a trailing
+                // The mirror of the back control's correction. A trailing
                 // IconButton centres its 24dp glyph inside a 48dp touch box, so
-                // against a top-aligned headline it sits visibly low and inset
-                // from the gutter. The Device screen passed one with no offset
-                // at all and it read as misaligned with the word beside it.
-                Box(modifier = Modifier.offset(x = 12.dp, y = (-10).dp)) {
+                // with no nudge it sits visibly inset from the gutter. The
+                // Device screen passed one with no offset at all and it read as
+                // misaligned with the word beside it.
+                Box(modifier = Modifier.offset(x = 12.dp)) {
                     trailing()
                 }
             }
         }
-        // Half of the 28dp header gap described above — the other half comes
+        if (subtitle != null) {
+            Spacer(Modifier.height(Spacing.xxs))
+            Text(
+                // At the gutter, not indented under the title. See the note
+                // above: the arrow belongs to the title, the subtitle belongs
+                // to the screen.
+                text = subtitle,
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.inkMuted
+            )
+        }
+        // The near half of the 20dp header gap described above — the rest comes
         // from whatever holds this header. Not a parameter: see that note.
-        Spacer(Modifier.height(Spacing.md))
+        Spacer(Modifier.height(Spacing.xs))
     }
 }
 
@@ -177,12 +215,24 @@ fun BackOnlyHeader(
     ) {
         IconButton(onClick = onBack, modifier = Modifier.offset(x = (-12).dp)) {
             Icon(
-                imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
+                imageVector = SafeShadeIcons.ArrowLeft01,
                 contentDescription = backDescription,
-                tint = colors.inkMuted
+                tint = colors.inkAttention,
+                modifier = Modifier.size(20.dp)
             )
         }
         Spacer(Modifier.weight(1f))
         trailing?.invoke()
     }
 }
+
+/**
+ * How much layout the back control reserves.
+ *
+ * Less than the 48dp it is: the touch target overhangs its slot on both sides,
+ * 12dp into the gutter and the rest under the title's leading edge, so the
+ * chevron reads as sitting next to the word rather than a thumb's width away
+ * from it. Nothing overlaps — a headline's leading side bearing is wider than
+ * the 4dp of glyph that reaches into it.
+ */
+private val BackSlotWidth = 28.dp

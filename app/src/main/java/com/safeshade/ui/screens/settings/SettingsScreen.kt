@@ -12,10 +12,7 @@ import androidx.compose.material.icons.outlined.Brightness4
 import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.LightMode
 import androidx.compose.material.icons.outlined.Code
-import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Person
-import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -32,6 +29,7 @@ import com.safeshade.ui.board.LampState
 import com.safeshade.ui.board.ScreenHeader
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.Way
+import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.nav.Routes
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
@@ -199,7 +197,7 @@ fun SettingsScreen(
                     } else {
                         "Permissions and battery settings are in order"
                     },
-                    icon = Icons.Outlined.Shield,
+                    icon = SafeShadeIcons.Alert02,
                     onClick = { onOpenWay(Routes.SETTINGS_RELIABILITY) }
                 )
             }
@@ -214,7 +212,7 @@ fun SettingsScreen(
                     state = LampState.OFF,
                     stateLabel = state.versionName.ifBlank { "Version" },
                     detail = "What this build is, and what it cannot do yet",
-                    icon = Icons.Outlined.Info,
+                    icon = SafeShadeIcons.Info,
                     onClick = { onOpenWay(Routes.SETTINGS_ABOUT) }
                 )
                 if (state.showDeveloperOptions) {

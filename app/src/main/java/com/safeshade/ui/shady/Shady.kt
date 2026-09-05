@@ -670,32 +670,52 @@ private fun DrawScope.drawFlourish(s: Float, flourish: Flourish, phase: Float, i
             drawCircle(ink, radius = s * 0.013f, center = Offset(cx, s * 0.172f))
         }
         Flourish.MAGNIFY -> {
-            // A gentle side-to-side drift, so a held-up glass reads as
-            // scanning rather than as a fixed sticker.
-            val drift = sin(phase * 2f * PI).toFloat() * s * 0.012f
-            val cx = s * 0.735f + drift
-            val cy = s * 0.135f
-            val r = s * 0.044f
-            drawCircle(ink, radius = r, style = Stroke(width = s * 0.020f), center = Offset(cx, cy))
-            drawArc(
-                color = ink.copy(alpha = 0.55f),
-                startAngle = -150f,
-                sweepAngle = 50f,
-                useCenter = false,
-                topLeft = Offset(cx - r * 0.55f, cy - r * 0.55f),
-                size = Size(r * 1.1f, r * 1.1f),
-                style = Stroke(width = s * 0.010f, cap = StrokeCap.Round)
-            )
-            val handleAngle = PI.toFloat() / 4f
-            val hx = cx + cos(handleAngle) * r
-            val hy = cy + sin(handleAngle) * r
-            drawLine(
-                ink,
-                Offset(hx, hy),
-                Offset(hx + cos(handleAngle) * s * 0.052f, hy + sin(handleAngle) * s * 0.052f),
-                strokeWidth = s * 0.022f,
-                cap = StrokeCap.Round
-            )
+            // Held up over the shoulder, not floating in the corner.
+            //
+            // Three things were wrong with the first version and each one was
+            // only visible at the size this is actually drawn. The lens was
+            // 0.044 of the canvas, which at the 64dp `EmptyBay` calls it from
+            // is a ring five pixels across - a smudge, not a glass. The handle
+            // pointed down and to the *right*, away from Shady and off into
+            // empty canvas, so nothing connected the mark to the character
+            // holding it. And the whole thing slid sideways, which reads as
+            // drifting rather than as scanning.
+            //
+            // Now: nearly twice the lens, the handle swung to 135 degrees so it
+            // points back down towards the head, and the wobble is a small
+            // rotation about the lens rather than a translation - the motion a
+            // wrist makes. The top-right quadrant is free at every mood (the
+            // antenna is on the left, from x 0.235 to 0.355), so this sits in
+            // the one part of the frame nothing else uses.
+            val cx = s * 0.795f
+            val cy = s * 0.145f
+            val r = s * 0.082f
+            val tilt = sin(phase * 2f * PI).toFloat() * 7f
+
+            rotate(degrees = tilt, pivot = Offset(cx, cy)) {
+                val handleAngle = PI.toFloat() * 0.75f
+                val hx = cx + cos(handleAngle) * r
+                val hy = cy + sin(handleAngle) * r
+                // Handle first, so the lens rim is drawn over the join and the
+                // two read as one object rather than as a stick touching a ring.
+                drawLine(
+                    ink,
+                    Offset(hx, hy),
+                    Offset(hx + cos(handleAngle) * s * 0.075f, hy + sin(handleAngle) * s * 0.075f),
+                    strokeWidth = s * 0.026f,
+                    cap = StrokeCap.Round
+                )
+                drawCircle(ink, radius = r, style = Stroke(width = s * 0.026f), center = Offset(cx, cy))
+                drawArc(
+                    color = ink.copy(alpha = 0.5f),
+                    startAngle = -155f,
+                    sweepAngle = 60f,
+                    useCenter = false,
+                    topLeft = Offset(cx - r * 0.58f, cy - r * 0.58f),
+                    size = Size(r * 1.16f, r * 1.16f),
+                    style = Stroke(width = s * 0.014f, cap = StrokeCap.Round)
+                )
+            }
         }
     }
 }

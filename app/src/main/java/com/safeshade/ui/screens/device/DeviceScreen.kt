@@ -247,7 +247,7 @@ fun DeviceScreen(
         item("title") {
             ScreenHeader(
                 title = "Device",
-                subtitle = "The wearable's connection, mode, lights and settings.",
+                // No subtitle - it named the rows underneath it.
                 tier = ScreenTier.ROOT,
                 trailing = {
                     IconButton(onClick = onOpenSettings) {

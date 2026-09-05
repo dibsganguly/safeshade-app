@@ -15,7 +15,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Login
 import androidx.compose.material.icons.outlined.Logout
-import androidx.compose.material.icons.outlined.Map
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
@@ -41,6 +40,7 @@ import com.safeshade.ui.board.ScreenHeader
 import com.safeshade.ui.board.ScreenTier
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.Way
+import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.board
@@ -174,7 +174,7 @@ fun ZoneEditorScreen(
                         Spacer(Modifier.height(Spacing.md))
                         BoardButton(
                             label = if (state.lat == null) "Choose on the map" else "Change the place",
-                            icon = Icons.Outlined.Map,
+                            icon = SafeShadeIcons.PinLocation,
                             onClick = onPickOnMap,
                             weight = ButtonWeight.SECONDARY,
                             modifier = Modifier.fillMaxWidth()

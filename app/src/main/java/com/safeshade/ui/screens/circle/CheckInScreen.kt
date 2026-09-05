@@ -12,8 +12,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.HelpOutline
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -204,7 +202,7 @@ fun CheckInScreen(
                     BoardButton(
                         label = if (state.isBusy) "Sending" else "Ask \"Are you OK?\"",
                         supporting = "The device buzzes and shows the question until it is answered",
-                        icon = Icons.Outlined.HelpOutline,
+                        icon = SafeShadeIcons.HelpCircle,
                         onClick = onSendCheckIn,
                         enabled = state.canSend,
                         weight = ButtonWeight.PRIMARY,

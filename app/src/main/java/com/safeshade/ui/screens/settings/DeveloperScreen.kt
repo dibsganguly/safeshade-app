@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Science
-import androidx.compose.material.icons.outlined.Widgets
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -29,6 +28,7 @@ import com.safeshade.ui.board.Nameplate
 import com.safeshade.ui.board.ScreenHeader
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.Way
+import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.shady.ShadyMood
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
@@ -179,7 +179,7 @@ fun DeveloperScreen(
                     detail = "Every component in the board kit on one screen, for " +
                         "checking a change in both themes at a raised font scale " +
                         "before six screens are built on it.",
-                    icon = Icons.Outlined.Widgets,
+                    icon = SafeShadeIcons.DashboardCircleEdit,
                     onClick = onOpenKitGallery
                 )
             }

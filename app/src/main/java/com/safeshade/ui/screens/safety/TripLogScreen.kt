@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import com.safeshade.data.FallAlertEvent
 import com.safeshade.data.TripKind
 import com.safeshade.data.TripOutcome
+import com.safeshade.ui.board.ScreenHeader
 import com.safeshade.ui.board.BoardPlate
 import com.safeshade.ui.board.EmptyBay
 import com.safeshade.ui.board.Hairline
@@ -86,7 +87,8 @@ fun TripLogScreen(
         verticalArrangement = Arrangement.spacedBy(Spacing.lg)
     ) {
         item("header") {
-            PanelHeader(
+            // ScreenHeader, not PanelHeader - see the note in ContactsScreen.
+            ScreenHeader(
                 title = "Trip log",
                 subtitle = "Everything the device has raised about $subject.",
                 onBack = onBack

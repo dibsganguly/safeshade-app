@@ -1,7 +1,6 @@
 package com.safeshade.ui.board
 
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.AutoMode
 import androidx.compose.material.icons.outlined.Backpack
 import androidx.compose.material.icons.outlined.ChildCare
 import androidx.compose.material.icons.outlined.Diamond
@@ -15,6 +14,7 @@ import androidx.compose.material.icons.outlined.Watch
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.safeshade.data.DeviceIconType
 import com.safeshade.data.PersonaMode
+import com.safeshade.ui.icons.SafeShadeIcons
 
 /**
  * Icons for the domain enums.
@@ -29,11 +29,21 @@ import com.safeshade.data.PersonaMode
  * plenty: an icon plus an engraved label is how a real panel labels its ways,
  * and it survives greyscale, colour vision deficiency, and dark mode without a
  * second thought.
+ *
+ * **Why these are still Material when the rest of the app is not.** Everything
+ * else has moved to the app's own set. These have not, and it is not an
+ * oversight: eight personas and eight device shapes need sixteen distinguishable
+ * glyphs, and the custom set covers exactly one of them (`adaptive-mode`, which
+ * AUTO now uses). Reusing one custom glyph across several modes would break the
+ * only thing telling them apart, which is worse than the mixture. When elderly,
+ * child, bicycle, pet, helmet, hand, backpack, umbrella, watch and pendant
+ * glyphs exist in `docs/Icons`, this file is the last thing standing between
+ * the build and dropping `material-icons-extended` altogether.
  */
 
 val PersonaMode.icon: ImageVector
     get() = when (this) {
-        PersonaMode.AUTO -> Icons.Outlined.AutoMode
+        PersonaMode.AUTO -> SafeShadeIcons.AdaptiveMode
         PersonaMode.ELDERLY -> Icons.Outlined.Elderly
         PersonaMode.KIDS -> Icons.Outlined.ChildCare
         PersonaMode.BIKE -> Icons.Outlined.DirectionsBike

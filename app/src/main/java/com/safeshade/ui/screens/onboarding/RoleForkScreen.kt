@@ -17,7 +17,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Person
-import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -35,6 +34,7 @@ import com.safeshade.ui.board.Nameplate
 import com.safeshade.ui.board.PilotLamp
 import com.safeshade.ui.board.LampState
 import com.safeshade.ui.board.plateClickable
+import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.theme.Radius
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.Stroke
@@ -95,7 +95,7 @@ fun RoleForkScreen(
         Spacer(Modifier.height(Spacing.xl))
 
         RoleCard(
-            icon = Icons.Outlined.Shield,
+            icon = SafeShadeIcons.NavbarSafety,
             title = "Someone I look after",
             body = "A parent, a child, or a pet wears it. You get their alerts, their location and their safe zones on this phone.",
             examples = "Elderly parent · Child · Pet",

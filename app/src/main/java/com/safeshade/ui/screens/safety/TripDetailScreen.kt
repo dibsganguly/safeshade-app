@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Map
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -40,6 +39,7 @@ import com.safeshade.ui.board.LampState
 import com.safeshade.ui.board.MainsPlate
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.Way
+import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.board
@@ -166,7 +166,7 @@ fun TripDetailScreen(
             BoardButton(
                 label = "Open in maps",
                 supporting = trip.location?.takeIf { it.isNotBlank() },
-                icon = Icons.Outlined.Map,
+                icon = SafeShadeIcons.PinLocation,
                 onClick = {
                     failure = when (val result = openInMaps(context, lat, lon, trip.kind.label)) {
                         is ActionResult.Failed -> result.reason

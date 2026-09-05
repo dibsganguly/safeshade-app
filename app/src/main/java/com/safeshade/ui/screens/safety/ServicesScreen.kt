@@ -21,6 +21,7 @@ import com.safeshade.ActionResult
 import com.safeshade.data.EmergencyService
 import com.safeshade.data.IndiaEmergencyServices
 import com.safeshade.dialNumber
+import com.safeshade.ui.board.ScreenHeader
 import com.safeshade.ui.board.BoardButton
 import com.safeshade.ui.board.BoardPlate
 import com.safeshade.ui.board.ButtonWeight
@@ -94,7 +95,9 @@ fun ServicesScreen(
         verticalArrangement = Arrangement.spacedBy(Spacing.lg)
     ) {
         item("header") {
-            PanelHeader(
+            // ScreenHeader, not PanelHeader - see the note in ContactsScreen.
+            // A list with its own `spacedBy` must not also take the adapter's.
+            ScreenHeader(
                 title = "Emergency numbers",
                 subtitle = "Stored on this phone. Nothing here calls on its own.",
                 onBack = onBack

@@ -16,10 +16,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Bolt
-import androidx.compose.material.icons.outlined.MyLocation
-import androidx.compose.material.icons.outlined.Vibration
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -136,7 +132,7 @@ fun KitGallery(modifier: Modifier = Modifier) {
                     state = LampState.LIVE,
                     stateLabel = "Live",
                     detail = "High sensitivity",
-                    icon = Icons.Outlined.Bolt,
+                    icon = SafeShadeIcons.FallDetection,
                     checked = switchA,
                     onCheckedChange = { switchA = it }
                 )
@@ -145,7 +141,7 @@ fun KitGallery(modifier: Modifier = Modifier) {
                     name = "SMS fallback",
                     state = LampState.OFF,
                     stateLabel = "Off",
-                    icon = Icons.Outlined.Vibration,
+                    icon = SafeShadeIcons.SmsFeedbackAlert,
                     checked = switchB,
                     onCheckedChange = { switchB = it }
                 )
@@ -155,7 +151,7 @@ fun KitGallery(modifier: Modifier = Modifier) {
                     state = LampState.ATTENTION,
                     stateLabel = "Outside",
                     detail = "Left Home 8 minutes ago",
-                    icon = Icons.Outlined.MyLocation,
+                    icon = SafeShadeIcons.Gps,
                     onClick = {}
                 )
                 Hairline()
@@ -310,7 +306,7 @@ private fun IconSheet() {
             verticalArrangement = Arrangement.spacedBy(Spacing.md),
             modifier = Modifier.fillMaxWidth().padding(Spacing.lg)
         ) {
-            allIcons.forEach { (name, vector) ->
+            SafeShadeIcons.All.forEach { (name, vector) ->
                 Column(
                     horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
                     modifier = Modifier.width(72.dp)
@@ -333,44 +329,6 @@ private fun IconSheet() {
         }
     }
 }
-
-private val allIcons: List<Pair<String, androidx.compose.ui.graphics.vector.ImageVector>> = listOf(
-    "adaptive-mode" to SafeShadeIcons.AdaptiveMode,
-    "call-after-a-fall" to SafeShadeIcons.CallAfterAFall,
-    "check-in" to SafeShadeIcons.CheckIn,
-    "connect-to-the-device" to SafeShadeIcons.ConnectToTheDevice,
-    "cyber" to SafeShadeIcons.Cyber,
-    "daily-reminder" to SafeShadeIcons.DailyReminder,
-    "device-settings" to SafeShadeIcons.DeviceSettings,
-    "emergency-contacts" to SafeShadeIcons.EmergencyContacts,
-    "fall-detection" to SafeShadeIcons.FallDetection,
-    "find-the-device" to SafeShadeIcons.FindTheDevice,
-    "fire" to SafeShadeIcons.Fire,
-    "gps" to SafeShadeIcons.Gps,
-    "lights" to SafeShadeIcons.Lights,
-    "medical-id" to SafeShadeIcons.MedicalId,
-    "navbar-board" to SafeShadeIcons.NavbarBoard,
-    "navbar-circle" to SafeShadeIcons.NavbarCircle,
-    "navbar-device" to SafeShadeIcons.NavbarDevice,
-    "ocean" to SafeShadeIcons.Ocean,
-    "paired-devices" to SafeShadeIcons.PairedDevices,
-    "parental-control" to SafeShadeIcons.ParentalControl,
-    "police" to SafeShadeIcons.Police,
-    "pulse" to SafeShadeIcons.Pulse,
-    "quiet-hours" to SafeShadeIcons.QuietHours,
-    "rainbow" to SafeShadeIcons.Rainbow,
-    "reminders" to SafeShadeIcons.Reminders,
-    "repeating-check-in" to SafeShadeIcons.RepeatingCheckIn,
-    "ring-the-device" to SafeShadeIcons.RingTheDevice,
-    "safe-zone" to SafeShadeIcons.SafeZone,
-    "silent-sos" to SafeShadeIcons.SilentSos,
-    "sim-and-sms" to SafeShadeIcons.SimAndSms,
-    "sms-feedback-alert" to SafeShadeIcons.SmsFeedbackAlert,
-    "telemetry" to SafeShadeIcons.Telemetry,
-    "text-as-well" to SafeShadeIcons.TextAsWell,
-    "top-right-settings" to SafeShadeIcons.TopRightSettings,
-    "torch" to SafeShadeIcons.Torch
-)
 
 @Preview(name = "Kit — light", showBackground = true, heightDp = 1600)
 @Composable

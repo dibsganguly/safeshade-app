@@ -17,7 +17,6 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.DirectionsWalk
-import androidx.compose.material.icons.outlined.HelpOutline
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -178,10 +177,9 @@ fun CircleScreen(
                     UserRole.GUARDIAN -> "Circle"
                     UserRole.COMPANION -> "Your guardian"
                 },
-                subtitle = when (state.role) {
-                    UserRole.GUARDIAN -> "Messages, location and safe zones for $other."
-                    UserRole.COMPANION -> "Messages, location and safe zones with $other."
-                },
+                // No subtitle. It listed the three section headings that
+                // begin immediately below it, which is a table of contents for
+                // a screen you can already see all of.
                 tier = ScreenTier.ROOT
             )
         }
@@ -326,7 +324,7 @@ fun CircleScreen(
                     state = state.checkIn.state,
                     stateLabel = state.checkIn.stateLabel,
                     detail = state.checkIn.detail,
-                    icon = Icons.Outlined.HelpOutline,
+                    icon = SafeShadeIcons.HelpCircle,
                     onClick = onOpenCheckIn
                 )
                 Hairline()

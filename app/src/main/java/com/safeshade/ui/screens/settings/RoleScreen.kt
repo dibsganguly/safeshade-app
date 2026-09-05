@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Person
-import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -30,6 +29,7 @@ import com.safeshade.ui.board.Nameplate
 import com.safeshade.ui.board.ScreenHeader
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.Way
+import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.board
@@ -236,7 +236,7 @@ private fun RoleChangeDialog(
 }
 
 private fun iconFor(role: UserRole): ImageVector = when (role) {
-    UserRole.GUARDIAN -> Icons.Outlined.Shield
+    UserRole.GUARDIAN -> SafeShadeIcons.NavbarSafety
     UserRole.COMPANION -> Icons.Outlined.Person
 }
 

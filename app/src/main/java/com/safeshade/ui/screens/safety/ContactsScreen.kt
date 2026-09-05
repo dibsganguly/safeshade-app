@@ -29,6 +29,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.safeshade.data.EmergencyContact
+import com.safeshade.ui.board.ScreenHeader
 import com.safeshade.ui.board.BoardButton
 import com.safeshade.ui.board.BoardPlate
 import com.safeshade.ui.board.ButtonWeight
@@ -148,7 +149,12 @@ private fun ContactList(
         verticalArrangement = Arrangement.spacedBy(Spacing.lg)
     ) {
         item("header") {
-            PanelHeader(
+            // ScreenHeader directly, not PanelHeader. This screen scrolls a
+            // list already rhythmed with `spacedBy(Spacing.lg)`, and the
+            // adapter exists to supply that same 16dp to the bank's plain
+            // `Column` screens - so going through it here added the gap twice
+            // and started this screen's content 24dp lower than its peers.
+            ScreenHeader(
                 title = "Emergency contacts",
                 subtitle = "Who is told when something happens to $subject.",
                 onBack = onBack
