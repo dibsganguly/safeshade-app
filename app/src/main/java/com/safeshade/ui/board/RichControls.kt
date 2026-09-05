@@ -439,13 +439,13 @@ private const val GRAB_END = 1
  * Plain subtraction would call 23:30 and 00:30 twenty-three hours apart, which
  * would hand a drag near midnight to the wrong handle.
  */
-private fun aroundTheClock(a: Int, b: Int): Int {
+internal fun aroundTheClock(a: Int, b: Int): Int {
     val d = abs(a - b) % MINUTES_IN_DAY
     return min(d, MINUTES_IN_DAY - d)
 }
 
 /** How long the lit span lasts, in words, wrapping past midnight. */
-private fun spanWords(start: Int, end: Int): String {
+internal fun spanWords(start: Int, end: Int): String {
     val span = ((end - start) + MINUTES_IN_DAY) % MINUTES_IN_DAY
     if (span == 0) return "nothing selected"
     val hours = span / 60
