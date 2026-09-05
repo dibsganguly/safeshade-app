@@ -78,6 +78,12 @@ dependencies {
     // QR emergency card
     implementation(libs.zxing.core)
 
+    // The safe-zone map. OpenStreetMap tiles, no API key and no account, and a
+    // disk tile cache - which is the part that matters, because the screen this
+    // replaces fetched Leaflet from a CDN at runtime and silently lost its tap
+    // handler whenever that fetch failed.
+    implementation(libs.osmdroid.android)
+
     // Test
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

@@ -14,7 +14,10 @@ import com.safeshade.device.DeviceProtocol
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -159,6 +162,42 @@ class ProfileRepository(
 
     fun upsertPairedDevice(device: PairedDevice) {
         scope.launch { prefs.upsertPairedDevice(device) }
+    }
+
+    init {
+        // Remember a device the moment the link is actually usable.
+        //
+        // This is the whole reason the paired-devices feature never worked.
+        // `upsertPairedDevice` and its DataStore backing existed and were
+        // correct, and nothing in the app had ever called either: a successful
+        // connection updated the state flows and wrote nothing down. So the
+        // list was permanently empty, the Board row permanently read "0
+        // remembered", and `removePairedDevice` - which does work - never had
+        // anything to remove.
+        //
+        // Gated on Ready rather than Connected. `Connected` fires when the GATT
+        // socket opens, before services are discovered, and a device that
+        // fails discovery is not one worth remembering; `Ready` is the state
+        // the rest of this class already uses to decide the link is real.
+        //
+        // The blank-address guard matters: a link that reports Ready with no
+        // address would otherwise write a row keyed on the empty string, which
+        // no `removePairedDevice(address)` could ever match - an entry the user
+        // could see and not delete.
+        link.connectionState
+            .filter { it is ConnectionState.Ready }
+            .onEach {
+                val address = link.deviceAddress.value
+                if (address.isBlank()) return@onEach
+                upsertPairedDevice(
+                    PairedDevice(
+                        address = address,
+                        name = link.deviceName.value.ifBlank { "SafeShade device" },
+                        lastConnected = System.currentTimeMillis()
+                    )
+                )
+            }
+            .launchIn(scope)
     }
 
     fun removePairedDevice(address: String) {

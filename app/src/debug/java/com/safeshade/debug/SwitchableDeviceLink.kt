@@ -71,7 +71,7 @@ class SwitchableDeviceLink(
     override val replies: SharedFlow<String> = switchingShared { it.replies }
     override val acks: SharedFlow<String> = switchingShared { it.acks }
 
-    override fun startScan() = active.startScan()
+    override fun startScan(preferredAddress: String?) = active.startScan(preferredAddress)
     override fun stopScan() = active.stopScan()
     override fun disconnect() = active.disconnect()
     override fun readRssi() = active.readRssi()

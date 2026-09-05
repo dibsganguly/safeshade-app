@@ -235,9 +235,13 @@ class BleManager(private val context: Context) {
      * limit) and duplicate ScanCallback leaks.
      *
      * @param onFound Callback when device is found
+     * @param preferredAddress when set, only this device is looked for. Applied
+     *   as a `ScanFilter` address rather than by filtering results after the
+     *   fact, so the radio itself never reports anything else - which is what
+     *   makes a per-device Connect button mean what it says.
      */
     @SuppressLint("MissingPermission")
-    fun startScanning(onFound: () -> Unit = {}) {
+    fun startScanning(onFound: () -> Unit = {}, preferredAddress: String? = null) {
         if (isScanning) {
             Log.d("BLE_SCAN", "Scan already in progress, ignoring request")
             return
@@ -273,6 +277,7 @@ class BleManager(private val context: Context) {
 
         val filter = android.bluetooth.le.ScanFilter.Builder()
             .setServiceUuid(android.os.ParcelUuid(SERVICE_UUID))
+            .apply { if (preferredAddress != null) setDeviceAddress(preferredAddress) }
             .build()
 
         val settings = android.bluetooth.le.ScanSettings.Builder()

@@ -295,7 +295,7 @@ class DeviceRepository(
     // Scanning / connection
     // ============================================
 
-    fun startScan() = link.startScan()
+    fun startScan(preferredAddress: String? = null) = link.startScan(preferredAddress)
     fun stopScan() = link.stopScan()
     fun disconnect() = link.disconnect()
 

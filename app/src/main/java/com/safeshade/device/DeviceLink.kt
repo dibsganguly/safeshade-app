@@ -42,7 +42,17 @@ interface DeviceLink {
     /** Acknowledgement tags, already stripped of the `ACK:` prefix. */
     val acks: SharedFlow<String>
 
-    fun startScan()
+    /**
+     * Starts looking for a device.
+     *
+     * [preferredAddress], when given, restricts the scan to that one device.
+     * The paired-devices screen offers a Connect button per saved device, and
+     * without this every one of them started the same address-blind scan and
+     * joined whichever device answered first - so in the two-device household
+     * the screen's own documentation describes, the buttons were
+     * indistinguishable.
+     */
+    fun startScan(preferredAddress: String? = null)
     fun stopScan()
     fun disconnect()
     fun readRssi()

@@ -233,7 +233,7 @@ class FakeDeviceLink(
     // DeviceLink
     // ============================================
 
-    override fun startScan() {
+    override fun startScan(preferredAddress: String?) {
         if (_connectionState.value is ConnectionState.Disconnected) play(_scenario.value)
     }
 

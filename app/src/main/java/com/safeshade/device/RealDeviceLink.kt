@@ -99,7 +99,7 @@ class RealDeviceLink(
         }
     }
 
-    override fun startScan() = ble.startScanning()
+    override fun startScan(preferredAddress: String?) = ble.startScanning(preferredAddress = preferredAddress)
     override fun stopScan() = ble.stopScanning()
     override fun disconnect() = ble.disconnect()
     override fun readRssi() = ble.readRssi()
