@@ -30,11 +30,13 @@ import com.safeshade.data.PersonaMode
 import com.safeshade.data.SafetySettings
 import com.safeshade.data.UserRole
 import com.safeshade.ui.board.BoardPlate
+import com.safeshade.ui.board.ExpandableSection
 import com.safeshade.ui.board.Hairline
 import com.safeshade.ui.board.LampState
 import com.safeshade.ui.board.Seal
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.Way
+import com.safeshade.ui.board.WhyDisclosure
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.board
@@ -85,6 +87,21 @@ private val VolumeChoices = listOf(
  *
  * The sensitivity choices are the firmware's real impact thresholds, not
  * marketing tiers, which is why the copy can be specific about what changes.
+ *
+ * Fifteen controls do not all deserve the same weight. Sensitivity, whether a
+ * contact is called, and how long the countdown runs are the three a guardian
+ * comes back to — usually the morning after a false alarm — so they stay in
+ * the open. The siren level, the text fallback and the parental PIN are set
+ * during setup and then left alone for months, so they sit behind two
+ * labelled, counted disclosures. Nothing was removed: the trade is one tap on
+ * the rare settings against a screen where the common ones are visible without
+ * scrolling.
+ *
+ * One thing deliberately did *not* go behind a disclosure. Elderly mode raises
+ * a second alert of its own after three seconds of stillness, and nothing else
+ * in the app says so — a behaviour a guardian will experience is not an
+ * explanation they can choose to skip, so that line stays in the open while
+ * the mechanism behind it does not.
  */
 @Composable
 fun FallSettingsScreen(
@@ -149,10 +166,20 @@ fun FallSettingsScreen(
         Spacer(Modifier.height(Spacing.sm))
 
         if (fallDetectionOff) {
+            // The second half of this line is not a detail. Somebody who reads
+            // only "off in Pet mode" reasonably concludes the whole screen is
+            // dead and leaves, when in fact everything below it still fires on
+            // a held SOS button — so both facts stay in the open together.
             Note(
-                text = "Fall detection is off in ${mode.label} mode. An animal's normal " +
-                    "movement crosses every impact threshold, so leaving it on would mean an " +
-                    "alert every few minutes. The settings below still apply to the SOS button."
+                text = "Off in ${mode.label} mode. Everything below still applies to the SOS button."
+            )
+            Spacer(Modifier.height(Spacing.xs))
+            WhyDisclosure(
+                label = "Why it is off in ${mode.label} mode",
+                text = "An animal's normal movement crosses every impact threshold, so leaving " +
+                    "fall detection on would mean an alert every few minutes. The countdown, " +
+                    "who gets called and the siren all still run when the button on the device " +
+                    "is held."
             )
             Spacer(Modifier.height(Spacing.md))
         }
@@ -169,8 +196,24 @@ fun FallSettingsScreen(
             }
         }
 
-        Spacer(Modifier.height(Spacing.md))
-        Note(text = sensitivityFootnote(mode))
+        // Elderly mode raises an alert nobody chose here and nothing else in
+        // the app mentions. That is a behaviour, not an explanation of one, so
+        // it stays in the open even though the mechanism behind it does not —
+        // a guardian who is going to receive a second alert should not have to
+        // open a disclosure to find out it exists.
+        if (mode == PersonaMode.ELDERLY) {
+            Spacer(Modifier.height(Spacing.sm))
+            Note(text = "It also alerts a second time if nobody moves after an impact.")
+        }
+
+        // Each option already carries its own consequence as a `detail`, so
+        // what is left here is the mechanism behind all three — real, worth
+        // reading once, and not worth a paragraph above the choice every time.
+        Spacer(Modifier.height(Spacing.sm))
+        WhyDisclosure(
+            label = "How the device decides",
+            text = sensitivityFootnote(mode)
+        )
 
         Spacer(Modifier.height(Spacing.xl))
         SectionPlate(title = "After a fall")
@@ -218,104 +261,133 @@ fun FallSettingsScreen(
             }
         }
 
-        Spacer(Modifier.height(Spacing.md))
-        Note(
+        Spacer(Modifier.height(Spacing.sm))
+        Note(text = "The device waits five seconds of its own before this starts.")
+        Spacer(Modifier.height(Spacing.xs))
+        WhyDisclosure(
+            label = "Why there are two countdowns",
             text = "Two waits, one after the other. The device holds a detected fall for five " +
-                "seconds first — a double-click on the device in that time cancels it and nobody " +
-                "is told. Only then does this countdown start on the phone."
+                "seconds first — a double-click on the device in that time cancels it and " +
+                "nobody is told. Only then does this countdown start on the phone. Conflating " +
+                "the two is how people end up expecting a call sooner, or later, than it comes."
         )
 
+        // Everything from here down is set once, during setup, and then not
+        // looked at again for months. It is not less important — the siren is
+        // what brings a neighbour, and the text fallback is the only path that
+        // survives a dead Bluetooth link — but it is not what anybody came to
+        // this screen to change, and at equal weight it buried the two things
+        // that are. The section header's own count says how much is inside.
         Spacer(Modifier.height(Spacing.xl))
-        SectionPlate(title = "Siren")
+        SectionPlate(title = "Set once")
         Spacer(Modifier.height(Spacing.sm))
 
+        // One disclosure, not two. The siren level and the text fallback were
+        // separate sections and could have stayed separate, but a header
+        // reading "1" is a tap charged for nothing — a group has to be worth
+        // opening before hiding it is a favour to anybody.
         BoardPlate(modifier = Modifier.fillMaxWidth()) {
-            VolumeChoices.forEachIndexed { index, (level, name, blurb) ->
-                if (index > 0) Hairline()
-                OptionWay(
-                    name = name,
-                    detail = blurb,
-                    // Floats that have been through a percentage round-trip to
-                    // the device rarely come back exactly equal.
-                    selected = abs(settings.sosVolumeLevel - level) < 0.05f,
-                    onSelect = { onSosVolumeChange(level) }
+            ExpandableSection(
+                label = "How the alert is heard",
+                count = VolumeChoices.size + 1
+            ) {
+                Hairline()
+                VolumeChoices.forEachIndexed { index, (level, name, blurb) ->
+                    if (index > 0) Hairline()
+                    OptionWay(
+                        name = name,
+                        detail = blurb,
+                        // Floats that have been through a percentage round-trip
+                        // to the device rarely come back exactly equal.
+                        selected = abs(settings.sosVolumeLevel - level) < 0.05f,
+                        onSelect = { onSosVolumeChange(level) }
+                    )
+                }
+                Column(modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.md)) {
+                    Note(
+                        text = "The siren is what brings a person who is nearby. It sounds on " +
+                            "the device during an SOS and after an unanswered fall."
+                    )
+                }
+                Hairline()
+                Way(
+                    name = "Send a text as well",
+                    state = if (settings.smsFallbackEnabled) LampState.LIVE else LampState.OFF,
+                    stateLabel = if (settings.smsFallbackEnabled) "On" else "Off",
+                    detail = "Texts every contact with the last known location.",
+                    icon = Icons.Outlined.Sms,
+                    checked = settings.smsFallbackEnabled,
+                    onCheckedChange = onSmsFallbackChange
+                )
+                Column(modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.md)) {
+                    Note(
+                        text = "This needs permission to send messages, and it may cost " +
+                            "whatever your operator charges for an SMS. It is the only path " +
+                            "that still works when the phone and the device are out of range " +
+                            "of each other."
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.height(Spacing.lg))
+
+        // Opens itself when the PIN is already on, because at that point the
+        // reason to come back here is to check or change the number, and a
+        // guardian hunting for a PIN field behind a closed header is exactly
+        // the cost this pattern is supposed to avoid.
+        ExpandableSection(
+            label = "Parental controls",
+            count = if (settings.parentalControlsEnabled) 2 else 1,
+            initiallyOpen = settings.parentalControlsEnabled
+        ) {
+            Spacer(Modifier.height(Spacing.xs))
+            BoardPlate(modifier = Modifier.fillMaxWidth()) {
+                Way(
+                    name = "Require a PIN on the device",
+                    state = if (settings.parentalControlsEnabled) LampState.LIVE else LampState.OFF,
+                    stateLabel = if (settings.parentalControlsEnabled) "On" else "Off",
+                    detail = "Stops these settings being changed on the device itself.",
+                    checked = settings.parentalControlsEnabled,
+                    onCheckedChange = onParentalControlsChange
+                )
+            }
+
+            if (settings.parentalControlsEnabled) {
+                Spacer(Modifier.height(Spacing.lg))
+                PlateField(
+                    label = "PIN",
+                    value = settings.parentalPin,
+                    onValueChange = { onPinChange(it.filter(Char::isDigit)) },
+                    placeholder = "4 digits",
+                    helper = "Digits only. Four to six of them.",
+                    error = state.pinError,
+                    maxLength = 6,
+                    keyboardType = KeyboardType.NumberPassword,
+                    imeAction = ImeAction.Done
+                )
+                Spacer(Modifier.height(Spacing.sm))
+                // Shown rather than masked deliberately: this is the guardian's
+                // own phone, they are the person who needs to remember the
+                // number, and a PIN they cannot check is a PIN they will lock
+                // themselves out with. It is not a credential — it guards a
+                // settings menu.
+                Note(
+                    text = "Keep this somewhere you will find it. There is no way to read it " +
+                        "back off the device."
                 )
             }
         }
 
-        Spacer(Modifier.height(Spacing.md))
-        Note(
-            text = "The siren is what brings a person who is nearby. It sounds on the device " +
-                "during an SOS and after an unanswered fall."
-        )
-
+        // The honesty line stays in the open. A disclaimer somebody has to
+        // choose to open is a disclaimer that has not been given.
         Spacer(Modifier.height(Spacing.xl))
-        SectionPlate(title = "If Bluetooth is down")
-        Spacer(Modifier.height(Spacing.sm))
-
-        BoardPlate(modifier = Modifier.fillMaxWidth()) {
-            Way(
-                name = "Send a text as well",
-                state = if (settings.smsFallbackEnabled) LampState.LIVE else LampState.OFF,
-                stateLabel = if (settings.smsFallbackEnabled) "On" else "Off",
-                detail = "Texts every contact with the last known location.",
-                icon = Icons.Outlined.Sms,
-                checked = settings.smsFallbackEnabled,
-                onCheckedChange = onSmsFallbackChange
-            )
-        }
-
-        Spacer(Modifier.height(Spacing.md))
-        Note(
-            text = "This needs permission to send messages, and it may cost whatever your " +
-                "operator charges for an SMS. It is the only path that still works when the " +
-                "phone and the device are out of range of each other."
-        )
-
-        Spacer(Modifier.height(Spacing.xl))
-        SectionPlate(title = "Parental controls")
-        Spacer(Modifier.height(Spacing.sm))
-
-        BoardPlate(modifier = Modifier.fillMaxWidth()) {
-            Way(
-                name = "Require a PIN on the device",
-                state = if (settings.parentalControlsEnabled) LampState.LIVE else LampState.OFF,
-                stateLabel = if (settings.parentalControlsEnabled) "On" else "Off",
-                detail = "Stops these settings being changed on the device itself.",
-                checked = settings.parentalControlsEnabled,
-                onCheckedChange = onParentalControlsChange
-            )
-        }
-
-        if (settings.parentalControlsEnabled) {
-            Spacer(Modifier.height(Spacing.lg))
-            PlateField(
-                label = "PIN",
-                value = settings.parentalPin,
-                onValueChange = { onPinChange(it.filter(Char::isDigit)) },
-                placeholder = "4 digits",
-                helper = "Digits only. Four to six of them.",
-                error = state.pinError,
-                maxLength = 6,
-                keyboardType = KeyboardType.NumberPassword,
-                imeAction = ImeAction.Done
-            )
-            Spacer(Modifier.height(Spacing.sm))
-            // Shown rather than masked deliberately: this is the guardian's own
-            // phone, they are the person who needs to remember the number, and
-            // a PIN they cannot check is a PIN they will lock themselves out
-            // with. It is not a credential — it guards a settings menu.
-            Note(
-                text = "Keep this somewhere you will find it. There is no way to read it back " +
-                    "off the device."
-            )
-        }
-
-        Spacer(Modifier.height(Spacing.xl))
-        Note(
+        Note(text = "A second pair of eyes, not a guarantee.")
+        Spacer(Modifier.height(Spacing.xs))
+        WhyDisclosure(
+            label = "What it can miss",
             text = "Fall detection uses movement, so it can miss a slow slide to the floor and " +
-                "it can call a dropped bag a fall. Treat it as a second pair of eyes, not a " +
-                "guarantee."
+                "it can call a dropped bag a fall. Nothing here replaces somebody checking in."
         )
     }
 }

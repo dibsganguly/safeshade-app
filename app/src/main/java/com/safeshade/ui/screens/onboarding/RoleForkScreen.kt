@@ -2,7 +2,6 @@ package com.safeshade.ui.screens.onboarding
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -35,6 +34,7 @@ import com.safeshade.ui.board.ButtonWeight
 import com.safeshade.ui.board.Nameplate
 import com.safeshade.ui.board.PilotLamp
 import com.safeshade.ui.board.LampState
+import com.safeshade.ui.board.plateClickable
 import com.safeshade.ui.theme.Radius
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.Stroke
@@ -140,6 +140,7 @@ private fun RoleCard(
 
     Row(
         modifier = Modifier
+            .plateClickable(role = SemanticsRole.RadioButton, onClick = onClick)
             .fillMaxWidth()
             .clip(shape)
             .background(if (selected) colors.plate else colors.ground)
@@ -148,7 +149,6 @@ private fun RoleCard(
                 color = if (selected) colors.brass else colors.hairline,
                 shape = shape
             )
-            .clickable(role = SemanticsRole.RadioButton, onClick = onClick)
             .padding(Spacing.lg)
     ) {
         Icon(

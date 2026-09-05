@@ -3,7 +3,6 @@ package com.safeshade.ui.screens.circle
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -38,6 +37,7 @@ import com.safeshade.data.UserRole
 import com.safeshade.ui.board.LampState
 import com.safeshade.ui.board.Nameplate
 import com.safeshade.ui.board.PilotLamp
+import com.safeshade.ui.board.plateClickable
 import com.safeshade.ui.theme.Radius
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.Stroke
@@ -169,6 +169,7 @@ internal fun ChoicePlate(
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
+            .plateClickable(enabled = enabled, role = Role.RadioButton, onClick = onClick)
             .clip(shape)
             .background(if (selected) colors.plate else colors.ground)
             .border(
@@ -176,7 +177,6 @@ internal fun ChoicePlate(
                 color = if (selected) colors.brass else colors.hairline,
                 shape = shape
             )
-            .clickable(enabled = enabled, role = Role.RadioButton, onClick = onClick)
             .defaultMinSize(minHeight = Spacing.touchTarget)
             .padding(horizontal = Spacing.md, vertical = Spacing.sm)
             .semantics { stateDescription = if (selected) "Selected" else "Not selected" }

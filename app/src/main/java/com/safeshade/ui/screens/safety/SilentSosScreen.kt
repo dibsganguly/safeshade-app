@@ -15,7 +15,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.PhoneCallback
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -29,6 +28,7 @@ import com.safeshade.ui.board.LampState
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.StubMark
 import com.safeshade.ui.board.Way
+import com.safeshade.ui.board.WhyDisclosure
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.board
@@ -69,6 +69,12 @@ private val CallDelayChoices = listOf(10, 30, 60, 300)
  * making a safety judgement about their own situation, and a euphemism here
  * costs them accuracy. There is no reassurance in the wording and no promise
  * that either of these makes anybody safe.
+ *
+ * What changed is the length, not the honesty. Each section now opens with one
+ * sentence and keeps the fuller account behind a disclosure — with one
+ * deliberate exception: the warning that current firmware is *not* quiet about
+ * an SOS stays in the open, because a switch that does not do what its name
+ * says is the one thing on this screen nobody may be allowed to miss.
  */
 @Composable
 fun SilentSosScreen(
@@ -105,14 +111,18 @@ fun SilentSosScreen(
         SectionPlate(title = "Alert without a sound")
         Spacer(Modifier.height(Spacing.sm))
 
-        Note(
+        Note(text = "Hold the button on the device. Your contacts get your location.")
+        Spacer(Modifier.height(Spacing.xs))
+        WhyDisclosure(
+            label = "What happens when you hold it",
             text = "Holding the button on the device sends every emergency contact your last " +
                 "known location. There is no call to place and nothing to say out loud. " +
                 if (state.deviceSupportsSilentAlert) {
                     "The device stays dark and quiet while it does it, so somebody standing " +
                         "next to you sees you put a hand in your pocket and nothing more."
                 } else {
-                    "What it cannot do yet is stay quiet about it — see below."
+                    "What it cannot do yet is stay quiet about it — the line under the switch " +
+                        "says what the device actually does today."
                 }
         )
 
@@ -158,11 +168,20 @@ fun SilentSosScreen(
         }
 
         if (!state.deviceSupportsSilentAlert) {
+            // This one stays in the open, in the blunt form, and does not go
+            // behind a disclosure. A switch called Silent SOS that is not
+            // silent is the single most dangerous thing on this screen, and a
+            // warning somebody has to choose to open is a warning that has not
+            // been given.
             Spacer(Modifier.height(Spacing.sm))
-            Note(
-                text = "On the firmware currently on the device, an SOS always sounds the siren " +
-                    "and fills the screen. Until that changes, treat this switch as " +
-                    "representative — the alert goes out, but the device is not quiet about it."
+            Note(text = "Today the device is not actually quiet about it: the siren still sounds.")
+            Spacer(Modifier.height(Spacing.xs))
+            WhyDisclosure(
+                label = "What the device does today",
+                text = "On the firmware currently on the device, an SOS always sounds the " +
+                    "siren and fills the screen. Until that changes, treat this switch as " +
+                    "representative — the alert goes out to your contacts, but somebody " +
+                    "standing next to you will know you sent it."
             )
         }
 
@@ -170,10 +189,15 @@ fun SilentSosScreen(
         SectionPlate(title = "Stage a call")
         Spacer(Modifier.height(Spacing.sm))
 
-        Note(
-            text = "Your phone rings after the delay you pick, as though somebody were calling. " +
-                "Nobody is: there is no call and no connection, and it costs nothing. It is a " +
-                "reason to stand up and leave, nothing more. Nobody is alerted by this."
+        Note(text = "Your phone rings after the delay you pick. Nobody is calling.")
+        Spacer(Modifier.height(Spacing.xs))
+        WhyDisclosure(
+            label = "What a staged call is and is not",
+            text = "Your phone rings after the delay you pick, as though somebody were " +
+                "calling. Nobody is: there is no call and no connection, and it costs " +
+                "nothing. It is a reason to stand up and leave a room, a car or a " +
+                "conversation without explaining yourself — nothing more. Nobody is alerted " +
+                "by this, so it is not a substitute for the switch above."
         )
 
         Spacer(Modifier.height(Spacing.md))
@@ -211,12 +235,11 @@ fun SilentSosScreen(
             Column(modifier = Modifier.padding(Spacing.lg)) {
                 DetailLine("Shows as", state.callerName)
                 Spacer(Modifier.height(Spacing.xs))
-                Text(
+                WhyDisclosure(
+                    label = "Choosing a name",
                     text = "An ordinary name works better than an obvious excuse. The call " +
                         "rings with your normal ringtone, so leave your phone unmuted if you " +
-                        "want it heard.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colors.inkFaint
+                        "want it heard."
                 )
             }
         }

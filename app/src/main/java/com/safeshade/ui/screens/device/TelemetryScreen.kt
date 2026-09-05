@@ -37,6 +37,7 @@ import com.safeshade.ui.board.Hairline
 import com.safeshade.ui.board.LampState
 import com.safeshade.ui.board.Nameplate
 import com.safeshade.ui.board.Readout
+import com.safeshade.ui.board.ScreenHeader
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
@@ -70,6 +71,7 @@ data class TelemetryUiState(
 fun TelemetryScreen(
     state: TelemetryUiState,
     onReadSignal: () -> Unit,
+    onBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(0.dp)
 ) {
@@ -87,11 +89,7 @@ fun TelemetryScreen(
         verticalArrangement = Arrangement.spacedBy(Spacing.lg)
     ) {
         item("title") {
-            Text(
-                text = "Telemetry",
-                style = MaterialTheme.typography.displaySmall,
-                color = colors.ink
-            )
+            ScreenHeader(title = "Telemetry", onBack = onBack)
         }
 
         if (!hasData) {

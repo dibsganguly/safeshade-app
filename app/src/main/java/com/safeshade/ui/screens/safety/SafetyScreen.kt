@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Contacts
 import androidx.compose.material.icons.outlined.Fence
@@ -44,6 +46,7 @@ import com.safeshade.ui.board.LampState
 import com.safeshade.ui.board.Seal
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.Way
+import com.safeshade.ui.board.WhyDisclosure
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.board
@@ -87,6 +90,17 @@ data class SafetyUiState(
  * one thing on this screen someone might need while a person is on the floor
  * in front of them, and it must not require scrolling or a correct guess about
  * which row it is under.
+ *
+ * **Nothing here collapses, and that is a decision rather than an omission.**
+ * The pushed screens in this bank hide their rarely-touched controls behind
+ * `ExpandableSection`, and it is the right trade there: a control somebody
+ * changes once a year costs a tap. This screen is not a set of controls. Every
+ * row carries a lamp and a state word, and the row *is* the answer to the
+ * question the screen exists to ask — so collapsing one does not hide a
+ * setting, it hides a status. A guardian who cannot see at a glance that the
+ * contact list is empty, or that the device is outside every safe zone, has
+ * been given a shorter screen and a worse one. Length is the cost of a status
+ * board being readable in one pass, and it is worth paying here.
  */
 @Composable
 fun SafetyScreen(
@@ -102,7 +116,13 @@ fun SafetyScreen(
     onAutoCallChange: (Boolean) -> Unit,
     onSmsFallbackChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
-    contentPadding: PaddingValues = PaddingValues(0.dp)
+    contentPadding: PaddingValues = PaddingValues(0.dp),
+    /**
+     * Hoisted above the NavHost by SafeShadeApp so scroll position
+     * survives a tab switch. Defaulted so the previews still compile
+     * without one.
+     */
+    listState: LazyListState = rememberLazyListState()
 ) {
     val colors = MaterialTheme.board
     val subject = state.wearerName.ifBlank {
@@ -112,6 +132,7 @@ fun SafetyScreen(
     val locked = state.activeMode.isGuardianLocked
 
     LazyColumn(
+        state = listState,
         modifier = modifier
             .fillMaxSize()
             .background(colors.ground),
@@ -296,10 +317,20 @@ fun SafetyScreen(
         }
 
         item("footer") {
-            Note(
-                text = "Fall detection is a help, not a guarantee. It can miss a fall and it can " +
-                    "report one that did not happen. Nothing here replaces calling for help."
-            )
+            // The claim stays in the open; the elaboration does not. A
+            // disclaimer somebody has to choose to open is a disclaimer that
+            // has not been given.
+            Column {
+                Note(text = "All of this is a help, not a guarantee.")
+                Spacer(Modifier.height(Spacing.xs))
+                WhyDisclosure(
+                    label = "What this cannot do",
+                    text = "Fall detection can miss a fall and it can report one that did not " +
+                        "happen. Everything on this board depends on a charged device, a " +
+                        "reachable phone and somebody at the other end of a contact number. " +
+                        "Nothing here replaces calling for help."
+                )
+            }
         }
     }
 }

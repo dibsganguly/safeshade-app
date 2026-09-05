@@ -27,6 +27,7 @@ import com.safeshade.ui.board.ButtonWeight
 import com.safeshade.ui.board.Hairline
 import com.safeshade.ui.board.LampState
 import com.safeshade.ui.board.Nameplate
+import com.safeshade.ui.board.ScreenHeader
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.Way
 import com.safeshade.ui.theme.SafeShadeTheme
@@ -57,6 +58,7 @@ fun RoleScreen(
     onSelectRole: (UserRole) -> Unit,
     onConfirmRole: (UserRole) -> Unit,
     onCancelConfirm: () -> Unit,
+    onBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(0.dp)
 ) {
@@ -73,19 +75,12 @@ fun RoleScreen(
         verticalArrangement = Arrangement.spacedBy(Spacing.lg)
     ) {
         item("title") {
-            Column {
-                Text(
-                    text = "Your role",
-                    style = MaterialTheme.typography.displaySmall,
-                    color = colors.ink
-                )
-                Text(
-                    text = "This decides how the app talks to you. It does not change " +
-                        "what the device does.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = colors.inkMuted
-                )
-            }
+            ScreenHeader(
+                title = "Your role",
+                subtitle = "This decides how the app talks to you. It does not change " +
+                    "what the device does.",
+                onBack = onBack
+            )
         }
 
         item("heading") { SectionPlate(title = "Who is using this phone") }

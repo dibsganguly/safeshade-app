@@ -25,6 +25,7 @@ import com.safeshade.ui.board.ButtonWeight
 import com.safeshade.ui.board.Hairline
 import com.safeshade.ui.board.LampState
 import com.safeshade.ui.board.Nameplate
+import com.safeshade.ui.board.ScreenHeader
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.Way
 import com.safeshade.ui.theme.SafeShadeTheme
@@ -55,7 +56,7 @@ data class LightsUiState(
 fun LightsScreen(
     state: LightsUiState,
     onSelectPattern: (LedPattern) -> Unit,
-    onOpenDeviceOnly: () -> Unit,
+    onBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(0.dp)
 ) {
@@ -72,18 +73,11 @@ fun LightsScreen(
         verticalArrangement = Arrangement.spacedBy(Spacing.lg)
     ) {
         item("title") {
-            Column {
-                Text(
-                    text = "Lights",
-                    style = MaterialTheme.typography.displaySmall,
-                    color = colors.ink
-                )
-                Text(
-                    text = "The pattern the LED ring runs when it is on.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = colors.inkMuted
-                )
-            }
+            ScreenHeader(
+                title = "Lights",
+                subtitle = "The pattern the LED ring runs when it is on.",
+                onBack = onBack
+            )
         }
 
         // No queued-write promise here, unlike mode and settings. An LED
@@ -161,14 +155,6 @@ fun LightsScreen(
             }
         }
 
-        item("device-only-link") {
-            BoardButton(
-                label = "See all device-only settings",
-                onClick = onOpenDeviceOnly,
-                weight = ButtonWeight.QUIET,
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
     }
 }
 
@@ -195,7 +181,7 @@ private fun describe(pattern: LedPattern): String = when (pattern) {
 @Composable
 private fun LightsPreviewHost(state: LightsUiState) {
     Box(Modifier.background(MaterialTheme.board.ground)) {
-        LightsScreen(state = state, onSelectPattern = {}, onOpenDeviceOnly = {})
+        LightsScreen(state = state, onSelectPattern = {})
     }
 }
 

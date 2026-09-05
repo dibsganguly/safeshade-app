@@ -232,6 +232,7 @@ object AlertNotifier {
         val title = when (event.kind) {
             TripKind.FALL -> "Fall detected"
             TripKind.SOS -> "SOS pressed"
+            TripKind.PHONE_SOS -> "SOS sent from the phone"
             TripKind.MISSED_CHECKIN -> "Check-in missed"
             TripKind.ZONE_EXIT -> "Left a safe zone"
             TripKind.JOURNEY_OVERDUE -> "Journey overdue"

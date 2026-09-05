@@ -1,20 +1,31 @@
 package com.safeshade.ui.theme
 
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 
 /**
  * SafeShade colour system — the "Distribution Board" world.
  *
- * The governing rule, and the one most likely to be violated by accident:
- * **colour only ever means state.** Grounds, plates, rules and every piece of
- * type are achromatic. Teal, amber and red appear exclusively in pilot lamps,
- * seals and trip flags. If something is coloured, a reader is entitled to
- * assume it is telling them about a live circuit.
+ * There are two colour families here, and the line between them is drawn by
+ * **saturation, not hue**:
  *
- * Consequence for contributors: there is deliberately no "accent" token for
- * decoration, and no per-mode palette. Adaptive modes are distinguished by
- * icon and nameplate, never by hue — seven competing accents is exactly the
- * thing this system replaces.
+ *  - **State** is saturated. Teal, amber and red appear exclusively in pilot
+ *    lamps, bus ticks, seals, state words and trip surfaces. A saturated pixel
+ *    always means a reader is being told about a live circuit.
+ *  - **Decoration** is always desaturated — the six `accent*` tokens below sit
+ *    at 22% saturation against state's 55–75%. They carry identity, not status:
+ *    which section a row belongs to, which adaptive mode a card is, what an
+ *    illustration is made of.
+ *
+ * Saturation is the separator rather than a reserved set of hues because it
+ * survives a colourblind reader. Two greens that differ only in hue are one
+ * colour to a deuteranope; a vivid green and a dusty one are still two things.
+ *
+ * The earlier version of this file forbade decorative colour outright. That
+ * held the system together but made it read as cold and corporate across a
+ * whole app, which is a real cost on a product people open when they are
+ * worried. The saturation rule buys the warmth back without spending the
+ * meaning of a lit lamp.
  *
  * Hues derive from the brand emblem (docs/Logo/SafeShade Emblem Logo.png):
  * charcoal body, teal signal arcs, amber sun dot.
@@ -48,6 +59,43 @@ private val AttentionInkLight = Color(0xFF8A5300)
 private val AttentionInkDark = Color(0xFFFFC46B)
 private val TripInkLight = Color(0xFFB3151A)
 private val TripInkDark = Color(0xFFFF8A8D)
+
+// ============================================
+// DECORATIVE ACCENTS — identity, never status
+// ============================================
+/**
+ * Six peers, not a scale.
+ *
+ * Each was solved for rather than picked: at a fixed 22% saturation, lightness
+ * was walked until the value cleared 4.5:1 against *both* its theme's plate and
+ * its ground. That is the text floor, comfortably past the 3:1 a 20dp icon or a
+ * 2dp rule needs, so any of these can tint a glyph, draw a rule, or carry a
+ * label without a second look.
+ *
+ * They are also within 1.35:1 of each other, which is the point: they must read
+ * as six different things at the same weight, not as six steps of emphasis.
+ * Measured light / dark against plate and ground respectively —
+ * sage 4.92/4.50 and 4.60/5.56, sky 4.93/4.52 and 4.53/5.48, lilac 4.95/4.54
+ * and 4.54/5.49, clay 4.91/4.50 and 4.52/5.46, sand 4.94/4.53 and 4.54/5.48,
+ * moss 4.92/4.50 and 4.55/5.50.
+ *
+ * Used at full strength for icons, rules and identity type; used at low alpha
+ * (0.10–0.18) as a wash behind a card, where the normal ink tokens still apply
+ * on top. There is deliberately no `onAccent` token — a wash that needed one
+ * would be strong enough to be mistaken for a state fill.
+ */
+private val SageLight = Color(0xFF4C7750)
+private val SageDark = Color(0xFF639C68)
+private val SkyLight = Color(0xFF586F89)
+private val SkyDark = Color(0xFF7A90AA)
+private val LilacLight = Color(0xFF7A6299)
+private val LilacDark = Color(0xFF9986B2)
+private val ClayLight = Color(0xFF896558)
+private val ClayDark = Color(0xFFA98679)
+private val SandLight = Color(0xFF7A6B4E)
+private val SandDark = Color(0xFF9E8C67)
+private val MossLight = Color(0xFF5D744A)
+private val MossDark = Color(0xFF7A9760)
 
 // ============================================
 // LIGHT — the panel in a lit room
@@ -117,9 +165,45 @@ data class BoardColors(
     val inkAttention: Color,
     val inkTrip: Color,
 
+    /**
+     * Decorative identity. Named for what they label, not for their hue, so a
+     * later retune cannot leave the codebase calling a blue token "green".
+     *
+     * Never legal on a lamp, a bus tick, a state word, a seal or a trip
+     * surface — those are state, and state is saturated.
+     */
+    val accentSage: Color,
+    val accentSky: Color,
+    val accentLilac: Color,
+    val accentClay: Color,
+    val accentSand: Color,
+    val accentMoss: Color,
+
     /** True when this is the dark resolution — for the few genuinely asymmetric decisions. */
     val isDark: Boolean
 )
+
+/** The decorative family as an ordered list, for anything that assigns one per item. */
+val BoardColors.accents: List<Color>
+    get() = listOf(accentSage, accentSky, accentLilac, accentClay, accentSand, accentMoss)
+
+/**
+ * The decorative accent in force for this part of the app.
+ *
+ * Ambient rather than a parameter on every component, because the alternative
+ * is passing an accent to each of forty `SectionPlate` calls and a hundred
+ * `Way`s, and the first person to add a section without one leaves a grey rule
+ * in a coloured screen. Colour that identifies an *area* belongs to the area,
+ * not to each thing inside it.
+ *
+ * Set once per destination (see the nav graph), overridden inside a screen only
+ * where a section genuinely belongs to a different area than the screen around
+ * it — a medical block inside a device screen, say.
+ *
+ * Null means achromatic, which stays the correct answer for anything on a
+ * safety path: a fall countdown or a trip banner takes no decorative colour.
+ */
+val LocalBoardAccent = staticCompositionLocalOf<Color?> { null }
 
 val LightBoardColors = BoardColors(
     ground = BoneGround,
@@ -137,6 +221,12 @@ val LightBoardColors = BoardColors(
     inkLive = LiveInkLight,
     inkAttention = AttentionInkLight,
     inkTrip = TripInkLight,
+    accentSage = SageLight,
+    accentSky = SkyLight,
+    accentLilac = LilacLight,
+    accentClay = ClayLight,
+    accentSand = SandLight,
+    accentMoss = MossLight,
     isDark = false
 )
 
@@ -156,5 +246,11 @@ val DarkBoardColors = BoardColors(
     inkLive = LiveInkDark,
     inkAttention = AttentionInkDark,
     inkTrip = TripInkDark,
+    accentSage = SageDark,
+    accentSky = SkyDark,
+    accentLilac = LilacDark,
+    accentClay = ClayDark,
+    accentSand = SandDark,
+    accentMoss = MossDark,
     isDark = true
 )

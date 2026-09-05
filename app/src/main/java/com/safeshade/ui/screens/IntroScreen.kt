@@ -27,35 +27,37 @@ import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
+import androidx.compose.ui.unit.sp
 import com.safeshade.R
+import com.safeshade.ui.theme.BoardSans
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.board
 
 /**
  * The opening.
  *
- * A single continuous move: the emblem arrives alone in the centre, settles,
- * then slides left to make room while the wordmark wipes in beside it and the
- * tagline rises underneath. One idea, performed once, in about a second and
- * three quarters.
+ * One continuous move: the emblem arrives alone in the centre, holds long
+ * enough to be seen as itself, then travels left to make room while "Safe" and
+ * "Shade" rise into place beside it, stacked — the lockup from
+ * docs/Logo/SafeShade Full Logo.png, assembling. The tagline plate settles
+ * underneath last.
  *
- * The brevity is the design constraint, not a compromise. This is a safety app;
+ * The emblem is the *same element* throughout rather than a crossfade between
+ * two arrangements. That is the whole idea: you watch one mark move and the
+ * name appear in the space it vacates, which reads as a logo assembling itself
+ * rather than as two slides.
+ *
+ * The brevity is a design constraint, not a compromise. This is a safety app;
  * somebody opening it may be opening it because something is wrong, and an
  * intro they have to sit through is exactly the wrong thing to put between them
- * and the board. So it runs on cold start only, it is short, and every stage
- * overlaps the next rather than waiting for it.
- *
- * The wordmark arrives as a left-to-right wipe rather than a fade because the
- * emblem is *moving* left to right out of its way — the reveal reads as the
- * logo uncovering the name, which is one gesture instead of two unrelated ones.
+ * and the board. So it runs on cold start only, it lasts about two seconds, and
+ * every stage overlaps the next rather than queueing behind it.
  */
 @Composable
 fun IntroScreen(
@@ -65,10 +67,10 @@ fun IntroScreen(
     val colors = MaterialTheme.board
     val isStatic = LocalInspectionMode.current
 
-    // A single 0..1 clock. Every element below is a window on it, which is what
-    // keeps the stages overlapping instead of running as a queue of separate
-    // animations with visible seams between them.
-    var t by remember { mutableFloatStateOf(if (isStatic) 0.75f else 0f) }
+    // A single 0..1 clock. Every element below is a window onto it, which is
+    // what keeps the stages overlapping instead of running as a queue of
+    // separate animations with visible seams between them.
+    var t by remember { mutableFloatStateOf(if (isStatic) 0.85f else 0f) }
 
     LaunchedEffect(Unit) {
         if (isStatic) return@LaunchedEffect
@@ -85,11 +87,20 @@ fun IntroScreen(
     }
 
     // Stage windows, in fractions of the whole.
-    val emblemIn = window(t, 0.00f, 0.28f, Settle)
-    val slide = window(t, 0.30f, 0.62f, Glide)
-    val wipe = window(t, 0.36f, 0.68f, Glide)
-    val tagline = window(t, 0.58f, 0.80f, FastOutSlowInEasing)
-    val exit = window(t, 0.90f, 1.00f, LinearEasing)
+    val emblemIn = window(t, 0.00f, 0.26f, Settle)
+    val slide = window(t, 0.30f, 0.58f, Glide)
+    // The two words are staggered rather than simultaneous. "Safe" then "Shade"
+    // is how the name is read, and letting the second follow the first by a
+    // beat makes the lockup assemble in reading order.
+    //
+    // Both start only once the emblem is most of the way out of their space.
+    // An earlier version overlapped them with the travel, and the mark passed
+    // straight through the letters on its way past — the one thing a logo
+    // animation must not do to its own logotype.
+    val safeIn = window(t, 0.52f, 0.72f, Rise)
+    val shadeIn = window(t, 0.58f, 0.78f, Rise)
+    val tagline = window(t, 0.70f, 0.88f, FastOutSlowInEasing)
+    val exit = window(t, 0.92f, 1.00f, LinearEasing)
 
     Box(
         modifier = modifier
@@ -101,63 +112,105 @@ fun IntroScreen(
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 // The emblem starts centred under the whole lockup and travels
-                // left as the name appears; half the wordmark's width is
-                // exactly the distance that leaves the pair centred at rest.
+                // left as the name appears. Half the wordmark's width plus the
+                // gap is exactly the distance that leaves the assembled pair
+                // centred at rest, so the mark never has to correct itself.
                 Image(
                     painter = painterResource(R.drawable.splash_emblem),
                     contentDescription = null,
                     modifier = Modifier
-                        .offset(x = (WORDMARK_W / 2) * (1f - slide))
-                        .size(72.dp)
-                        .scale(0.82f + 0.18f * emblemIn)
+                        .offset(x = ((WORDMARK_W + Spacing.md) / 2) * (1f - slide))
+                        .size(112.dp)
+                        .scale(0.80f + 0.20f * emblemIn)
                         .alpha(emblemIn)
                 )
 
                 Spacer(Modifier.width(Spacing.md * slide))
 
-                Box(
-                    modifier = Modifier
-                        .width(WORDMARK_W * slide)
-                        // A wipe, not a fade: the name is uncovered by the
-                        // emblem's own movement.
-                        .drawWithContent {
-                            clipRect(right = size.width * wipe) { this@drawWithContent.drawContent() }
-                        }
+                // Stacked and left-aligned, matching the supplied full logo —
+                // not one word on a line. Tight leading and a heavy weight are
+                // what make two short words read as a single mark instead of as
+                // two pieces of running text.
+                //
+                // Fixed width, not `WORDMARK_W * slide`. Animating the width
+                // clipped the words as they appeared, so "Shade" spent the
+                // middle of the animation reading as "Shad". The words are
+                // revealed by their own alpha and rise instead, and the layout
+                // underneath never moves.
+                Column(
+                    horizontalAlignment = Alignment.Start,
+                    modifier = Modifier.width(WORDMARK_W)
                 ) {
-                    Text(
-                        text = "SafeShade",
-                        style = MaterialTheme.typography.displayMedium,
-                        color = colors.ink,
-                        maxLines = 1
-                    )
+                    WordmarkLine("Safe", safeIn, colors.ink)
+                    WordmarkLine("Shade", shadeIn, colors.ink)
                 }
             }
 
-            Spacer(Modifier.height(Spacing.sm))
+            Spacer(Modifier.height(Spacing.xl))
 
-            Text(
-                text = "Your everything safety companion",
-                style = MaterialTheme.typography.bodyMedium,
-                color = colors.inkMuted,
+            // The supplied tagline plate rather than app type. It is a fixed
+            // piece of brand artwork with its own amber-and-teal colouring on
+            // its own dark pill, and re-setting it in Archivo would produce a
+            // near-miss of something the brand already defines exactly.
+            Image(
+                painter = painterResource(R.drawable.brand_tagline),
+                contentDescription = "Your everything safety companion",
                 modifier = Modifier
+                    .width(TAGLINE_W)
                     .alpha(tagline)
                     // Rises the last few pixels into place rather than simply
                     // appearing, so it reads as settling under the lockup.
-                    .offset(y = (8.dp) * (1f - tagline))
+                    .offset(y = 10.dp * (1f - tagline))
             )
         }
     }
 }
 
-private const val TOTAL_MS = 1850
+/**
+ * One word of the wordmark.
+ *
+ * Each rises into place behind a clip of its own height, so it reads as being
+ * revealed by the lockup assembling rather than fading in from nowhere.
+ */
+@Composable
+private fun WordmarkLine(
+    text: String,
+    progress: Float,
+    color: androidx.compose.ui.graphics.Color
+) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.displayMedium.copy(
+            fontFamily = BoardSans,
+            // Archivo's variable weight axis runs to 900 and the family carries
+            // 800 and 900 for exactly this. A logotype wants more weight than
+            // any heading in the app, or it reads as a large heading.
+            fontWeight = FontWeight.W800,
+            fontSize = 38.sp,
+            lineHeight = 40.sp,
+            letterSpacing = (-0.03).em
+        ),
+        color = color,
+        maxLines = 1,
+        modifier = Modifier
+            .alpha(progress)
+            .offset(y = 14.dp * (1f - progress))
+    )
+}
+
+private const val TOTAL_MS = 2100
 
 /** Arrives with a little weight and stops dead, rather than easing to nothing. */
 private val Settle: Easing = CubicBezierEasing(0.16f, 1.0f, 0.30f, 1.0f)
 
-/** The travel and the wipe share one curve so they read as one movement. */
+/** The emblem's travel. Decisive out, soft landing. */
 private val Glide: Easing = CubicBezierEasing(0.65f, 0f, 0.20f, 1f)
 
-private val WORDMARK_W = 196.dp
+/** How each word comes up into its slot. */
+private val Rise: Easing = CubicBezierEasing(0.22f, 1f, 0.36f, 1f)
+
+private val WORDMARK_W = 152.dp
+private val TAGLINE_W = 260.dp
 
 /** Maps the global clock onto one stage's own 0..1, eased. */
 private fun window(t: Float, from: Float, to: Float, easing: Easing): Float {

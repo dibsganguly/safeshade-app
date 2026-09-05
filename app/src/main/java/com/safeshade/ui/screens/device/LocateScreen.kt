@@ -40,6 +40,7 @@ import com.safeshade.ui.board.LampState
 import com.safeshade.ui.board.Nameplate
 import com.safeshade.ui.board.PilotLamp
 import com.safeshade.ui.board.Readout
+import com.safeshade.ui.board.ScreenHeader
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.theme.Radius
 import com.safeshade.ui.theme.SafeShadeTheme
@@ -98,6 +99,7 @@ fun LocateScreen(
     onRing: () -> Unit,
     onRingStopAcknowledged: () -> Unit,
     onOpenLastKnownLocation: () -> Unit,
+    onBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(0.dp)
 ) {
@@ -114,11 +116,7 @@ fun LocateScreen(
         verticalArrangement = Arrangement.spacedBy(Spacing.lg)
     ) {
         item("title") {
-            Text(
-                text = "Find the device",
-                style = MaterialTheme.typography.displaySmall,
-                color = colors.ink
-            )
+            ScreenHeader(title = "Find the device", onBack = onBack)
         }
 
         // ---------- (a) Ring ----------

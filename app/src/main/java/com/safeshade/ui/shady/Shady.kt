@@ -212,7 +212,7 @@ private fun DrawScope.drawShady(
     val shade = if (dim) SkinDimShade else SkinShade
 
     drawAntenna(s, mood, phase, stalkInk)
-    if (mood != ShadyMood.OFFLINE) drawLegs(s, mood, phase, skin, shade)
+    if (mood != ShadyMood.OFFLINE) drawLegs(s, mood, phase, skin, shade, pose)
     drawHands(s, mood, phase, skin, shade, pose)
     drawBody(s, skin, shade)
     drawFace(s, mood, phase, breath, pose)
@@ -295,13 +295,21 @@ private fun DrawScope.drawHands(
     drawCircle(skin, radius = r, center = Offset(rightX, rightY + wave))
 }
 
-private fun DrawScope.drawLegs(s: Float, mood: ShadyMood, phase: Float, skin: Color, shade: Color) {
+private fun DrawScope.drawLegs(
+    s: Float,
+    mood: ShadyMood,
+    phase: Float,
+    skin: Color,
+    shade: Color,
+    pose: ShadyPose
+) {
     val kick = if (mood == ShadyMood.WATCHING) sin(phase * 4f * PI).toFloat() * s * 0.020f else 0f
+    val swing = pose.legSwing * s
     val w = s * 0.115f
     val h = s * 0.105f
     val r = CornerRadius(s * 0.055f, s * 0.055f)
 
-    listOf(s * 0.295f to kick, s * 0.590f to -kick).forEach { (x, offset) ->
+    listOf(s * 0.295f to kick + swing, s * 0.590f to -kick - swing).forEach { (x, offset) ->
         drawRoundRect(shade, Offset(x, s * L.LEG_Y + offset + s * 0.012f), Size(w, h), r)
         drawRoundRect(skin, Offset(x, s * L.LEG_Y + offset), Size(w, h), r)
     }
@@ -319,11 +327,14 @@ private fun DrawScope.drawFace(
     val pupil = s * L.PUPIL
 
     val gaze = when {
+        pose.gazeX != 0f -> pose.gazeX * outer
         pose.eyes != null -> 0f
         mood == ShadyMood.SEARCHING -> sin(phase * 2f * PI).toFloat() * outer * 0.6f
         mood == ShadyMood.CONCERNED -> -outer * 0.28f
         else -> breath * outer * 0.12f
     }
+
+    val gazeDrop = pose.gazeY * outer
 
     val blinking = pose.eyes == null &&
         mood != ShadyMood.RESTING &&
@@ -352,6 +363,35 @@ private fun DrawScope.drawFace(
                 }
                 drawPath(lid, Feature, style = Stroke(width = s * 0.022f, cap = StrokeCap.Round))
             }
+            EyeStyle.SLEEPY -> {
+                // Half-shut is a short eye under a heavy lid line rather than
+                // a full eye with its top masked off: masking would need the
+                // body colour down here, which changes on the dim palette.
+                drawOval(
+                    color = EyeWhite,
+                    topLeft = Offset(cx - outer * 0.95f, eyeY - outer * 0.12f),
+                    size = Size(outer * 1.9f, outer * 1.05f)
+                )
+                drawCircle(
+                    Feature,
+                    radius = pupil * 0.85f,
+                    center = Offset(cx + gaze, eyeY + gazeDrop + outer * 0.34f)
+                )
+                val lid = Path().apply {
+                    moveTo(cx - outer * 1.0f, eyeY - outer * 0.08f)
+                    quadraticTo(cx, eyeY - outer * 0.62f, cx + outer * 1.0f, eyeY - outer * 0.08f)
+                }
+                drawPath(lid, Feature, style = Stroke(width = s * 0.026f, cap = StrokeCap.Round))
+            }
+            EyeStyle.SCRUNCH -> {
+                // A caret, not an arc: CLOSED is restful, this is effortful.
+                val squeeze = Path().apply {
+                    moveTo(cx - outer * 0.95f, eyeY + outer * 0.45f)
+                    lineTo(cx, eyeY - outer * 0.42f)
+                    lineTo(cx + outer * 0.95f, eyeY + outer * 0.45f)
+                }
+                drawPath(squeeze, Feature, style = Stroke(width = s * 0.026f, cap = StrokeCap.Round))
+            }
             EyeStyle.STAR -> drawStarEye(cx, eyeY, outer)
             EyeStyle.DIZZY -> drawSpiralEye(cx, eyeY, outer, s)
             EyeStyle.WIDE, EyeStyle.NORMAL -> {
@@ -362,7 +402,8 @@ private fun DrawScope.drawFace(
                     topLeft = Offset(cx - outer * scale, eyeY - outer * 1.2f * scale),
                     size = Size(outer * 2f * scale, outer * 2.4f * scale)
                 )
-                val py = eyeY + if (mood == ShadyMood.CONCERNED && pose.eyes == null) outer * 0.25f else 0f
+                val py = eyeY + gazeDrop +
+                    if (mood == ShadyMood.CONCERNED && pose.eyes == null) outer * 0.25f else 0f
                 drawCircle(Feature, radius = pupil * pupilScale, center = Offset(cx + gaze, py))
                 drawCircle(
                     EyeWhite,
@@ -374,25 +415,46 @@ private fun DrawScope.drawFace(
         if (index == 0) Unit
     }
 
-    // Eyebrows appear only for concern. They are the strongest signal on the
-    // face, so they stay rare — used everywhere they would stop meaning anything.
-    if (mood == ShadyMood.CONCERNED && pose.eyes == null) {
-        val browY = eyeY - outer * 1.85f
-        drawLine(
-            Feature,
-            Offset(s * L.EYE_L - outer * 0.95f, browY + outer * 0.40f),
-            Offset(s * L.EYE_L + outer * 0.65f, browY),
-            strokeWidth = s * 0.024f, cap = StrokeCap.Round
-        )
-        drawLine(
-            Feature,
-            Offset(s * L.EYE_R + outer * 0.95f, browY + outer * 0.40f),
-            Offset(s * L.EYE_R - outer * 0.65f, browY),
-            strokeWidth = s * 0.024f, cap = StrokeCap.Round
-        )
+    // Eyebrows are the strongest signal on the face, so they stay rare — worn
+    // everywhere, they would stop meaning anything. A pose that asks for brows
+    // replaces the mood's rather than stacking a second pair on top of them.
+    when {
+        pose.browRaise != 0f -> drawRaisedBrows(s, eyeY, outer, pose.browRaise)
+        mood == ShadyMood.CONCERNED && pose.eyes == null -> drawWorriedBrows(s, eyeY, outer)
     }
 
     drawMouth(s, pose.mouth ?: defaultMouth(mood))
+}
+
+private fun DrawScope.drawWorriedBrows(s: Float, eyeY: Float, outer: Float) {
+    val browY = eyeY - outer * 1.85f
+    drawLine(
+        Feature,
+        Offset(s * L.EYE_L - outer * 0.95f, browY + outer * 0.40f),
+        Offset(s * L.EYE_L + outer * 0.65f, browY),
+        strokeWidth = s * 0.024f, cap = StrokeCap.Round
+    )
+    drawLine(
+        Feature,
+        Offset(s * L.EYE_R + outer * 0.95f, browY + outer * 0.40f),
+        Offset(s * L.EYE_R - outer * 0.65f, browY),
+        strokeWidth = s * 0.024f, cap = StrokeCap.Round
+    )
+}
+
+private fun DrawScope.drawRaisedBrows(s: Float, eyeY: Float, outer: Float, raise: Float) {
+    // The two brows lift by different amounts. A matched pair reads as plain
+    // surprise; the mismatch is what makes it read as unconvinced.
+    listOf(s * L.EYE_L to 1.35f, s * L.EYE_R to 0.55f).forEach { (cx, share) ->
+        val y = eyeY - outer * (1.55f + raise * share)
+        drawPath(
+            Path().apply {
+                moveTo(cx - outer * 0.85f, y + outer * 0.22f)
+                quadraticTo(cx, y - outer * 0.30f, cx + outer * 0.85f, y + outer * 0.22f)
+            },
+            Feature, style = Stroke(width = s * 0.024f, cap = StrokeCap.Round)
+        )
+    }
 }
 
 private fun DrawScope.drawStarEye(cx: Float, cy: Float, outer: Float) {
@@ -466,6 +528,17 @@ private fun DrawScope.drawMouth(s: Float, style: MouthStyle) {
                 quadraticTo(cx, y - s * 0.022f, cx + w, y + s * 0.030f)
             }, Feature, style = stroke
         )
+        MouthStyle.GASP -> drawOval(
+            color = Feature,
+            topLeft = Offset(cx - s * 0.026f, y - s * 0.006f),
+            size = Size(s * 0.052f, s * 0.074f)
+        )
+        MouthStyle.SMIRK -> drawPath(
+            Path().apply {
+                moveTo(cx - w * 0.95f, y + s * 0.006f)
+                quadraticTo(cx + w * 0.10f, y + s * 0.050f, cx + w * 1.05f, y - s * 0.016f)
+            }, Feature, style = stroke
+        )
         MouthStyle.WOBBLE -> drawPath(
             Path().apply {
                 moveTo(cx - w, y + s * 0.012f)
@@ -501,6 +574,26 @@ private fun DrawScope.drawFlourish(s: Float, flourish: Flourish, phase: Float, i
                 radius = s * (0.014f + 0.004f * i),
                 center = Offset(s * (0.70f + 0.055f * i), s * (0.15f - 0.030f * i))
             )
+        }
+        Flourish.PUFF -> {
+            // The one flourish drawn at the feet rather than above the head:
+            // kicked-up dust floating over the antenna would read as an idea
+            // rather than as a landing.
+            val groundY = s * 0.94f
+            listOf(-1f, 1f).forEach { dir ->
+                repeat(2) { i ->
+                    val r = s * (0.052f + 0.028f * i)
+                    val cxp = s * 0.5f + dir * s * (0.20f + 0.11f * i)
+                    drawPath(
+                        Path().apply {
+                            moveTo(cxp - r * 0.8f, groundY)
+                            quadraticTo(cxp, groundY - r, cxp + r * 0.8f, groundY)
+                        },
+                        ink.copy(alpha = 0.50f - 0.18f * i),
+                        style = Stroke(width = s * 0.016f, cap = StrokeCap.Round)
+                    )
+                }
+            }
         }
         Flourish.SWIRL -> {
             val path = Path()

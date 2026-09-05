@@ -72,7 +72,6 @@ object Routes {
     const val DEVICE = "device"
     const val DEVICE_MODE = "device/mode"
     const val DEVICE_SETTINGS = "device/settings"
-    const val DEVICE_ONBOARD = "device/onboard"
     const val DEVICE_LOCATE = "device/locate"
     const val DEVICE_TELEMETRY = "device/telemetry"
     const val DEVICE_LIGHTS = "device/lights"
@@ -81,7 +80,6 @@ object Routes {
 
     /** Reached from the Board's top bar, not from the bottom bar. */
     const val SETTINGS = "settings"
-    const val SETTINGS_APPEARANCE = "settings/appearance"
     const val SETTINGS_ROLE = "settings/role"
     const val SETTINGS_RELIABILITY = "settings/reliability"
     const val SETTINGS_ABOUT = "settings/about"

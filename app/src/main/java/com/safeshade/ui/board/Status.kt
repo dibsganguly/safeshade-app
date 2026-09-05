@@ -271,12 +271,12 @@ fun EmptyBay(
             // state is the one place that reads worst — it is mostly frame
             // already.
             Text(
-                text = actionLabel.uppercase(),
+                text = actionLabel,
                 style = MaterialTheme.boardType.nameplate,
                 color = colors.ink,
                 modifier = Modifier
+                    .plateClickable(role = Role.Button, onClick = onAction)
                     .clip(RoundedCornerShape(Radius.tight))
-                    .clickable(role = Role.Button, onClick = onAction)
                     .padding(horizontal = Spacing.md, vertical = Spacing.sm)
             )
         }

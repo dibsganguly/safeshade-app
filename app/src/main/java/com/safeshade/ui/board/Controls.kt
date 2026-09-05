@@ -111,15 +111,28 @@ fun BoardButton(
             .defaultMinSize(minHeight = 56.dp)
             .padding(horizontal = Spacing.lg, vertical = Spacing.md)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        // The icon sits with the *label*, not with the button, which is what
+        // keeps it level with the first line of type when a supporting line is
+        // present. Top-aligned within that row so a label that wraps to two
+        // lines does not drag the glyph down to the middle of the block it
+        // labels.
+        Row(verticalAlignment = Alignment.Top) {
             if (icon != null) {
-                Icon(icon, contentDescription = null, tint = content, modifier = Modifier.size(18.dp))
+                Icon(
+                    icon,
+                    contentDescription = null,
+                    tint = content,
+                    // Optical centring against the first line's cap height. A
+                    // flush top edge sits visibly high next to text.
+                    modifier = Modifier.padding(top = 1.dp).size(18.dp)
+                )
                 Spacer(Modifier.width(Spacing.sm))
             }
             Text(
-                text = label.uppercase(),
+                text = label,
                 style = MaterialTheme.boardType.nameplate,
-                color = content
+                color = content,
+                textAlign = TextAlign.Center
             )
         }
         if (supporting != null) {

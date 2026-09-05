@@ -28,6 +28,7 @@ import com.safeshade.ui.board.BoardPlate
 import com.safeshade.ui.board.Hairline
 import com.safeshade.ui.board.Nameplate
 import com.safeshade.ui.board.Readout
+import com.safeshade.ui.board.ScreenHeader
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
@@ -74,6 +75,7 @@ data class AboutUiState(
 @Composable
 fun AboutScreen(
     state: AboutUiState,
+    onBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(0.dp)
 ) {
@@ -89,6 +91,10 @@ fun AboutScreen(
         ),
         verticalArrangement = Arrangement.spacedBy(Spacing.lg)
     ) {
+        item("title") {
+            ScreenHeader(title = "About", onBack = onBack)
+        }
+
         item("logo") {
             BoardPlate(modifier = Modifier.fillMaxWidth()) {
                 Column(

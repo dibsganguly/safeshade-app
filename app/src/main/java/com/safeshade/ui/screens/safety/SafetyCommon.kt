@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -17,10 +16,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -29,13 +24,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.semantics.clearAndSetSemantics
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.safeshade.ui.board.LampState
 import com.safeshade.ui.board.Nameplate
+import com.safeshade.ui.board.ScreenHeader
+import com.safeshade.ui.board.ScreenTier
 import com.safeshade.ui.board.Way
 import com.safeshade.ui.theme.Radius
 import com.safeshade.ui.theme.Spacing
@@ -57,9 +52,9 @@ import java.time.format.FormatStyle
  * screen has to read before it can start.
  *
  * Nothing in this file introduces a new card, button, switch or row — those
- * come from the kit. What is here is the two gaps the kit genuinely does not
- * cover (a pushed-screen header, and a text input) plus small formatting
- * helpers that would otherwise be copy-pasted across nine files and drift.
+ * come from the kit. What is left here is one genuine gap (a text input), a
+ * thin adapter onto the kit's shared header, and small formatting helpers that
+ * would otherwise be copy-pasted across nine files and drift.
  */
 
 // ============================================
@@ -69,9 +64,19 @@ import java.time.format.FormatStyle
 /**
  * The top of a Safety screen.
  *
+ * This used to draw its own row at `headlineSmall`, which is how Safety ended
+ * up opening one size smaller than Device and Settings — nobody chose that,
+ * it just happened one screen at a time. It is now a thin adapter onto
+ * [ScreenHeader] so the whole app converges on one heading treatment, and it
+ * survives only so that ten call sites in this bank do not have to change
+ * shape to say the same thing.
+ *
  * [onBack] is null for the hub, which is a bottom-bar destination and has
  * nowhere to go back to. Every pushed screen passes one — a Safety screen a
- * worried person cannot get out of is its own small emergency.
+ * worried person cannot get out of is its own small emergency. That is exactly
+ * why the tier can be inferred from it rather than asked for: in this bank,
+ * having nowhere to go back to and being a tab root are the same fact, so a
+ * separate tier argument would only be a second chance to get it wrong.
  */
 @Composable
 internal fun PanelHeader(
@@ -80,39 +85,13 @@ internal fun PanelHeader(
     subtitle: String? = null,
     onBack: (() -> Unit)? = null
 ) {
-    val colors = MaterialTheme.board
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = modifier
-            .fillMaxWidth()
-            .defaultMinSize(minHeight = Spacing.touchTarget)
-    ) {
-        if (onBack != null) {
-            IconButton(onClick = onBack) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                    contentDescription = "Back",
-                    tint = colors.inkMuted
-                )
-            }
-            Spacer(Modifier.width(Spacing.xs))
-        }
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.headlineSmall,
-                color = colors.ink,
-                modifier = Modifier.semantics { heading() }
-            )
-            if (subtitle != null) {
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = colors.inkMuted
-                )
-            }
-        }
-    }
+    ScreenHeader(
+        title = title,
+        modifier = modifier,
+        subtitle = subtitle,
+        onBack = onBack,
+        tier = if (onBack == null) ScreenTier.ROOT else ScreenTier.PUSHED
+    )
 }
 
 // ============================================
@@ -120,11 +99,21 @@ internal fun PanelHeader(
 // ============================================
 
 /**
- * A line of explanation.
+ * One short line of orientation.
  *
- * Used heavily and on purpose. Every switch on these screens changes what
- * happens to a person in an emergency, and a toggle whose consequence is not
- * spelled out is a toggle nobody dares to touch.
+ * It used to be a paragraph, and there used to be eight of them on a screen.
+ * The instinct behind that was right — every switch here changes what happens
+ * to a person in an emergency, and a toggle whose consequence is not spelled
+ * out is a toggle nobody dares to touch — but three sentences above the
+ * controls are read once and scrolled past forever after.
+ *
+ * So the consequence now rides on the row itself, as a `Way`'s `detail`, where
+ * it sits beside the thing it describes; the long form goes behind a
+ * `WhyDisclosure`, available to the guardian who is setting this up for
+ * somebody else and out of the way of everyone else. What is left for this is
+ * a single sentence naming what a section is: keep it under about fifteen
+ * words, and if it will not fit, that is the signal it belongs in a
+ * disclosure.
  */
 @Composable
 internal fun Note(

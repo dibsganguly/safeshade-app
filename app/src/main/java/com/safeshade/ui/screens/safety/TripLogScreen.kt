@@ -186,6 +186,7 @@ internal val TripKind.icon: ImageVector
     get() = when (this) {
         TripKind.FALL -> Icons.Outlined.PersonalInjury
         TripKind.SOS -> Icons.Outlined.NotificationsActive
+        TripKind.PHONE_SOS -> Icons.Outlined.NotificationsActive
         TripKind.MISSED_CHECKIN -> Icons.Outlined.Schedule
         TripKind.ZONE_EXIT -> Icons.Outlined.Fence
         TripKind.JOURNEY_OVERDUE -> Icons.Outlined.Timer

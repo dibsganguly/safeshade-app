@@ -1,7 +1,14 @@
 package com.safeshade.ui.screens.board
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.runtime.remember
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -19,6 +26,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.NotificationsActive
 import androidx.compose.material.icons.outlined.Settings
@@ -28,8 +37,10 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
@@ -46,14 +57,18 @@ import com.safeshade.ui.board.MainsPlate
 import com.safeshade.ui.board.Nameplate
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.Way
+import com.safeshade.ui.nav.BottomDestination
+import com.safeshade.ui.nav.tabForRoute
 import com.safeshade.ui.shady.ShadyHost
 import com.safeshade.ui.shady.shadyMoodFor
 import com.safeshade.ui.shady.ReactionStyle
 import com.safeshade.ui.shady.ShadyStage
 import com.safeshade.ui.shady.rememberShadyReactor
+import com.safeshade.ui.theme.BoardColors
 import com.safeshade.ui.theme.Radius
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.board
+import com.safeshade.ui.theme.boardType
 
 /**
  * One circuit as the Board screen needs to render it.
@@ -73,6 +88,26 @@ data class BoardWay(
     val sealed: Boolean = false,
     val route: String? = null
 )
+
+/**
+ * The colour a Board row wears, taken from where it leads.
+ *
+ * The Board is a summary of the other three tabs, and each of its rows is a
+ * door into one of them. Colouring the icon by its destination means the icon
+ * column is doing real work — you can see that Safe zones, Check-in and Journey
+ * are the same kind of thing before reading a word — rather than being
+ * decoration applied to make the screen less grey.
+ *
+ * Derived from the route rather than stored on [BoardWay], so a row cannot be
+ * added with a colour that disagrees with where it goes.
+ */
+private fun accentForRoute(route: String?, colors: BoardColors): Color? =
+    when (tabForRoute(route)) {
+        BottomDestination.CIRCLE -> colors.accentSky
+        BottomDestination.SAFETY -> colors.accentSage
+        BottomDestination.DEVICE -> colors.accentSand
+        BottomDestination.BOARD, null -> null
+    }
 
 /** Everything the Board screen draws. */
 data class BoardUiState(
@@ -110,10 +145,15 @@ fun BoardScreen(
     onRequestPermissions: () -> Unit,
     onSync: () -> Unit,
     onRing: () -> Unit,
-    onOpenSettings: () -> Unit,
     onOpenWay: (String) -> Unit,
     modifier: Modifier = Modifier,
-    contentPadding: PaddingValues = PaddingValues(0.dp)
+    contentPadding: PaddingValues = PaddingValues(0.dp),
+    /**
+     * Hoisted above the NavHost by SafeShadeApp so scroll position
+     * survives a tab switch. Defaulted so the previews still compile
+     * without one.
+     */
+    listState: LazyListState = rememberLazyListState()
 ) {
     val colors = MaterialTheme.board
     val lamp = state.connection.toLampState()
@@ -124,6 +164,7 @@ fun BoardScreen(
     val cardReactor = rememberShadyReactor(ReactionStyle.SUBTLE)
 
     LazyColumn(
+        state = listState,
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(
             start = Spacing.gutter,
@@ -136,31 +177,32 @@ fun BoardScreen(
         verticalArrangement = Arrangement.spacedBy(Spacing.lg)
     ) {
         item("header") {
+            // The settings cog used to live at the end of this row. It has
+            // moved to the Device screen's heading, for two reasons: app
+            // settings are not a property of the board, and — more concretely —
+            // the settings routes belong to the Device tab, so entering them
+            // from here lit a tab the user was not in. Its absence is what buys
+            // the wordmark the room to be the size a masthead should be.
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = Spacing.sm)
             ) {
+                Spacer(Modifier.weight(1f))
+                Text(
+                    text = "SafeShade",
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = colors.ink
+                )
+                Spacer(Modifier.width(Spacing.sm))
                 // The emblem is a full-colour raster, so it is an Image rather
                 // than an Icon - an Icon would flatten it to a single tint.
                 Image(
                     painter = painterResource(R.drawable.splash_emblem),
                     contentDescription = null,
-                    modifier = Modifier.size(44.dp)
+                    modifier = Modifier.size(40.dp)
                 )
-                Spacer(Modifier.width(Spacing.md))
-                Text(
-                    text = "SafeShade",
-                    style = MaterialTheme.typography.titleLarge,
-                    color = colors.ink,
-                    modifier = Modifier.weight(1f)
-                )
-                IconButton(onClick = onOpenSettings) {
-                    Icon(
-                        Icons.Outlined.Settings,
-                        contentDescription = "Settings",
-                        tint = colors.inkMuted
-                    )
-                }
             }
         }
 
@@ -246,6 +288,7 @@ fun BoardScreen(
                         stateLabel = way.stateLabel,
                         detail = way.detail,
                         icon = way.icon,
+                        accent = accentForRoute(way.route, colors),
                         sealed = way.sealed,
                         onClick = way.route?.let { route -> { onOpenWay(route) } }
                     )
@@ -254,16 +297,50 @@ fun BoardScreen(
         }
 
         item("conditions-heading") {
+            // The last-synced time sits immediately left of the control that
+            // changes it, rather than orphaned somewhere below the gauges. The
+            // question "is this reading current?" and the button that answers
+            // it are the same thought, and they now occupy the same line.
+            val spin by rememberInfiniteTransition(label = "sync-spin")
+                .animateFloat(
+                    initialValue = 0f,
+                    targetValue = 360f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(900, easing = LinearEasing),
+                        repeatMode = RepeatMode.Restart
+                    ),
+                    label = "sync-rotation"
+                )
+
             SectionPlate(
                 title = "Conditions",
                 trailing = {
-                    IconButton(onClick = onSync, enabled = !state.isSyncing && !state.isRinging) {
-                        Icon(
-                            Icons.Outlined.Sync,
-                            contentDescription = "Sync weather and location",
-                            tint = if (state.isSyncing) colors.inkFaint else colors.inkMuted,
-                            modifier = Modifier.size(20.dp)
-                        )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (state.lastSyncLabel != null) {
+                            Text(
+                                text = if (state.isSyncing) "Syncing" else state.lastSyncLabel,
+                                style = MaterialTheme.boardType.rowDetail,
+                                color = colors.inkFaint
+                            )
+                        }
+                        IconButton(
+                            onClick = onSync,
+                            enabled = !state.isSyncing && !state.isRinging
+                        ) {
+                            Icon(
+                                Icons.Outlined.Sync,
+                                contentDescription = "Sync weather and location",
+                                tint = if (state.isSyncing) colors.inkFaint else colors.inkMuted,
+                                modifier = Modifier
+                                    .size(20.dp)
+                                    // Turns only while a sync is actually in
+                                    // flight. A spinner that runs regardless
+                                    // would be decoration; this one is the only
+                                    // evidence the tap did anything, because the
+                                    // gauges below may come back identical.
+                                    .rotate(if (state.isSyncing) spin else 0f)
+                            )
+                        }
                     }
                 }
             )

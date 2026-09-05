@@ -38,6 +38,7 @@ import com.safeshade.ui.board.ButtonWeight
 import com.safeshade.ui.board.Hairline
 import com.safeshade.ui.board.LampState
 import com.safeshade.ui.board.Nameplate
+import com.safeshade.ui.board.ScreenHeader
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.Way
 import com.safeshade.ui.theme.SafeShadeTheme
@@ -115,6 +116,7 @@ private fun ReliabilityUiState.statusOf(check: ReliabilityCheck): CheckStatus =
 fun ReliabilityScreen(
     state: ReliabilityUiState,
     onSendTestAlert: () -> Unit,
+    onBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(0.dp)
 ) {
@@ -132,20 +134,13 @@ fun ReliabilityScreen(
         verticalArrangement = Arrangement.spacedBy(Spacing.lg)
     ) {
         item("title") {
-            Column {
-                Text(
-                    text = "Alert reliability",
-                    style = MaterialTheme.typography.displaySmall,
-                    color = colors.ink
-                )
-                Text(
-                    text = "Android can block an alert without telling either of us. " +
-                        "These are the settings that decide whether a fall reaches " +
-                        "this phone.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = colors.inkMuted
-                )
-            }
+            ScreenHeader(
+                title = "Alert reliability",
+                subtitle = "Android can block an alert without telling either of us. " +
+                    "These are the settings that decide whether a fall reaches " +
+                    "this phone.",
+                onBack = onBack
+            )
         }
 
         item("checks-heading") { SectionPlate(title = "Checks") }

@@ -8,23 +8,28 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Brightness4
+import androidx.compose.material.icons.outlined.DarkMode
+import androidx.compose.material.icons.outlined.LightMode
 import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.safeshade.BuildConfig
 import com.safeshade.data.DarkModePreference
 import com.safeshade.data.UserRole
 import com.safeshade.ui.board.BoardPlate
+import com.safeshade.ui.board.ExpandableSection
 import com.safeshade.ui.board.Hairline
 import com.safeshade.ui.board.LampState
+import com.safeshade.ui.board.ScreenHeader
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.Way
 import com.safeshade.ui.nav.Routes
@@ -48,6 +53,27 @@ internal val UserRole.blurb: String
     get() = when (this) {
         UserRole.GUARDIAN -> "You look after someone who wears the device."
         UserRole.COMPANION -> "You wear the device yourself."
+    }
+
+/**
+ * What each dark-mode option actually does.
+ *
+ * Carried over verbatim from the retired Appearance screen — the wording was
+ * the good part of that page and there was no reason to lose it along with the
+ * route.
+ */
+internal val DarkModePreference.blurb: String
+    get() = when (this) {
+        DarkModePreference.SYSTEM -> "Follows the phone, including its night schedule"
+        DarkModePreference.LIGHT -> "Always the bone panel, whatever the phone is set to"
+        DarkModePreference.DARK -> "Always the night panel — easier to read in a dark hallway"
+    }
+
+internal val DarkModePreference.icon: ImageVector
+    get() = when (this) {
+        DarkModePreference.SYSTEM -> Icons.Outlined.Brightness4
+        DarkModePreference.LIGHT -> Icons.Outlined.LightMode
+        DarkModePreference.DARK -> Icons.Outlined.DarkMode
     }
 
 /** How a dark-mode preference reads on a nameplate. */
@@ -94,11 +120,11 @@ data class SettingsUiState(
 fun SettingsScreen(
     state: SettingsUiState,
     onOpenWay: (String) -> Unit,
+    onSelectDarkMode: (DarkModePreference) -> Unit,
+    onBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(0.dp)
 ) {
-    val colors = MaterialTheme.board
-
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(
@@ -110,25 +136,34 @@ fun SettingsScreen(
         verticalArrangement = Arrangement.spacedBy(Spacing.lg)
     ) {
         item("title") {
-            Text(
-                text = "Settings",
-                style = MaterialTheme.typography.displaySmall,
-                color = colors.ink
-            )
+            ScreenHeader(title = "Settings", onBack = onBack)
         }
 
         item("app-heading") { SectionPlate(title = "This app") }
 
         item("app") {
             BoardPlate(modifier = Modifier.fillMaxWidth()) {
-                Way(
-                    name = "Appearance",
-                    state = LampState.OFF,
-                    stateLabel = state.darkMode.label,
-                    detail = "Light, dark, or whatever the phone is set to",
-                    icon = Icons.Outlined.Palette,
-                    onClick = { onOpenWay(Routes.SETTINGS_APPEARANCE) }
-                )
+                // Appearance used to be a whole pushed screen holding three
+                // radio rows and a paragraph. A page you open, tap once, and
+                // leave forever is not worth a route, a back stack entry and a
+                // transition — it is worth a drawer. The three options are the
+                // same three; they are simply here now.
+                ExpandableSection(
+                    label = "Appearance",
+                    count = null
+                ) {
+                    DarkModePreference.entries.forEach { option ->
+                        Hairline()
+                        Way(
+                            name = option.label,
+                            state = if (option == state.darkMode) LampState.LIVE else LampState.OFF,
+                            stateLabel = if (option == state.darkMode) "On" else "Off",
+                            detail = option.blurb,
+                            icon = option.icon,
+                            onClick = { onSelectDarkMode(option) }
+                        )
+                    }
+                }
                 Hairline()
                 Way(
                     name = "Your role",
@@ -215,7 +250,8 @@ private fun SettingsPreviewLight() {
                     versionName = "2.0.0",
                     showDeveloperOptions = true
                 ),
-                onOpenWay = {}
+                onOpenWay = {},
+                onSelectDarkMode = {}
             )
         }
     }
@@ -234,7 +270,8 @@ private fun SettingsPreviewDark() {
                     versionName = "2.0.0",
                     showDeveloperOptions = false
                 ),
-                onOpenWay = {}
+                onOpenWay = {},
+                onSelectDarkMode = {}
             )
         }
     }

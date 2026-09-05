@@ -1,6 +1,5 @@
 package com.safeshade.ui.screens.circle
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -14,6 +13,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Send
 import androidx.compose.material.icons.outlined.DirectionsWalk
@@ -46,8 +47,11 @@ import com.safeshade.ui.board.LampState
 import com.safeshade.ui.board.Nameplate
 import com.safeshade.ui.board.PilotLamp
 import com.safeshade.ui.board.Readout
+import com.safeshade.ui.board.ScreenHeader
+import com.safeshade.ui.board.ScreenTier
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.Way
+import com.safeshade.ui.board.rowClickable
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.board
@@ -133,7 +137,13 @@ fun CircleScreen(
     onOpenCheckIn: () -> Unit,
     onOpenSim: () -> Unit,
     modifier: Modifier = Modifier,
-    contentPadding: PaddingValues = PaddingValues(0.dp)
+    contentPadding: PaddingValues = PaddingValues(0.dp),
+    /**
+     * Hoisted above the NavHost by SafeShadeApp so scroll position
+     * survives a tab switch. Defaulted so the previews still compile
+     * without one.
+     */
+    listState: LazyListState = rememberLazyListState()
 ) {
     val colors = MaterialTheme.board
     // Two names, not one. `other` is grammatical mid-sentence ("messages from
@@ -144,6 +154,7 @@ fun CircleScreen(
     val headlineName = counterpartHeadline(state.role, state.wearerName, state.guardianName)
 
     LazyColumn(
+        state = listState,
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(
             start = Spacing.gutter,
@@ -154,16 +165,16 @@ fun CircleScreen(
         verticalArrangement = Arrangement.spacedBy(Spacing.lg)
     ) {
         item("title") {
-            Text(
-                text = when (state.role) {
+            // A tab root, so it takes the ROOT tier — the same weight the
+            // Board and Device roots carry. This screen was `titleLarge`, two
+            // steps below its peers, which was visible the moment you moved
+            // between tabs.
+            ScreenHeader(
+                title = when (state.role) {
                     UserRole.GUARDIAN -> "Circle"
                     UserRole.COMPANION -> "Your guardian"
                 },
-                style = MaterialTheme.typography.titleLarge,
-                color = colors.ink,
-                modifier = Modifier
-                    .padding(vertical = Spacing.sm)
-                    .semantics { heading() }
+                tier = ScreenTier.ROOT
             )
         }
 
@@ -458,7 +469,7 @@ private fun MessagePreviewRow(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(role = Role.Button, onClick = onClick)
+            .rowClickable(role = Role.Button, onClick = onClick)
             .defaultMinSize(minHeight = Spacing.touchTarget)
             .padding(horizontal = Spacing.lg, vertical = Spacing.md)
             .clearAndSetSemantics { contentDescription = spoken }
@@ -579,7 +590,7 @@ private fun QuickMessageRow(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+            .rowClickable(enabled = enabled, role = Role.Button, onClick = onClick)
             .defaultMinSize(minHeight = Spacing.touchTarget)
             .padding(horizontal = Spacing.lg, vertical = Spacing.md)
     ) {

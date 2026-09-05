@@ -29,7 +29,36 @@ data class ShadyPose(
     /** Mirrors the character so it can walk the other way. */
     val facingLeft: Boolean = false,
     /** Small marks above the head: sleep, surprise, delight. */
-    val flourish: Flourish = Flourish.NONE
+    val flourish: Flourish = Flourish.NONE,
+    /**
+     * Where the pupils are aimed, in fractions of the eye radius. Non-zero
+     * takes the gaze away from the mood, which otherwise drifts it with the
+     * breath — so a deliberate look at the floor is not fighting an idle sweep.
+     *
+     * Body space, not screen space: [facingLeft] mirrors the character, so a
+     * gaze aimed forward stays aimed forward whichever way it has turned, and
+     * a caller that means "toward the right of the screen" has to negate it.
+     * [offsetX] is the opposite — it is applied outside the mirror, so it
+     * always moves the character to the right of the screen.
+     *
+     * Only styles that draw a pupil can honour it — [EyeStyle.NORMAL],
+     * [EyeStyle.WIDE] and [EyeStyle.SLEEPY]. Pairing a gaze with a closed or
+     * squinting eye silently does nothing.
+     */
+    val gazeX: Float = 0f,
+    val gazeY: Float = 0f,
+    /**
+     * Eyebrows, in fractions of the eye radius. Positive raises them (curious,
+     * unconvinced), negative furrows them. Brows are the loudest thing on the
+     * face, so they stay at zero unless an action really means them.
+     */
+    val browRaise: Float = 0f,
+    /**
+     * Legs swinging in opposition, in fractions of the drawn size. Only reads
+     * when the body is otherwise still — it is the whole point of sitting on
+     * the edge of something.
+     */
+    val legSwing: Float = 0f
 ) {
     companion object {
         val Neutral = ShadyPose()
@@ -52,10 +81,29 @@ enum class EyeStyle {
     DIZZY,
 
     /** Amused, or looking into the sun. */
-    SQUINT
+    SQUINT,
+
+    /** Heavy lids. Waking up, or about to stop being awake. */
+    SLEEPY,
+
+    /** Screwed shut against something — a sneeze, a shiver, a hard landing. */
+    SCRUNCH
 }
 
-enum class MouthStyle { SMILE, BIG_SMILE, OPEN, FLAT, FROWN, WOBBLE }
+enum class MouthStyle {
+    SMILE,
+    BIG_SMILE,
+    OPEN,
+    FLAT,
+    FROWN,
+    WOBBLE,
+
+    /** A tall oval. Caught mid-breath: a gasp, a yawn, a hiccup. */
+    GASP,
+
+    /** Lopsided. The one expression that reads as knowing rather than sunny. */
+    SMIRK
+}
 
 enum class Flourish {
     NONE,
@@ -70,5 +118,8 @@ enum class Flourish {
     THINK,
 
     /** A small ring, drawn while dizzy. */
-    SWIRL
+    SWIRL,
+
+    /** Scuff arcs kicked up at the feet. A landing, a skid, a stumble. */
+    PUFF
 }

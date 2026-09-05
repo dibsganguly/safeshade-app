@@ -264,7 +264,25 @@ data class FallAlertEvent(
 
 enum class TripKind(val label: String) {
     FALL("Fall detected"),
+
+    /** The physical button on the wearable. */
     SOS("SOS pressed"),
+
+    /**
+     * The SOS control in this app's bottom bar.
+     *
+     * Distinct from [SOS] rather than folded into it because the trip log is
+     * read after the fact, sometimes months later, and "the SOS button was held
+     * on the device" is simply false when someone raised it from their phone.
+     * Whether the wearable was even involved is exactly the sort of detail that
+     * matters when a guardian is reconstructing what happened.
+     *
+     * Safe to have been added mid-life: these are persisted by *name* (see
+     * Dtos.kt, which decodes with `enumOrDefault`), so an older build reading a
+     * newer store degrades this to FALL — still an alert in the log — rather
+     * than shifting every subsequent ordinal.
+     */
+    PHONE_SOS("SOS sent from the phone"),
     MISSED_CHECKIN("Check-in missed"),
     ZONE_EXIT("Left a safe zone"),
     JOURNEY_OVERDUE("Journey overdue")

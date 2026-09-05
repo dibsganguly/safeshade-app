@@ -38,11 +38,13 @@ import com.safeshade.device.DeviceCapabilities
 import com.safeshade.ui.board.BoardButton
 import com.safeshade.ui.board.BoardPlate
 import com.safeshade.ui.board.ButtonWeight
+import com.safeshade.ui.board.ExpandableSection
 import com.safeshade.ui.board.Hairline
 import com.safeshade.ui.board.LampState
 import com.safeshade.ui.board.Nameplate
 import com.safeshade.ui.board.PilotLamp
 import com.safeshade.ui.board.Readout
+import com.safeshade.ui.board.ScreenHeader
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.Way
 import com.safeshade.ui.theme.SafeShadeTheme
@@ -55,7 +57,7 @@ import com.safeshade.ui.theme.board
  * Field-for-field the [DeviceCapabilities.synced] list, minus the three that
  * have screens of their own (mode, lights, message allowlist). Nothing from
  * [DeviceCapabilities.deviceOnly] appears here; those live on
- * `DeviceOnlyScreen` as read-only rows.
+ * a closed drawer at the foot of this screen as read-only rows.
  *
  * Ack state is keyed by the same string keys `DeviceCapabilities` uses, so a
  * setting moving between the synced and device-only lists is a one-line change
@@ -115,7 +117,7 @@ fun DeviceSettingsScreen(
     onEditMedicationTime: () -> Unit,
     onCheckInIntervalChange: (Int) -> Unit,
     onEditDeviceName: () -> Unit,
-    onOpenDeviceOnly: () -> Unit,
+    onBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(0.dp)
 ) {
@@ -132,11 +134,7 @@ fun DeviceSettingsScreen(
         verticalArrangement = Arrangement.spacedBy(Spacing.lg)
     ) {
         item("title") {
-            Text(
-                text = "Device settings",
-                style = MaterialTheme.typography.displaySmall,
-                color = colors.ink
-            )
+            ScreenHeader(title = "Device settings", onBack = onBack)
         }
 
         item("offline") {
@@ -363,14 +361,62 @@ fun DeviceSettingsScreen(
             }
         }
 
-        item("device-only-link") {
-            BoardButton(
-                label = "Settings only on the device",
-                supporting = "Eight more settings this app cannot reach over Bluetooth",
-                onClick = onOpenDeviceOnly,
-                weight = ButtonWeight.SECONDARY,
-                modifier = Modifier.fillMaxWidth()
-            )
+        // This was a button to a whole separate screen that had no interactive
+        // controls on it at all — a reference list you could navigate to, read,
+        // and navigate back out of. It is reference material, so it now sits
+        // where reference material belongs: in a drawer at the bottom of the
+        // settings it is a footnote to, one tap away and closed by default.
+        item("device-only") {
+            BoardPlate(modifier = Modifier.fillMaxWidth()) {
+                ExpandableSection(
+                    label = "Only on the device",
+                    count = DeviceCapabilities.deviceOnly.size
+                ) {
+                    DeviceCapabilities.deviceOnly.forEach { setting ->
+                        Hairline()
+                        Way(
+                            name = setting.label,
+                            // UNKNOWN, not OFF. The app has never read these
+                            // values and never will on this firmware, so
+                            // claiming a state for them would be an invention.
+                            state = LampState.UNKNOWN,
+                            stateLabel = "On device",
+                            detail = setting.deviceMenuPath,
+                            // `deviceOnly` suppresses any switch and adds
+                            // "change this on the device" to the spoken row, so
+                            // the copy here does not repeat it.
+                            deviceOnly = true
+                        )
+                    }
+                    Hairline()
+                    // Do Not Disturb is the one row where the plain statement
+                    // above is not quite true, and the gap is exactly the kind
+                    // that produces a bug report: someone changes the quiet
+                    // window in the app, sees the device still chiming, and
+                    // concludes the whole feature is broken.
+                    Column(
+                        modifier = Modifier.padding(Spacing.lg),
+                        verticalArrangement = Arrangement.spacedBy(Spacing.xs)
+                    ) {
+                        Nameplate("About Do Not Disturb", small = true, muted = true)
+                        Text(
+                            text = "Do Not Disturb is split across the two ends. Turning " +
+                                "it on or off is device-only, but the start and end " +
+                                "hours it uses do travel from this app — they are the " +
+                                "quiet hours window above.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = colors.inkMuted
+                        )
+                        Text(
+                            text = "If a later firmware adds a Bluetooth path for one of " +
+                                "these, it moves into the settings above and stops " +
+                                "appearing here.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = colors.inkFaint
+                        )
+                    }
+                }
+            }
         }
     }
 }
@@ -578,8 +624,7 @@ private fun PreviewHost(state: DeviceSettingsUiState) {
             onMedicationChange = {},
             onEditMedicationTime = {},
             onCheckInIntervalChange = {},
-            onEditDeviceName = {},
-            onOpenDeviceOnly = {}
+            onEditDeviceName = {}
         )
     }
 }

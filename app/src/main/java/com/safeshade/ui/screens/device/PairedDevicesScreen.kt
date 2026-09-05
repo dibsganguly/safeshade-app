@@ -28,6 +28,7 @@ import com.safeshade.ui.board.ButtonWeight
 import com.safeshade.ui.board.EmptyBay
 import com.safeshade.ui.board.Hairline
 import com.safeshade.ui.board.LampState
+import com.safeshade.ui.board.ScreenHeader
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.Way
 import com.safeshade.ui.theme.SafeShadeTheme
@@ -71,6 +72,7 @@ fun PairedDevicesScreen(
     onForgetRequested: (String) -> Unit,
     onConfirmForget: (String) -> Unit,
     onCancelForget: () -> Unit,
+    onBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(0.dp)
 ) {
@@ -87,11 +89,7 @@ fun PairedDevicesScreen(
         verticalArrangement = Arrangement.spacedBy(Spacing.lg)
     ) {
         item("title") {
-            Text(
-                text = "Paired devices",
-                style = MaterialTheme.typography.displaySmall,
-                color = colors.ink
-            )
+            ScreenHeader(title = "Paired devices", onBack = onBack)
         }
 
         item("heading") { SectionPlate(title = "Saved") }

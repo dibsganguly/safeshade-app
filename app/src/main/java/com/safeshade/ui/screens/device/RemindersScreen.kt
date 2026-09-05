@@ -35,6 +35,7 @@ import com.safeshade.ui.board.Hairline
 import com.safeshade.ui.board.LampState
 import com.safeshade.ui.board.Nameplate
 import com.safeshade.ui.board.PilotLamp
+import com.safeshade.ui.board.ScreenHeader
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.Way
 import com.safeshade.ui.theme.SafeShadeTheme
@@ -85,6 +86,7 @@ fun RemindersScreen(
     onCheckInEnabledChange: (Boolean) -> Unit,
     onCheckInIntervalChange: (Int) -> Unit,
     onGrantExactAlarms: () -> Unit,
+    onBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(0.dp)
 ) {
@@ -101,11 +103,7 @@ fun RemindersScreen(
         verticalArrangement = Arrangement.spacedBy(Spacing.lg)
     ) {
         item("title") {
-            Text(
-                text = "Reminders",
-                style = MaterialTheme.typography.displaySmall,
-                color = colors.ink
-            )
+            ScreenHeader(title = "Reminders", onBack = onBack)
         }
 
         // The timing caveat comes first, because it changes how every schedule

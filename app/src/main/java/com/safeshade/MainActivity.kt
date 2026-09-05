@@ -77,6 +77,24 @@ class MainActivity : ComponentActivity() {
         viewModel.refreshPermissions()
     }
 
+    /**
+     * Asks for SEND_SMS, on its own.
+     *
+     * Deliberately not folded into [requestCorePermissions]. SEND_SMS is a
+     * restricted permission and the cold-start dialog is the worst possible
+     * place to ask for it — the user has not yet seen anything that sends a
+     * text, so it reads as an app overreaching. It is requested instead at the
+     * moment the SOS control is pressed without it, where the reason is
+     * immediate and the ask is one tap from an explanation.
+     *
+     * Until this lands, `sendSmsText` returns PermissionMissing on every
+     * install, which silently disabled the SMS fallbacks in AlertActionReceiver
+     * and ReminderReceiver too.
+     */
+    fun requestSmsPermission() {
+        requestPermissions.launch(arrayOf(Manifest.permission.SEND_SMS))
+    }
+
     /** Called from the UI when a screen needs the core permissions. */
     fun requestCorePermissions() {
         val needed = buildList {

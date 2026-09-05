@@ -10,6 +10,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -92,8 +93,6 @@ import com.safeshade.ui.screens.circle.ZoneRow
 import com.safeshade.ui.screens.circle.ZonesScreen
 import com.safeshade.ui.screens.circle.ZonesUiState
 import com.safeshade.ui.screens.device.AckState
-import com.safeshade.ui.screens.device.DeviceOnlyScreen
-import com.safeshade.ui.screens.device.DeviceOnlyUiState
 import com.safeshade.ui.screens.device.DeviceScreen
 import com.safeshade.ui.screens.device.DeviceSettingsScreen
 import com.safeshade.ui.screens.device.DeviceSettingsUiState
@@ -131,8 +130,6 @@ import com.safeshade.ui.screens.safety.TripLogScreen
 import com.safeshade.ui.screens.safety.TripLogUiState
 import com.safeshade.ui.screens.settings.AboutScreen
 import com.safeshade.ui.screens.settings.AboutUiState
-import com.safeshade.ui.screens.settings.AppearanceScreen
-import com.safeshade.ui.screens.settings.AppearanceUiState
 import com.safeshade.ui.screens.settings.CheckStatus
 import com.safeshade.ui.screens.settings.DeveloperScreen
 import com.safeshade.ui.screens.settings.DeveloperUiState
@@ -185,6 +182,13 @@ fun MainNavGraph(
     navController: NavHostController,
     viewModel: SafeShadeViewModel,
     state: AppState.Ready,
+    // Hoisted in SafeShadeApp rather than remembered inside each root — see the
+    // note there. The bar destroys a tab's back stack entry when you leave it,
+    // so scroll position cannot live inside the screen any more.
+    boardListState: LazyListState,
+    circleListState: LazyListState,
+    safetyListState: LazyListState,
+    deviceListState: LazyListState,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -347,8 +351,8 @@ fun MainNavGraph(
                 onRequestPermissions = requestPermissions,
                 onSync = { viewModel.syncWeather() },
                 onRing = { viewModel.ringDevice() },
-                onOpenSettings = { navController.navigate(Routes.SETTINGS) },
-                onOpenWay = { route -> navController.navigate(route) }
+                onOpenWay = { route -> navController.navigate(route) },
+                listState = boardListState
             )
         }
 
@@ -440,7 +444,8 @@ fun MainNavGraph(
                 onOpenZones = { navController.navigate(Routes.CIRCLE_ZONES) },
                 onOpenJourney = { navController.navigate(Routes.CIRCLE_JOURNEY) },
                 onOpenCheckIn = { navController.navigate(Routes.CIRCLE_CHECKIN) },
-                onOpenSim = { navController.navigate(Routes.CIRCLE_SIM) }
+                onOpenSim = { navController.navigate(Routes.CIRCLE_SIM) },
+                listState = circleListState
             )
         }
 
@@ -878,7 +883,8 @@ fun MainNavGraph(
                 },
                 onSmsFallbackChange = {
                     viewModel.setSafetySettings(state.safetySettings.copy(smsFallbackEnabled = it))
-                }
+                },
+                listState = safetyListState
             )
         }
 
@@ -1152,6 +1158,7 @@ fun MainNavGraph(
         composable(Routes.DEVICE) {
             val state = liveState.value
             DeviceScreen(
+                onOpenSettings = { navController.navigate(Routes.SETTINGS) },
                 state = DeviceUiState(
                     connection = state.connection,
                     deviceName = state.deviceSettings.name,
@@ -1170,7 +1177,8 @@ fun MainNavGraph(
                     hasTelemetry = state.telemetryHistory.isNotEmpty(),
                     isRinging = state.isRinging
                 ),
-                onOpenWay = { route -> navController.navigate(route) }
+                onOpenWay = { route -> navController.navigate(route) },
+                listState = deviceListState
             )
         }
 
@@ -1216,7 +1224,8 @@ fun MainNavGraph(
                     ack = AckState.PENDING
                     viewModel.setActiveMode(mode)
                 },
-                onCancelConfirm = { confirming = null }
+                onCancelConfirm = { confirming = null },
+                onBack = { navController.popBackStack() }
             )
         }
 
@@ -1290,16 +1299,10 @@ fun MainNavGraph(
                 onEditQuietHours = {},
                 onEditMedicationTime = {},
                 onEditDeviceName = {},
-                onOpenDeviceOnly = { navController.navigate(Routes.DEVICE_ONBOARD) }
+                onBack = { navController.popBackStack() }
             )
         }
 
-        composable(Routes.DEVICE_ONBOARD) {
-            val state = liveState.value
-            DeviceOnlyScreen(
-                state = DeviceOnlyUiState(deviceName = state.deviceSettings.name)
-            )
-        }
 
         composable(Routes.DEVICE_LOCATE) {
             val state = liveState.value
@@ -1327,7 +1330,8 @@ fun MainNavGraph(
                 onRingStopAcknowledged = { viewModel.acknowledgeRingStopped() },
                 onOpenLastKnownLocation = {
                     lastFix?.let { fix -> openOnMap(context, fix.lat, fix.lon, state.deviceSettings.name) }
-                }
+                },
+                onBack = { navController.popBackStack() }
             )
         }
 
@@ -1347,7 +1351,8 @@ fun MainNavGraph(
                 // an on-demand read would queue a GATT operation for a value
                 // at most a second old. Called anyway, so the affordance goes
                 // through the one place that explains itself.
-                onReadSignal = { viewModel.readRssi() }
+                onReadSignal = { viewModel.readRssi() },
+                onBack = { navController.popBackStack() }
             )
         }
 
@@ -1368,7 +1373,7 @@ fun MainNavGraph(
                     ledPattern = pattern
                     viewModel.setLedPattern(pattern)
                 },
-                onOpenDeviceOnly = { navController.navigate(Routes.DEVICE_ONBOARD) }
+                onBack = { navController.popBackStack() }
             )
         }
 
@@ -1403,7 +1408,8 @@ fun MainNavGraph(
                     viewModel.removePairedDevice(address)
                     confirmingForget = null
                 },
-                onCancelForget = { confirmingForget = null }
+                onCancelForget = { confirmingForget = null },
+                onBack = { navController.popBackStack() }
             )
         }
 
@@ -1450,7 +1456,8 @@ fun MainNavGraph(
                     checkInIntervalMinutes = minutes
                     viewModel.setCheckInInterval(minutes * 60)
                 },
-                onGrantExactAlarms = { openExactAlarmSettings(context) }
+                onGrantExactAlarms = { openExactAlarmSettings(context) },
+                onBack = { navController.popBackStack() }
             )
         }
 
@@ -1461,6 +1468,7 @@ fun MainNavGraph(
         composable(Routes.SETTINGS) {
             val state = liveState.value
             SettingsScreen(
+                onSelectDarkMode = { viewModel.setDarkMode(it) },
                 state = SettingsUiState(
                     role = state.role,
                     darkMode = state.darkMode,
@@ -1468,17 +1476,11 @@ fun MainNavGraph(
                         .count { it.value == CheckStatus.FAILING },
                     versionName = BuildConfig.VERSION_NAME
                 ),
-                onOpenWay = { route -> navController.navigate(route) }
+                onOpenWay = { route -> navController.navigate(route) },
+                onBack = { navController.popBackStack() }
             )
         }
 
-        composable(Routes.SETTINGS_APPEARANCE) {
-            val state = liveState.value
-            AppearanceScreen(
-                state = AppearanceUiState(selected = state.darkMode),
-                onSelect = { viewModel.setDarkMode(it) }
-            )
-        }
 
         composable(Routes.SETTINGS_ROLE) {
             val state = liveState.value
@@ -1498,7 +1500,8 @@ fun MainNavGraph(
                     confirming = null
                     viewModel.setRole(role)
                 },
-                onCancelConfirm = { confirming = null }
+                onCancelConfirm = { confirming = null },
+                onBack = { navController.popBackStack() }
             )
         }
 
@@ -1511,7 +1514,8 @@ fun MainNavGraph(
                 ),
                 // Firing a real test notification needs the alert layer, which
                 // the view model does not surface.
-                onSendTestAlert = {}
+                onSendTestAlert = {},
+                onBack = { navController.popBackStack() }
             )
         }
 
@@ -1522,7 +1526,8 @@ fun MainNavGraph(
                     versionCode = BuildConfig.VERSION_CODE.toString(),
                     buildLabel = if (BuildConfig.DEBUG) "Debug" else "Release",
                     firmwareTarget = FIRMWARE_TARGET
-                )
+                ),
+                onBack = { navController.popBackStack() }
             )
         }
 
@@ -1540,7 +1545,8 @@ fun MainNavGraph(
                 onUseRealLink = {},
                 // The kit gallery has no route constant, and this file may not
                 // add one.
-                onOpenKitGallery = {}
+                onOpenKitGallery = {},
+                onBack = { navController.popBackStack() }
             )
         }
     }
@@ -1571,7 +1577,18 @@ private val BOTTOM_ROUTES = BottomDestination.entries.map { it.route }.toSet()
  */
 private fun motionFor(from: String?, to: String?): Motion = when {
     from.isOverlay() || to.isOverlay() -> Motion.SHARED_Z
-    from.isBottom() && to.isBottom() -> Motion.FADE_THROUGH
+    // A tab switch fades; everything else slides. `from` is deliberately not
+    // required to be a bottom route: since the bar stopped restoring saved
+    // stacks, leaving a tab from three levels down lands on the *next tab's
+    // root*, so the move is `safety/contacts -> board` and the old
+    // `from.isBottom() && to.isBottom()` missed it and slid.
+    //
+    // The comparison goes through `tabForRoute` rather than a prefix test on
+    // `to`, and that is load-bearing: the obvious shorthand
+    // `from?.startsWith("$to/") != true` gets system-back from `settings` to
+    // `device` wrong, because "settings" does not start with "device/" and it
+    // would fade a pop. `tabForRoute` knows settings belongs to Device.
+    to.isBottom() && tabForRoute(from) != tabForRoute(to) -> Motion.FADE_THROUGH
     else -> Motion.SHARED_X
 }
 

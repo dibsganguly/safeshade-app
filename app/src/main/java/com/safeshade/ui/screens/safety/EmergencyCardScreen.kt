@@ -252,7 +252,7 @@ private fun QrPlate(text: String, inInspection: Boolean) {
             )
         } else {
             Text(
-                text = if (inInspection) "QR CODE" else "Preparing the code",
+                text = if (inInspection) "QR code" else "Preparing the code",
                 style = MaterialTheme.boardType.nameplate,
                 // Ink on the white substrate, not a theme token — this text
                 // sits on the same forced-white plate as the code.

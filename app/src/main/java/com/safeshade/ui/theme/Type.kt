@@ -50,15 +50,31 @@ private fun azeret(weight: Int) = Font(
     variationSettings = FontVariation.Settings(FontVariation.weight(weight))
 )
 
-/** Body / UI voice — Archivo at normal width. */
+/**
+ * Body / UI voice — Archivo at normal width.
+ *
+ * Carries 800 and 900 as well as the text weights: the wordmark in the opening
+ * animation is set in this family rather than shipped as an image, so it
+ * inherits the theme's ink and scales with the display.
+ */
 val BoardSans = FontFamily(
     archivo(400, 100f),
     archivo(500, 100f),
     archivo(600, 100f),
-    archivo(700, 100f)
+    archivo(700, 100f),
+    archivo(800, 100f),
+    archivo(900, 100f)
 )
 
-/** Nameplate voice — Archivo condensed. Intended for uppercase with tracking. */
+/**
+ * Nameplate voice — Archivo condensed. Uppercase with tracking.
+ *
+ * Its remit narrowed in v2.1: it now sets **section headings and state words
+ * only**. Row titles and button labels moved to [BoardSans] in sentence case,
+ * because caps-everywhere read as shouting across a whole app and cost more
+ * than the engraved look was worth. Caps still mean something here precisely
+ * because they are now rare.
+ */
 val BoardCondensed = FontFamily(
     archivo(500, 78f),
     archivo(600, 78f),
@@ -77,14 +93,28 @@ val BoardMono = FontFamily(
  * rather than to the type scale. Read via `MaterialTheme.boardType`.
  */
 data class BoardTypography(
-    /** An engraved circuit label. Caller supplies uppercase text. */
+    /**
+     * A circuit label — the title of a way, the label on a button.
+     *
+     * Sentence case in the body voice as of v2.1. It was condensed caps at
+     * 0.12em, which is right for one engraved plate and wrong for the two
+     * hundred rows an app actually has.
+     */
     val nameplate: TextStyle,
-    /** A smaller nameplate, for sub-rows and inline labels. */
+    /** A smaller nameplate, for sub-rows, gauge captions and inline field labels. */
     val nameplateSmall: TextStyle,
-    /** A section heading sitting above a brass rule. */
+    /** A section heading sitting above a brass rule. Caps: this is one of the two. */
     val sectionPlate: TextStyle,
-    /** The state word on the right of a way: LIVE / OFF / TRIPPED / SEALED. */
+    /** The state word on the right of a way: LIVE / OFF / TRIPPED. Caps: the other one. */
     val stateLabel: TextStyle,
+    /**
+     * The engraved micro-caps of a seal.
+     *
+     * The last survivor of the old condensed-caps nameplate, kept because a
+     * seal is a stamped physical object and reads as one. Do not reach for it
+     * as a general small label — [nameplateSmall] is that.
+     */
+    val sealPlate: TextStyle,
     /** Telemetry and coordinates. */
     val readout: TextStyle,
     /** The one big number on a mains plate. */
@@ -104,17 +134,24 @@ data class BoardTypography(
 
 val BoardType = BoardTypography(
     nameplate = TextStyle(
-        fontFamily = BoardCondensed,
+        fontFamily = BoardSans,
         fontWeight = FontWeight.W600,
         fontSize = 15.sp,
         lineHeight = 20.sp,
-        letterSpacing = 0.12.em
+        letterSpacing = 0.sp
     ),
     nameplateSmall = TextStyle(
-        fontFamily = BoardCondensed,
+        fontFamily = BoardSans,
         fontWeight = FontWeight.W600,
         fontSize = 12.sp,
         lineHeight = 16.sp,
+        letterSpacing = 0.sp
+    ),
+    sealPlate = TextStyle(
+        fontFamily = BoardCondensed,
+        fontWeight = FontWeight.W600,
+        fontSize = 11.sp,
+        lineHeight = 15.sp,
         letterSpacing = 0.14.em
     ),
     sectionPlate = TextStyle(
@@ -180,7 +217,10 @@ val BoardMaterialTypography = Typography(
     bodyMedium = TextStyle(fontFamily = BoardSans, fontWeight = FontWeight.W400, fontSize = 15.sp, lineHeight = 22.sp),
     bodySmall = TextStyle(fontFamily = BoardSans, fontWeight = FontWeight.W400, fontSize = 13.sp, lineHeight = 18.sp),
 
-    labelLarge = TextStyle(fontFamily = BoardCondensed, fontWeight = FontWeight.W600, fontSize = 15.sp, lineHeight = 20.sp, letterSpacing = 0.08.em),
-    labelMedium = TextStyle(fontFamily = BoardCondensed, fontWeight = FontWeight.W600, fontSize = 13.sp, lineHeight = 18.sp, letterSpacing = 0.12.em),
-    labelSmall = TextStyle(fontFamily = BoardCondensed, fontWeight = FontWeight.W600, fontSize = 11.sp, lineHeight = 15.sp, letterSpacing = 0.14.em)
+    // Condensed and heavily tracked while everything was uppercase; both were
+    // in service of caps, and both go with them. Tracking at these sizes on
+    // lowercase text reads as a rendering fault, not as emphasis.
+    labelLarge = TextStyle(fontFamily = BoardSans, fontWeight = FontWeight.W600, fontSize = 15.sp, lineHeight = 20.sp, letterSpacing = 0.sp),
+    labelMedium = TextStyle(fontFamily = BoardSans, fontWeight = FontWeight.W600, fontSize = 13.sp, lineHeight = 18.sp, letterSpacing = 0.sp),
+    labelSmall = TextStyle(fontFamily = BoardSans, fontWeight = FontWeight.W600, fontSize = 11.sp, lineHeight = 15.sp, letterSpacing = 0.01.em)
 )

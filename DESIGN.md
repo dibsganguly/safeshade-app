@@ -235,7 +235,11 @@ Confirmed rejections, all visible in the build: frosted glass and blur (replaced
 
 ## Colors
 
-An achromatic bone-and-charcoal panel carrying exactly three saturated hues, each of which reports the condition of a circuit.
+A bone-and-charcoal panel carrying two colour families, separated by **saturation, not hue**.
+
+Three *saturated* hues report the condition of a circuit and nothing else. Six *desaturated* accents carry identity — which area of the app a row belongs to, which adaptive mode a card is, what an illustration is made of. At 22% saturation against state's 55–75%, a saturated pixel always means state.
+
+Saturation is the separator rather than a reserved set of hues because it survives a colourblind reader: two greens differing only in hue are one colour to a deuteranope, while a vivid green and a dusty one remain two things.
 
 ### Primary
 
@@ -249,6 +253,18 @@ Each state exists twice: a **lamp-glass** colour, chosen to look right when lit 
 - **Attention Amber** (`{colors.lamp-attention-glass}` glass; `{colors.ink-attention-light}` / `{colors.ink-attention-dark}` ink): the emblem's sun dot. On, but degraded, unconfirmed, or nearly out.
 - **Trip Red** (`{colors.lamp-trip-glass}` glass; `{colors.ink-trip-light}` / `{colors.ink-trip-dark}` ink): something happened and it needs a person. The only hue a button is ever allowed to carry, and only for actions that place a real call or fire a real alert.
 - **Unlit Stone** (`{colors.lamp-off-light}` / `{colors.lamp-off-dark}`): a lamp that is not lit. Used for both OFF and UNKNOWN — neither is a fault.
+
+### Decorative — identity, never status
+
+Six peers rather than a scale, each solved for rather than picked: at a fixed 22% saturation, lightness was walked until the value cleared 4.5:1 against **both** its theme's plate and its ground. That is the body-text floor, well past the 3:1 a 20dp icon or a 2dp rule needs. They also sit within 1.35:1 of each other, which is the point — six different things at one weight, not six steps of emphasis.
+
+Named for what they label rather than for their hue, so a later retune cannot leave the code calling a blue token "green".
+
+- **accentSage** — safety and detection. **accentSky** — location, zones, journeys. **accentLilac** — messaging and people. **accentClay** — medical and contacts. **accentSand** — device and hardware. **accentMoss** — modes and profiles.
+
+Used at full strength for icons, section rules and identity type; at 0.10–0.18 alpha as a wash behind a card, where the normal ink tokens still apply on top. There is deliberately no `onAccent` token — a wash strong enough to need one would be mistaken for a state fill.
+
+They are supplied **ambiently** via `LocalBoardAccent`, set once per destination, because passing an accent to each of forty section headings is how the first person to add a section leaves a grey rule in a coloured screen.
 
 ### Neutral
 
@@ -297,7 +313,9 @@ Both families are bundled as `.ttf` rather than pulled through Downloadable Font
 
 **The One-Family-Two-Widths Rule.** Nameplates are Archivo condensed; body is Archivo normal. Do not introduce a second display face to get a condensed look, and do not fake condensation with letter-spacing on the normal width.
 
-**The Engraving Rule.** Uppercase plus tracking is the label voice and is reserved for labels — nameplates, section plates, state words, buttons and nav items. Sentence copy is never uppercased.
+**The Engraving Rule.** Uppercase plus tracking is reserved for **section plates and state words**, and for nothing else. Caps mean something here precisely because they are rare.
+
+Row titles and button labels were uppercase condensed through v2.0 and are now sentence case in the body voice at zero tracking. Caps on every row read as shouting across a whole app, which is a real cost on a product people open when they are worried. The one survivor of the old micro-caps voice is the seal on a guardian-managed way, because a seal is a stamped physical object and reads as one.
 
 **The Digits-Are-Mono Rule.** Any number a person reads one character at a time is set in Azeret Mono. Prose containing a number is not.
 
@@ -434,14 +452,15 @@ Everything else in this document was read off the built system.
 
 ### Don't:
 
-- **Don't** introduce a decorative accent token, a per-screen accent, or a per-mode hue. There is no accent in this system.
+- **Don't** saturate a decorative accent, or use one on a lamp, a bus tick, a state word, a seal or any trip surface. Saturation is the only thing keeping the two colour families apart.
+- **Don't** pass an accent to an individual section or row where the area's ambient `LocalBoardAccent` would do; per-call-site colour is how a system drifts back into being one colour.
 - **Don't** use a gradient anywhere — not for a lamp halo, not for a plate, not for a background.
 - **Don't** use frosted glass, blur, or any translucent card.
 - **Don't** cast a shadow or raise elevation to express hierarchy. Nothing on this panel floats.
 - **Don't** enable Material You dynamic colour; it would repaint the pilot lamps from the wallpaper.
 - **Don't** use pill corners (20–28dp) or pill-shaped controls.
 - **Don't** use a ripple; this surface emits no light, so a press is a small scale-down.
-- **Don't** set body copy in the condensed width or in uppercase.
+- **Don't** set body copy in the condensed width or in uppercase, and don't uppercase a row title or a button label — those are sentence case now.
 - **Don't** set text in a lamp-glass colour, or reach for the raw colour constants instead of the theme's semantic accessor.
 - **Don't** draw a control for a setting the app cannot actually write, and don't show representative data without its stub mark.
 - **Don't** place Shady inside a `Way` row, beside a pilot lamp, or on any emergency surface — and never give it a speech bubble.

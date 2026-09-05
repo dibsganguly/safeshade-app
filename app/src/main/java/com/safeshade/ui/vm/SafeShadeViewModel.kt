@@ -16,12 +16,19 @@ import com.safeshade.WeatherService
 import com.safeshade.data.DarkModePreference
 import com.safeshade.data.DeviceSettings
 import com.safeshade.data.EmergencyContact
+import com.safeshade.emergencyAlertText
+import com.safeshade.sendEmergencySms
+import com.safeshade.service.LastKnownLocation
+import com.safeshade.data.FallAlertEvent
 import com.safeshade.data.GeofenceZone
 import com.safeshade.data.LedPattern
 import com.safeshade.data.LocationState
 import com.safeshade.data.MedicalId
 import com.safeshade.data.PersonaMode
 import com.safeshade.data.SafetySettings
+import com.safeshade.data.SosBlocker
+import com.safeshade.data.SosOutcome
+import com.safeshade.data.TripKind
 import com.safeshade.data.TripOutcome
 import com.safeshade.data.UserRole
 import com.safeshade.data.WeatherUiState
@@ -258,6 +265,102 @@ class SafeShadeViewModel(
         val id = appState.value.readyOrNull?.activeAlert?.id ?: return@launchIo
         container.safetyRepository.resolveAlert(id, outcome, contacted)
         container.safetyRepository.clearActiveAlert()
+    }
+
+    // ============================================
+    // SOS raised from this phone
+    // ============================================
+
+    private val _sosOutcome = MutableStateFlow<SosOutcome?>(null)
+
+    /**
+     * What the last phone SOS actually did.
+     *
+     * Durable state rather than a one-shot event, and that is forced by the
+     * surface that shows it: recording the trip raises the full-frame
+     * `TripBanner` *above* the Scaffold, so it is already covering anything a
+     * transient snackbar could have used. The banner has to be able to read
+     * this whenever it recomposes, not once when it happens.
+     */
+    val sosOutcome = _sosOutcome.asStateFlow()
+
+    fun clearSosOutcome() { _sosOutcome.value = null }
+
+    /** True when the SOS control can be armed. Checked at press, never at completion. */
+    fun canFireSos(): Boolean {
+        val ready = appState.value.readyOrNull ?: return false
+        return ready.safetySettings.emergencyContacts.isNotEmpty() &&
+            hasSmsPermission() &&
+            ready.activeAlert == null
+    }
+
+    /** Why it cannot, so the caller can offer the fix rather than just refusing. */
+    fun sosBlocker(): SosBlocker? {
+        val ready = appState.value.readyOrNull ?: return SosBlocker.NOT_READY
+        return when {
+            ready.activeAlert != null -> SosBlocker.ALERT_ALREADY_LIVE
+            ready.safetySettings.emergencyContacts.isEmpty() -> SosBlocker.NO_CONTACT
+            !hasSmsPermission() -> SosBlocker.NO_SMS_PERMISSION
+            else -> null
+        }
+    }
+
+    fun hasSmsPermission(): Boolean =
+        ContextCompat.checkSelfPermission(
+            getApplication(), Manifest.permission.SEND_SMS
+        ) == PackageManager.PERMISSION_GRANTED
+
+    /**
+     * Sends the alert.
+     *
+     * Order matters and is not arbitrary. The trip is recorded *before* anything
+     * is sent, for the reason `SafetyRepository.record` spells out: a process
+     * killed mid-send should leave an alert that has to be re-surfaced from
+     * history, never one that fired and was never written down.
+     *
+     * Two channels, honestly ranked:
+     *  - **SMS to every emergency contact** is the one that actually reaches a
+     *    person, and is the reason the SEND_SMS grant is checked before the
+     *    hold is even armed.
+     *  - **The wearable** gets the same text, which makes it buzz and display
+     *    the alert. That matters when the wearer is nearby and does not know
+     *    help has been called. It does *not* relay onward to the contact —
+     *    there is no wire tag for that (see docs/handoff3.md), and inventing
+     *    one here would be an app feature depending on firmware that does not
+     *    exist.
+     */
+    fun firePhoneSos() = launchIo {
+        val ready = appState.value.readyOrNull ?: return@launchIo
+        val contacts = ready.safetySettings.emergencyContacts
+        if (contacts.isEmpty()) {
+            _sosOutcome.value = SosOutcome.NoContact
+            return@launchIo
+        }
+
+        container.safetyRepository.record(
+            FallAlertEvent(kind = TripKind.PHONE_SOS, note = "Raised from the phone")
+        )
+
+        val fix = LastKnownLocation.state.value?.takeIf { it.isValid }
+            ?: _location.value.takeIf { it.isValid }
+        val body = emergencyAlertText(
+            wearerName = ready.deviceSettings.wearerName,
+            what = "SOS raised from the phone",
+            lat = fix?.lat,
+            lon = fix?.lon
+        )
+
+        val ctx = getApplication<Application>()
+        val results = contacts.map { it to sendEmergencySms(ctx, it, body) }
+        val onDevice = ready.connection.isUsable &&
+            runCatching { container.messagingRepository.sendGuardianMessage(body) }.isSuccess
+
+        _sosOutcome.value = SosOutcome.Sent(
+            reached = results.filter { it.second.succeeded }.map { it.first.name },
+            failed = results.filterNot { it.second.succeeded }.map { it.first.name },
+            onDevice = onDevice,
+            hasLocation = fix != null
+        )
     }
 
     // ============================================

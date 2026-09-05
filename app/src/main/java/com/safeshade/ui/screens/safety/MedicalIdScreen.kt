@@ -32,9 +32,11 @@ import com.safeshade.data.MedicalId
 import com.safeshade.ui.board.BoardButton
 import com.safeshade.ui.board.BoardPlate
 import com.safeshade.ui.board.ButtonWeight
+import com.safeshade.ui.board.ExpandableSection
 import com.safeshade.ui.board.LampState
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.Way
+import com.safeshade.ui.board.WhyDisclosure
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.Stroke
@@ -68,9 +70,16 @@ private const val MAX_FREE_TEXT = 40
 /**
  * The Medical ID.
  *
- * All eleven fields the firmware parses, in the three groups a person actually
- * thinks in rather than the order they cross the wire. Two things about this
- * screen are load-bearing:
+ * All eleven fields the firmware parses, but not at equal weight and no longer
+ * in the order they cross the wire. Four stay in the open — blood type,
+ * allergies, and the first contact's name and number — because those four are
+ * what `isUsable` tests, which is to say they are the ones that make the
+ * difference between a card worth showing a paramedic and one that is not. The
+ * remaining seven are filled in once during setup and sit behind a counted
+ * disclosure; twelve stacked text boxes were what made this read as a form to
+ * be completed rather than a card to be got right.
+ *
+ * Two things about this screen are load-bearing:
  *
  *  1. **Commas are removed as you type.** The device splits every payload on
  *     commas with no escaping, so one comma in Allergies pushes age into
@@ -115,31 +124,25 @@ fun MedicalIdScreen(
         )
 
         Spacer(Modifier.height(Spacing.lg))
-        Note(
-            text = "Anyone holding the device can bring this up without unlocking anything. " +
-                "That is the point — it is meant to be read by a stranger helping $subject. " +
-                "Put in what would change how somebody is treated, and leave the rest blank."
+        Note(text = "A stranger helping $subject reads this off the device, unlocked.")
+        Spacer(Modifier.height(Spacing.xs))
+        WhyDisclosure(
+            label = "Who reads this, and what to put in it",
+            text = "Anyone holding the device can bring this card up without unlocking " +
+                "anything. That is the point — it is meant to be read by whoever reaches " +
+                "$subject first, which is usually somebody who has never met them. Put in " +
+                "what would change how somebody is treated, and leave the rest blank. Blank " +
+                "is a legitimate answer: the card omits an empty field rather than printing a " +
+                "dash beside it, because a dash reads as an answer when it means nobody " +
+                "filled the box in."
         )
 
         Spacer(Modifier.height(Spacing.lg))
         CompletenessPlate(medicalId = id)
 
         Spacer(Modifier.height(Spacing.xl))
-        SectionPlate(title = "Identity")
+        SectionPlate(title = "The essentials")
         Spacer(Modifier.height(Spacing.md))
-
-        PlateField(
-            label = "Age",
-            value = if (id.age > 0) id.age.toString() else "",
-            onValueChange = { onChange(id.copy(age = parseAge(it))) },
-            placeholder = "74",
-            helper = "Responders use this to work out doses.",
-            maxLength = 3,
-            keyboardType = KeyboardType.Number,
-            imeAction = ImeAction.Next
-        )
-
-        Spacer(Modifier.height(Spacing.lg))
 
         PlateField(
             label = "Blood type",
@@ -151,17 +154,20 @@ fun MedicalIdScreen(
             imeAction = ImeAction.Next
         )
 
-        Spacer(Modifier.height(Spacing.xl))
-        SectionPlate(title = "Medical")
-        Spacer(Modifier.height(Spacing.sm))
+        Spacer(Modifier.height(Spacing.lg))
 
-        // The comma warning sits here, above the four free-text fields it
-        // applies to, rather than being repeated under each one.
-        Note(
-            text = "Commas are removed from these boxes as you type. The device splits the " +
-                "record on commas, so a single one would shift every later field along and " +
-                "produce a wrong card. Separate several items with a space, a full stop or " +
-                "the word \"and\"."
+        // The comma warning sits above the first free-text field rather than
+        // being repeated under each one. The short line is the whole of what
+        // somebody in the middle of typing needs; why it matters is worth
+        // having and is not worth four lines above the box on every visit.
+        Note(text = "Commas are removed from the text boxes as you type.")
+        Spacer(Modifier.height(Spacing.xs))
+        WhyDisclosure(
+            label = "Why commas are removed",
+            text = "The device splits the record on commas with no escaping, so a single one " +
+                "in Allergies would shift age into Conditions and everything after it, and " +
+                "produce a wrong card rather than an error. Separate several items with a " +
+                "space, a full stop or the word \"and\"."
         )
 
         Spacer(Modifier.height(Spacing.md))
@@ -178,59 +184,16 @@ fun MedicalIdScreen(
 
         Spacer(Modifier.height(Spacing.lg))
 
-        PlateField(
-            label = "Conditions",
-            value = id.conditions,
-            onValueChange = { onChange(id.copy(conditions = stripDeviceDelimiters(it))) },
-            placeholder = "Type 2 diabetes. Pacemaker.",
-            maxLength = MAX_FREE_TEXT,
-            imeAction = ImeAction.Next
+        Note(text = "The first contact is printed on the card and shown on the device.")
+        Spacer(Modifier.height(Spacing.xs))
+        WhyDisclosure(
+            label = "How this differs from the call list",
+            text = "The contacts here are printed for a human being to read and ring " +
+                "themselves. They are separate from the emergency contact list the phone " +
+                "dials automatically after a fall — the same person usually belongs in both, " +
+                "and filling one in does not fill in the other."
         )
 
-        Spacer(Modifier.height(Spacing.lg))
-
-        PlateField(
-            label = "Medications",
-            value = id.medications,
-            onValueChange = { onChange(id.copy(medications = stripDeviceDelimiters(it))) },
-            placeholder = "Metformin 500mg twice daily",
-            maxLength = MAX_FREE_TEXT,
-            imeAction = ImeAction.Next
-        )
-
-        Spacer(Modifier.height(Spacing.lg))
-
-        PlateField(
-            label = "Anything else",
-            value = id.notes,
-            onValueChange = { onChange(id.copy(notes = stripDeviceDelimiters(it))) },
-            placeholder = "Hard of hearing on the left side",
-            helper = "One short line. This is the first thing dropped if the record is too long to send.",
-            maxLength = MAX_FREE_TEXT,
-            singleLine = false,
-            imeAction = ImeAction.Next
-        )
-
-        Spacer(Modifier.height(Spacing.lg))
-
-        BoardPlate(modifier = Modifier.fillMaxWidth()) {
-            Way(
-                name = "Organ donor",
-                state = if (id.organDonor) LampState.LIVE else LampState.OFF,
-                stateLabel = if (id.organDonor) "Yes" else "Not stated",
-                detail = "Printed on the card only when this is on.",
-                checked = id.organDonor,
-                onCheckedChange = { onChange(id.copy(organDonor = it)) }
-            )
-        }
-
-        Spacer(Modifier.height(Spacing.xl))
-        SectionPlate(title = "Contacts")
-        Spacer(Modifier.height(Spacing.sm))
-        Note(
-            text = "These two are printed on the card and shown on the device. They are separate " +
-                "from the emergency contact list that gets called automatically — fill both in."
-        )
         Spacer(Modifier.height(Spacing.md))
 
         PlateField(
@@ -260,34 +223,106 @@ fun MedicalIdScreen(
             imeAction = ImeAction.Next
         )
 
-        Spacer(Modifier.height(Spacing.lg))
+        Spacer(Modifier.height(Spacing.xl))
 
-        PlateField(
-            label = "Second contact — name",
-            value = id.secondaryContactName,
-            onValueChange = { onChange(id.copy(secondaryContactName = stripDeviceDelimiters(it))) },
-            placeholder = "Dr Sen",
-            maxLength = MAX_CONTACT_NAME,
-            imeAction = ImeAction.Next
-        )
+        // Seven real fields, none of them the reason anybody opens this screen
+        // a second time. A card carrying a blood type, an allergy and one
+        // number is already worth showing a responder — `isUsable` says so —
+        // and the rest is what a guardian fills in once, on the evening they
+        // set the device up, and then leaves alone. Twelve stacked text boxes
+        // are also the thing that made this screen read as a form to be
+        // completed rather than a card to be got right.
+        ExpandableSection(label = "More medical details", count = 7) {
+            Spacer(Modifier.height(Spacing.sm))
 
-        Spacer(Modifier.height(Spacing.lg))
+            PlateField(
+                label = "Age",
+                value = if (id.age > 0) id.age.toString() else "",
+                onValueChange = { onChange(id.copy(age = parseAge(it))) },
+                placeholder = "74",
+                helper = "Responders use this to work out doses.",
+                maxLength = 3,
+                keyboardType = KeyboardType.Number,
+                imeAction = ImeAction.Next
+            )
 
-        PlateField(
-            label = "Second contact — number",
-            value = id.secondaryContact,
-            onValueChange = { onChange(id.copy(secondaryContact = stripDeviceDelimiters(it))) },
-            placeholder = "+91 98300 44556",
-            error = if (id.secondaryContact.isNotEmpty() && !isPlausiblePhone(id.secondaryContact)) {
-                "Numbers, spaces, + and - only"
-            } else {
-                null
-            },
-            maxLength = MAX_CONTACT_PHONE,
-            keyboardType = KeyboardType.Phone,
-            visualTransformation = IndianPhoneTransformation(),
-            imeAction = ImeAction.Done
-        )
+            Spacer(Modifier.height(Spacing.lg))
+
+            PlateField(
+                label = "Conditions",
+                value = id.conditions,
+                onValueChange = { onChange(id.copy(conditions = stripDeviceDelimiters(it))) },
+                placeholder = "Type 2 diabetes. Pacemaker.",
+                maxLength = MAX_FREE_TEXT,
+                imeAction = ImeAction.Next
+            )
+
+            Spacer(Modifier.height(Spacing.lg))
+
+            PlateField(
+                label = "Medications",
+                value = id.medications,
+                onValueChange = { onChange(id.copy(medications = stripDeviceDelimiters(it))) },
+                placeholder = "Metformin 500mg twice daily",
+                maxLength = MAX_FREE_TEXT,
+                imeAction = ImeAction.Next
+            )
+
+            Spacer(Modifier.height(Spacing.lg))
+
+            PlateField(
+                label = "Anything else",
+                value = id.notes,
+                onValueChange = { onChange(id.copy(notes = stripDeviceDelimiters(it))) },
+                placeholder = "Hard of hearing on the left side",
+                helper = "One short line. This is the first thing dropped if the record is too long to send.",
+                maxLength = MAX_FREE_TEXT,
+                singleLine = false,
+                imeAction = ImeAction.Next
+            )
+
+            Spacer(Modifier.height(Spacing.lg))
+
+            BoardPlate(modifier = Modifier.fillMaxWidth()) {
+                Way(
+                    name = "Organ donor",
+                    state = if (id.organDonor) LampState.LIVE else LampState.OFF,
+                    stateLabel = if (id.organDonor) "Yes" else "Not stated",
+                    detail = "Printed on the card only when this is on.",
+                    checked = id.organDonor,
+                    onCheckedChange = { onChange(id.copy(organDonor = it)) }
+                )
+            }
+
+            Spacer(Modifier.height(Spacing.lg))
+
+            PlateField(
+                label = "Second contact — name",
+                value = id.secondaryContactName,
+                onValueChange = { onChange(id.copy(secondaryContactName = stripDeviceDelimiters(it))) },
+                placeholder = "Dr Sen",
+                maxLength = MAX_CONTACT_NAME,
+                imeAction = ImeAction.Next
+            )
+
+            Spacer(Modifier.height(Spacing.lg))
+
+            PlateField(
+                label = "Second contact — number",
+                value = id.secondaryContact,
+                onValueChange = { onChange(id.copy(secondaryContact = stripDeviceDelimiters(it))) },
+                placeholder = "+91 98300 44556",
+                error = if (id.secondaryContact.isNotEmpty() && !isPlausiblePhone(id.secondaryContact)) {
+                    "Numbers, spaces, + and - only"
+                } else {
+                    null
+                },
+                maxLength = MAX_CONTACT_PHONE,
+                keyboardType = KeyboardType.Phone,
+                visualTransformation = IndianPhoneTransformation(),
+                imeAction = ImeAction.Done
+            )
+        }
 
         Spacer(Modifier.height(Spacing.xl))
 
@@ -429,6 +464,14 @@ private fun MedicalIdDarkPreview() {
  * This is the screen in the bank with the most stacked labels and helper
  * lines, so it is the one where a raised font scale breaks first. Kept as a
  * preview rather than a note in a review checklist.
+ *
+ * Its reach shrank when the seven rarely-edited fields moved behind "More
+ * medical details": a preview cannot open a disclosure, so what renders here
+ * is the essentials, the two short notes and the collapsed headers — which is
+ * also what a real reader sees on arrival, and therefore still the layout most
+ * worth checking. The seven collapsed fields are the same `PlateField` at the
+ * same width and have no font-scale behaviour of their own; if that ever stops
+ * being true, open the section by hand rather than trusting this.
  */
 @Preview(
     name = "Medical ID — 1.3x text",

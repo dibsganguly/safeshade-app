@@ -9,13 +9,18 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Alarm
 import androidx.compose.material.icons.outlined.Bluetooth
 import androidx.compose.material.icons.outlined.Lightbulb
 import androidx.compose.material.icons.outlined.MyLocation
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Timeline
 import androidx.compose.material.icons.outlined.Tune
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -34,6 +39,8 @@ import com.safeshade.ui.board.Nameplate
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.Way
 import com.safeshade.ui.board.icon
+import com.safeshade.ui.board.ScreenHeader
+import com.safeshade.ui.board.ScreenTier
 import com.safeshade.ui.nav.Routes
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
@@ -219,14 +226,22 @@ data class DeviceUiState(
 @Composable
 fun DeviceScreen(
     state: DeviceUiState,
+    onOpenSettings: () -> Unit,
     onOpenWay: (String) -> Unit,
     modifier: Modifier = Modifier,
-    contentPadding: PaddingValues = PaddingValues(0.dp)
+    contentPadding: PaddingValues = PaddingValues(0.dp),
+    /**
+     * Hoisted above the NavHost by SafeShadeApp so scroll position
+     * survives a tab switch. Defaulted so the previews still compile
+     * without one.
+     */
+    listState: LazyListState = rememberLazyListState()
 ) {
     val colors = MaterialTheme.board
     val lamp = state.connection.toLampState()
 
     LazyColumn(
+        state = listState,
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(
             start = Spacing.gutter,
@@ -237,10 +252,22 @@ fun DeviceScreen(
         verticalArrangement = Arrangement.spacedBy(Spacing.lg)
     ) {
         item("title") {
-            Text(
-                text = "Device",
-                style = MaterialTheme.typography.displaySmall,
-                color = colors.ink
+            ScreenHeader(
+                title = "Device",
+                tier = ScreenTier.ROOT,
+                trailing = {
+                    IconButton(onClick = onOpenSettings) {
+                        Icon(
+                            Icons.Outlined.Settings,
+                            // Not "Settings": this screen already carries a
+                            // "Device settings" row a few items down, and
+                            // TalkBack would announce two identical controls
+                            // that go to entirely different places.
+                            contentDescription = "App settings",
+                            tint = colors.inkMuted
+                        )
+                    }
+                }
             )
         }
 
@@ -383,7 +410,7 @@ private val previewDevice = DeviceUiState(
 private fun DeviceScreenPreviewLight() {
     SafeShadeTheme(darkTheme = false) {
         Box(Modifier.background(MaterialTheme.board.ground)) {
-            DeviceScreen(state = previewDevice, onOpenWay = {})
+            DeviceScreen(state = previewDevice, onOpenWay = {}, onOpenSettings = {})
         }
     }
 }
@@ -393,7 +420,7 @@ private fun DeviceScreenPreviewLight() {
 private fun DeviceScreenPreviewDark() {
     SafeShadeTheme(darkTheme = true) {
         Box(Modifier.background(MaterialTheme.board.ground)) {
-            DeviceScreen(state = previewDevice, onOpenWay = {})
+            DeviceScreen(state = previewDevice, onOpenWay = {}, onOpenSettings = {})
         }
     }
 }
@@ -409,7 +436,8 @@ private fun DeviceScreenPreviewDisconnected() {
                     wearerName = "Baba",
                     lastSeenLabel = "2 hours ago"
                 ),
-                onOpenWay = {}
+                onOpenWay = {},
+                onOpenSettings = {}
             )
         }
     }
