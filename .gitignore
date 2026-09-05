@@ -16,3 +16,10 @@ local.properties
 
 .impeccable/review/
 .impeccable/build/
+
+# Local session scratch — tooling, screenshots and caches, never source.
+.claude/
+.kotlin/
+.scratch/
+.tmp_screens/
+skills-lock.json
