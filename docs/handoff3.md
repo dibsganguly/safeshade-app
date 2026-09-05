@@ -312,7 +312,22 @@ and the tagline plate now matches the lockup within 2px; the empty states show
 one CTA and the right Shady; the light swatches animate per pattern; the Device
 header icon sits on the headline's centreline.
 
+Also verified after a later pass: all four sub-page header patterns now land at
+identical bounds (`[187,137]..[203]` for Zones, Reminders and the map picker);
+quiet hours drags both handles and wraps past midnight; and a contact saved with
+a relationship survives a **cold start**, which is the check that matters since
+`relationship` is the one new field going through Gson and `Dtos.kt` warns that
+Kotlin defaults never run on the decode path.
+
 **Not verified:** the paired-device write path (needs the wearable), any
 setting actually reaching the firmware (nothing was connected), and five of the
 six cramped-card fixes, which are code-verified only — blind-tap navigation on
 this MIUI device proved too unreliable to drive a full visual pass.
+
+**A note for whoever automates UI checks here.** `uiautomator dump` reports an
+app node's bounds as though the IME were not on screen. With the keyboard open,
+a tap at those coordinates lands on the keyboard instead — which, on the contact
+editor, silently typed digits into the phone field and made a save look broken
+when the app was correctly refusing an eleven-digit number. Send `keyevent 4`
+to dismiss the IME before tapping anything below it; `keyevent 111` was not
+enough.
