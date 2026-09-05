@@ -62,6 +62,7 @@ import com.safeshade.data.ReminderKind
 import com.safeshade.data.TripOutcome
 import com.safeshade.data.UserRole
 import com.safeshade.device.ConnectionState
+import com.safeshade.platform.PhoneNumbers
 import com.safeshade.repo.AppState
 import com.safeshade.repo.SyncStatus
 import com.safeshade.ui.board.BoardPlate
@@ -973,7 +974,14 @@ fun MainNavGraph(
                     contacts.getOrNull(index)?.let { contact ->
                         draftIndex = index
                         draftName = contact.name
-                        draftPhone = contact.phone
+                        // Normalised on load as well as on input, so a contact
+                        // saved before the field enforced bare digits edits on
+                        // the same terms as a new one. Without this the draft
+                        // holds "+91 891736 60065" while the field renders 11
+                        // digits, which leaves the character counter counting
+                        // the wrong string and the cursor mapping working
+                        // across two different lengths.
+                        draftPhone = PhoneNumbers.digitsOf(contact.phone)
                         draftPrimary = contact.isPrimary
                         draftOpen = true
                     }
