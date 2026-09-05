@@ -21,10 +21,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.safeshade.ui.shady.ShadyHost
@@ -83,7 +84,14 @@ fun MainsPlate(
                     Spacer(Modifier.height(Spacing.xs))
                     Text(
                         text = subline,
-                        style = MaterialTheme.boardType.rowDetail,
+                        // The one line on the Board that answers "is this
+                        // working?", and it was set in the same weight as the
+                        // description under an ordinary row. A status earns a
+                        // step more weight. The size stays put: it sits under
+                        // a 32sp masthead and does not need to compete.
+                        style = MaterialTheme.boardType.rowDetail.copy(
+                            fontWeight = FontWeight.W600
+                        ),
                         color = colors.inkMuted
                     )
                 }

@@ -414,6 +414,8 @@ private fun PersonPlate(state: CircleUiState, name: String, modifier: Modifier =
             Readout(
                 label = "Last seen",
                 value = state.lastSeenLabel ?: "Not yet",
+                // The only readout in the app whose value is a sentence.
+                compact = true,
                 modifier = Modifier.weight(1f)
             )
             Readout(

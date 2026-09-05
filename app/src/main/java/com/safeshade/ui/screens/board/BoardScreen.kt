@@ -7,12 +7,8 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
-import androidx.compose.runtime.remember
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,15 +24,21 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
@@ -57,11 +59,11 @@ import com.safeshade.ui.board.Way
 import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.nav.BottomDestination
 import com.safeshade.ui.nav.tabForRoute
-import com.safeshade.ui.shady.ShadyHost
-import com.safeshade.ui.shady.shadyMoodFor
 import com.safeshade.ui.shady.ReactionStyle
+import com.safeshade.ui.shady.ShadyHost
 import com.safeshade.ui.shady.ShadyStage
 import com.safeshade.ui.shady.rememberShadyReactor
+import com.safeshade.ui.shady.shadyMoodFor
 import com.safeshade.ui.theme.BoardColors
 import com.safeshade.ui.theme.Radius
 import com.safeshade.ui.theme.Spacing
@@ -235,13 +237,13 @@ fun BoardScreen(
         // Showing "connect" and a disabled "ring" together wastes the most
         // valuable row on the screen on a control that cannot be pressed. When
         // there is no link, connecting is the only thing worth offering; the
-        // moment there is one, ringing takes the same slot — which is also how
-        // TEST · RING DEVICE ends up in the first viewport rather than below
-        // the fold, in the only state where it does anything.
+        // moment there is one, ringing takes the same slot - which is also how
+        // Ring Device ends up in the first viewport rather than below the
+        // fold, in the only state where it does anything.
         item("primary-action") {
             if (lamp == LampState.LIVE) {
                 BoardButton(
-                    label = if (state.isRinging) "Ringing" else "Test – Ring Device",
+                    label = if (state.isRinging) "Ringing" else "Ring Device",
                     supporting = if (state.isRinging) {
                         "Tap the button on the device to stop the siren"
                     } else {
@@ -250,7 +252,11 @@ fun BoardScreen(
                     icon = SafeShadeIcons.RingTheDevice,
                     onClick = onRing,
                     enabled = !state.isRinging,
-                    weight = ButtonWeight.PRIMARY,
+                    // The same amber the Connect button takes, for the same
+                    // reason: this slot holds whichever single action the
+                    // screen is offering, and it should not change colour
+                    // when the link comes up.
+                    weight = ButtonWeight.ATTENTION,
                     modifier = Modifier.fillMaxWidth()
                 )
             } else {
@@ -321,7 +327,17 @@ fun BoardScreen(
                             enabled = !state.isSyncing && !state.isRinging
                         ) {
                             Icon(
-                                SafeShadeIcons.CloudLoading,
+                                // The round arrow loop, restored.
+                                // `cloud-loading` was swapped in during the
+                                // icon pass on the grounds that a sync fetches
+                                // weather from the network, but a cloud with a
+                                // dashed arc reads as *offline* on a screen
+                                // whose whole job is saying whether things are
+                                // connected - and the loop is what a person
+                                // already reads as "do it again". This is one
+                                // of the Material glyphs the set still has no
+                                // answer for; see handoff5 section 1.
+                                Icons.Outlined.Sync,
                                 contentDescription = "Sync weather and location",
                                 tint = if (state.isSyncing) colors.inkFaint else colors.inkMuted,
                                 modifier = Modifier

@@ -118,11 +118,23 @@ fun ServicesScreen(
             // information, not just long information.
             item("primary") {
                 BoardButton(
-                    label = "112 – ${primary.label}",
+                    // Title Case, like every other prominent button, and
+                    // spelled out rather than taking the sentence-case label
+                    // the rows below share with it.
+                    label = "112 – All Emergencies",
                     supporting = primary.blurb,
-                    icon = SafeShadeIcons.Police,
+                    // The cross, not the police badge. This number reaches
+                    // police, fire *and* ambulance - the blurb underneath says
+                    // so - and a badge names one of the three. The button on
+                    // the Safety screen that leads here already took the cross
+                    // for the same reason; these two are the same act and now
+                    // look like it.
+                    icon = SafeShadeIcons.Cross,
                     onClick = { dial(primary.number) },
-                    weight = ButtonWeight.PRIMARY,
+                    // Red. This is the one button in the app that puts a
+                    // person one tap from the national emergency line, and it
+                    // sat in the same charcoal as Save and Back.
+                    weight = ButtonWeight.DANGER,
                     modifier = Modifier.fillMaxWidth()
                 )
             }

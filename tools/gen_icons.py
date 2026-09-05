@@ -15,9 +15,10 @@ Three things this has to get right, each of which it once got wrong:
   silently and that glyph rendered as a circle with an equator and no
   meridian. Anything unrecognised now fails loudly rather than vanishing.
 * **A glyph whose artwork fills more of its viewBox than its neighbours reads
-  as oversized** even at an identical declared size. `OPTICAL` corrects those
-  by wrapping the paths in a scaled group, so the SVGs stay untouched and a
-  redrop of the source file does not silently undo the correction.
+  as oversized** even at an identical declared size, and one that runs to the
+  top of its box sits above the word it labels. `OPTICAL` corrects both by
+  wrapping the paths in a scaled and translated group, so the SVGs stay
+  untouched and a redrop of the source file does not silently undo it.
 """
 import re, glob, os, sys
 
@@ -36,10 +37,40 @@ STYLE_SUFFIXES = ("-stroke-rounded", "-stroke-sharp", "-stroke-standard")
 # about 18 of the 24 units, `check-in` spans 20. Drawn at the same declared
 # 20dp in a `Way` row it is visibly the largest thing in the column, which is
 # exactly the complaint that produced this table.
+# A value is either a bare scale, or a dict of `scale`, `dx` and `dy` in viewBox
+# units (positive dy moves the glyph down).
+#
+# `dy` exists because a glyph can be the right size and still sit wrong. `Way`
+# top-aligns its icon and lifts it 2dp so the glyph's cap lands level with the
+# title's, which is correct for artwork inset from the top of its box and wrong
+# for artwork that runs right up to it - those sit visibly above the word they
+# label. Measured on device: `call-after-a-fall` rendered 13px higher than
+# `fall-detection` and `text-as-well` in the same bank, at the same declared
+# size, on the same screen.
 OPTICAL = {
     # 18/20 - brings it level with navbar-board, gps and the rest of the rows.
     "check-in": 0.90,
+    # Spans 21.6 x 21.1 of its 24-unit box against a set norm of about 18, so
+    # it is the largest artwork in the whole drop, and its ink centre is low
+    # and right of the box centre rather than on it.
+    "adaptive-mode": {"scale": 0.86, "dx": -0.33, "dy": -0.57},
+    # Runs to the top of its box, and sat 13px above its neighbours in the same
+    # bank at the same declared size. `daily-reminder` was in here too and has
+    # been taken back out: it looked identical on screen but the cause was
+    # `Way` anchoring every icon against the row instead of against the title's
+    # first line, which is fixed in `Way.kt` and was never this glyph's fault.
+    "call-after-a-fall": {"dy": 2.5},
 }
+
+
+def optical(slug):
+    """(scale, dx, dy) for a slug, or None when it needs no correction."""
+    v = OPTICAL.get(slug)
+    if v is None:
+        return None
+    if isinstance(v, dict):
+        return v.get("scale", 1.0), v.get("dx", 0.0), v.get("dy", 0.0)
+    return v, 0.0, 0.0
 
 CAP = {"butt": "Butt", "round": "Round", "square": "Square"}
 JOIN = {"miter": "Miter", "round": "Round", "bevel": "Bevel"}
@@ -172,13 +203,19 @@ def kotlin_for(slug, svg):
                                CAP[sh["stroke-linecap"]], JOIN[sh["stroke-linejoin"]]))
 
     body = "\n".join(lines)
-    scale = OPTICAL.get(slug)
-    if scale is not None:
+    correction = optical(slug)
+    if correction is not None:
+        scale, dx, dy = correction
         # Scale about the viewBox centre, so the glyph shrinks in place rather
         # than towards the origin. A group is the only way to express this -
         # ImageVector.Builder's viewport has a size but no origin offset, so a
         # negative-origin viewBox cannot be transcribed directly.
-        inset_x, inset_y = vw * (1 - scale) / 2, vh * (1 - scale) / 2
+        #
+        # The nudge is added to that inset and is pre-scale, so it is stated in
+        # the same viewBox units the artwork is drawn in whether or not the
+        # glyph is also being resized.
+        inset_x = vw * (1 - scale) / 2 + dx * scale
+        inset_y = vh * (1 - scale) / 2 + dy * scale
         # addGroup/clearGroup rather than the `group {}` helper: those two are
         # members of the builder, so a corrected icon costs the generated file
         # no extra import that all 101 un-corrected ones would carry unused.

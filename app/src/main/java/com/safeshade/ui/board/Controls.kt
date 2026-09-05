@@ -32,10 +32,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.safeshade.ui.theme.BrandCharcoal
 import com.safeshade.ui.theme.Motion
 import com.safeshade.ui.theme.Radius
@@ -186,7 +188,22 @@ fun BoardButton(
             }
             Text(
                 text = label,
-                style = MaterialTheme.boardType.nameplate,
+                // A step heavier on the three hued weights.
+                //
+                // Charcoal on amber, teal or red is a dark ink on a light but
+                // *saturated* ground, and a W600 that reads as solid on bone
+                // reads slightly thin there - the colour under the letters
+                // competes with them in a way a flat panel does not. The
+                // achromatic weights keep W600, so this is a correction to the
+                // coloured buttons rather than a general heaviness.
+                style = if (weight == ButtonWeight.ATTENTION ||
+                    weight == ButtonWeight.COMMIT ||
+                    weight == ButtonWeight.DANGER
+                ) {
+                    MaterialTheme.boardType.nameplate.copy(fontWeight = FontWeight.W700)
+                } else {
+                    MaterialTheme.boardType.nameplate
+                },
                 color = content,
                 textAlign = TextAlign.Center
             )
@@ -219,6 +236,8 @@ fun Readout(
     modifier: Modifier = Modifier,
     label: String? = null,
     large: Boolean = false,
+    /** Set when the value is a phrase rather than a figure. See the style below. */
+    compact: Boolean = false,
     state: LampState? = null,
     /** Lets a row of readouts distribute rather than all left-packing. */
     horizontalAlignment: Alignment.Horizontal = Alignment.Start
@@ -234,7 +253,24 @@ fun Readout(
         if (label != null) Nameplate(label, small = true, muted = true)
         Text(
             text = value,
-            style = if (large) MaterialTheme.boardType.readoutLarge else MaterialTheme.boardType.readout,
+            style = when {
+                large -> MaterialTheme.boardType.readoutLarge
+                // Smaller, and set much tighter.
+                //
+                // A readout is normally a value - a percentage, a count, a
+                // dash - and 14sp mono on a 20sp line is right for that. One
+                // of them holds a sentence instead ("Location taken 26 minutes
+                // ago"), which wraps, and mono prose on 20sp leading opens a
+                // gap between the two lines wide enough that they stop reading
+                // as one phrase. This is not a third size in the scale; it is
+                // the same readout compressed for the one case where the value
+                // is words.
+                compact -> MaterialTheme.boardType.readout.copy(
+                    fontSize = 12.5.sp,
+                    lineHeight = 15.sp
+                )
+                else -> MaterialTheme.boardType.readout
+            },
             color = tint
         )
     }

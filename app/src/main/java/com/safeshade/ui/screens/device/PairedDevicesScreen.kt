@@ -189,16 +189,27 @@ private fun DevicePlate(
             BoardButton(
                 label = if (isConnected) "Disconnect" else "Connect",
                 onClick = if (isConnected) onDisconnect else onConnect,
+                // SECONDARY, so Disconnect is a filled ash plate rather than
+                // an outline on the ground: it is the quiet half of the pair
+                // now that Forget is red, but it is still a real action, and an
+                // outlined button beside a solid red one reads as disabled.
                 weight = if (isConnected) ButtonWeight.SECONDARY else ButtonWeight.PRIMARY,
                 modifier = Modifier.weight(1f)
             )
             BoardButton(
                 label = "Forget",
                 onClick = onForget,
-                // QUIET rather than DANGER: DANGER is reserved for things that
-                // happen in the world — a siren, a call. Forgetting a pairing is
-                // recoverable in under a minute.
-                weight = ButtonWeight.QUIET,
+                // DANGER, reversing the note that used to sit here.
+                //
+                // That note argued the hue was for things that happen in the
+                // world and that a pairing is recoverable in under a minute.
+                // Re-pairing is only quick if the wearable is to hand, charged
+                // and in range; for somebody whose parent is wearing it three
+                // hundred miles away it is not recoverable at all that day,
+                // and until it is, fall alerts reach nobody. The dialog
+                // already says exactly that. The button should look like the
+                // dialog it opens.
+                weight = ButtonWeight.DANGER,
                 modifier = Modifier.weight(1f)
             )
         }
@@ -241,7 +252,7 @@ private fun ForgetDialog(
             }
         },
         confirmButton = {
-            BoardButton(label = "Forget", onClick = onConfirm, weight = ButtonWeight.PRIMARY)
+            BoardButton(label = "Forget", onClick = onConfirm, weight = ButtonWeight.DANGER)
         },
         dismissButton = {
             BoardButton(label = "Keep", onClick = onCancel, weight = ButtonWeight.QUIET)

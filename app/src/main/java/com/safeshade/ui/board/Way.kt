@@ -132,6 +132,32 @@ fun Way(
             }
     ) {
         if (icon != null) {
+            // Centred on the title's first line box, not on the row.
+            //
+            // Centring on the row is wrong the moment a detail line exists: the
+            // glyph drifts down beside the subtitle and stops reading as a
+            // label for the title. Top-anchoring it with a fixed 2dp lift was
+            // the previous attempt and is wrong the other way - on a row with
+            // no detail the column centres its single line inside the 48dp
+            // touch target while the glyph stays pinned near the top, so the
+            // two sat 34px apart on a device. Both faults are the same
+            // mistake: the icon was being positioned against the row when the
+            // thing it labels is the first line.
+            //
+            // A box one line tall with the glyph centred inside it, anchored
+            // to whichever end of the row the title is at.
+            //
+            // With a detail line the title is the top line, so the box goes to
+            // the top. Without one the title is centred - and on a row whose
+            // trailing control is a 48dp toggle, the row is a good deal taller
+            // than its text, so a top-anchored glyph floats above a centred
+            // word. That was the Daily reminder row, measured 41px apart.
+            Box(
+                modifier = Modifier
+                    .align(if (detail != null) Alignment.Top else Alignment.CenterVertically)
+                    .height(WayLineBox),
+                contentAlignment = Alignment.Center
+            ) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
@@ -140,17 +166,9 @@ fun Way(
                     accent.isSpecified -> accent
                     else -> colors.inkMuted
                 },
-                // Anchored to the top of the row rather than its middle. The
-                // row is as tall as its title *plus* any detail line, so a
-                // centred icon on a two-line row floats down beside the
-                // subtitle and stops reading as a label for the title.
-                // The 2dp matches where the title's own line box starts on a
-                // single-line row, so both cases land level.
-                modifier = Modifier
-                    .align(Alignment.Top)
-                    .padding(top = 2.dp)
-                    .size(20.dp)
+                modifier = Modifier.size(20.dp)
             )
+            }
             Spacer(Modifier.width(Spacing.md))
         }
 
@@ -352,3 +370,11 @@ fun Seal(modifier: Modifier = Modifier) {
         )
     }
 }
+
+/**
+ * The height of a way's first line of type, which is what its icon centres on.
+ *
+ * The same number the text column takes as its minimum, so the two are centred
+ * in identical boxes on a row with no detail line.
+ */
+private val WayLineBox = 24.dp
