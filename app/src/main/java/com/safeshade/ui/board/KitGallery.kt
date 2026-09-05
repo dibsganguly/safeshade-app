@@ -24,6 +24,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -59,6 +61,13 @@ fun KitGallery(modifier: Modifier = Modifier) {
     val colors = MaterialTheme.board
     var switchA by remember { mutableStateOf(true) }
     var switchB by remember { mutableStateOf(false) }
+    // The gallery is the one place every control is live at once, which is how
+    // a control that only looks right in a static preview gets caught.
+    var chipValue by remember { mutableStateOf("Daughter") }
+    var dialValue by remember { mutableFloatStateOf(0.6f) }
+    var timeValue by remember { mutableIntStateOf(9 * 60) }
+    var rangeStart by remember { mutableIntStateOf(22 * 60) }
+    var rangeEnd by remember { mutableIntStateOf(7 * 60) }
 
     LazyColumn(
         modifier = modifier
@@ -226,6 +235,48 @@ fun KitGallery(modifier: Modifier = Modifier) {
                     }
                 }
             }
+        }
+
+        item { SectionPlate("Chips") }
+        item {
+            BoardPlate {
+                Column(Modifier.padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                    Nameplate("Relationship", small = true, muted = true)
+                    ChipRow(
+                        options = RELATIONSHIP_SUGGESTIONS,
+                        selected = chipValue,
+                        onSelect = { chipValue = it }
+                    )
+                }
+            }
+        }
+
+        item { SectionPlate("Controls") }
+        item {
+            DialControl(
+                label = "Volume",
+                value = dialValue,
+                valueRange = 0f..1f,
+                step = 0.1f,
+                onValueChange = { dialValue = it },
+                format = { "${(it * 100).toInt()}%" },
+                advice = { "The line under a dial changes as it moves. That is the point of it." }
+            )
+        }
+        item {
+            TimeStrip(
+                label = "Every day at",
+                minutesOfDay = timeValue,
+                onChange = { timeValue = it }
+            )
+        }
+        item {
+            RangeStrip(
+                label = "Quiet from",
+                startMinutes = rangeStart,
+                endMinutes = rangeEnd,
+                onChange = { start, end -> rangeStart = start; rangeEnd = end }
+            )
         }
 
         item { SectionPlate("Icons") }

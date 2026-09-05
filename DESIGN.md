@@ -256,15 +256,25 @@ Each state exists twice: a **lamp-glass** colour, chosen to look right when lit 
 
 ### Decorative — identity, never status
 
-Six peers rather than a scale, each solved for rather than picked: at a fixed 22% saturation, lightness was walked until the value cleared 4.5:1 against **both** its theme's plate and its ground. That is the body-text floor, well past the 3:1 a 20dp icon or a 2dp rule needs. They also sit within 1.35:1 of each other, which is the point — six different things at one weight, not six steps of emphasis.
+**Twelve** peers rather than a scale, each solved for rather than picked: at a fixed low saturation, lightness was walked until the value cleared 4.5:1 against **both** its theme's plate and its ground. That is the body-text floor, well past the 3:1 a 20dp icon or a 2dp rule needs.
 
-Named for what they label rather than for their hue, so a later retune cannot leave the code calling a blue token "green".
+Measured, not estimated — the current set, re-checked against the source:
 
-- **accentSage** — safety and detection. **accentSky** — location, zones, journeys. **accentLilac** — messaging and people. **accentClay** — medical and contacts. **accentSand** — device and hardware. **accentMoss** — modes and profiles.
+| | worst | best | peer spread |
+|---|---|---|---|
+| light | 4.50:1 | 4.54:1 | 1.01:1 |
+| dark | 4.50:1 | 4.60:1 | 1.02:1 |
+
+The spread is the point: twelve different things at one weight, not twelve steps of emphasis. Hues are spaced at least 22° apart so no two read as a retune of each other.
+
+- **accentSage**, **accentSky**, **accentLilac**, **accentClay**, **accentSand**, **accentMoss** — the original six.
+- **accentOchre**, **accentFern**, **accentCove**, **accentSlate**, **accentPlum**, **accentRose** — added when six ran out.
 
 Used at full strength for icons, section rules and identity type; at 0.10–0.18 alpha as a wash behind a card, where the normal ink tokens still apply on top. There is deliberately no `onAccent` token — a wash strong enough to need one would be mistaken for a state fill.
 
-They are supplied **ambiently** via `LocalBoardAccent`, set once per destination, because passing an accent to each of forty section headings is how the first person to add a section leaves a grey rule in a coloured screen.
+**Assignment is by stable hash, not by hand and not ambiently.** `accentFor(key)` derives a row's colour from its own identity. `LocalBoardAccent` is gone: one ambient accent per destination meant a screen was one colour, which is the thing the twelve exist to stop. `String.hashCode` is specified by the language, so a row's colour is arbitrary-looking but never *changes* between launches.
+
+**What keeps this safe is saturation, not hue.** State colours are saturated and reserved; decoration is not. That rule — enforced in how the tokens are built rather than by convention — is what makes "assigned freely" something other than a licence to confuse decoration with status.
 
 ### Neutral
 
@@ -395,9 +405,27 @@ Not a Material `Switch`. A 52×30dp recessed track with a hairline border and a 
 - **Text field:** built directly on a basic text field rather than Material's, drawn as a routed channel — recess fill, hairline border, 4dp corner, 48dp minimum height that grows with the font scale. Placeholder in faint ink and hidden from the semantics tree. A character counter appears only once the value reaches three-quarters of its cap; "0 / 40" under an empty field reads as a demand.
 - **Gauge:** a labelled plate, not a dial. A small muted nameplate, a large mono value with an optional unit and caption. A dial looks handsome and is slower to read.
 
+### Rich controls
+
+A setting that is genuinely continuous gets **`DialControl`**: a large `Readout` in real units, a track stepped to a value the underlying system can actually honour, and a line of plain English that changes as it moves. The pattern comes from the zone-radius slider, the one control in the app that was already right; its strength was never the slider but the pairing. `onCommit` fires once on release, which anything writing over BLE must use — one outstanding GATT operation at a time means a write per frame drops the last value.
+
+A time of day gets **`TimeStrip`**, and a period gets **`RangeStrip`**: the whole day drawn as a strip, shaded through night, so 7am and 7pm are told apart by where the marker sits rather than by reading am/pm. `RangeStrip` wraps past midnight, because for quiet hours an end earlier than its start is the normal case rather than an invalid range.
+
+**Small fixed sets do not get a slider.** Three named behaviours on a track read as a continuum with two invisible stops. Fall sensitivity, fall countdown and check-in interval stay `OptionWay` rows, where each option states its own consequence.
+
+### Chips
+
+**`ChipRow`** is for a field whose answer set is open but whose common answers are five or six words nobody should have to type — a relationship, a blood group. It is **not a picker**: it sets a text field that stays fully editable beside it, so an answer the app never thought of is still sayable, and a value matching no chip lights none of them, which is a correct state and not an error. Tapping the lit chip clears it. Square-shouldered and hairlined, never a Material pill, and selection is carried by border weight, fill and ink together rather than by colour alone.
+
 ### Navigation
 
-Four primary destinations in a Material navigation bar themed to the board — plate container, zero tonal elevation, a hairline top rule instead of a shadow, engraved uppercase labels, and a brass-tinted square selection plate rather than a rounded pill. Sub-screens keep their parent tab lit, so a user three levels into Safety still knows where they are.
+Four primary destinations in a Material `NavigationBar` themed to the board — plate container, zero tonal elevation, a hairline top rule instead of a shadow. Sub-screens keep their parent tab lit, so a user three levels into Safety still knows where they are.
+
+The **items** are not `NavigationBarItem`. That component draws Material's press state layer and exposes no `indication` parameter to turn it off, so the grey flash on every tab press could not be removed while using it. Each tab is a plain `selectable` `Box` instead; the *container* is still `NavigationBar`, which is where the window insets, the 80dp height and `selectableGroup()` come from, so replacing the item costs none of those.
+
+A selected tab is a **filled glyph in its own accent** inside a soft accent disc — Board clay, Circle sky, Safety sage, Device plum. There is no underline rule and no selection plate. This is the one place the system permits colour to carry a non-status meaning, and it is only safe because the filled/outlined weight change carries it too: the bar still reads correctly in greyscale.
+
+A tab item must carry a **fixed height**, never `fillMaxHeight`. `Scaffold` measures its `bottomBar` with the whole screen height as the maximum constraint, so a child that fills it drags the bar to full height and leaves it floating in the middle of a blank screen. This has been introduced twice.
 
 Motion is Material's three patterns applied consistently: fade-through between the four peer destinations (they have no spatial relationship, so nothing slides), shared-axis X from a destination into its sub-screens, and shared-axis Z for overlays that sit above everything. Durations are asymmetric — 90ms out, 90ms hold, 210ms in — so nothing cross-dissolves into mush, and every transition is short enough that none of them delays reaching an emergency control. The pop specs are written to look correct when scrubbed at an arbitrary fraction, because predictive back seeks them as the user drags.
 
@@ -453,7 +481,9 @@ Everything else in this document was read off the built system.
 ### Don't:
 
 - **Don't** saturate a decorative accent, or use one on a lamp, a bus tick, a state word, a seal or any trip surface. Saturation is the only thing keeping the two colour families apart.
-- **Don't** pass an accent to an individual section or row where the area's ambient `LocalBoardAccent` would do; per-call-site colour is how a system drifts back into being one colour.
+- **Don't** hand-pick an accent for a row or section. Use `accentFor(key)` so the assignment is stable and the screen does not become one colour. `LocalBoardAccent` no longer exists.
+- **Don't** let a logotype scale with the user's font-size preference. The intro wordmark is sized in dp converted to sp, because it is a picture of a name set beside a fixed-size emblem; every other piece of text in the app honours the setting.
+- **Don't** size an image with `size()` when its drawable is not square, and don't trust a drawable's canvas to match its artwork. Both the emblem and the tagline plate carried transparent margins that made every layout number around them a lie; both are cropped to their content now.
 - **Don't** use a gradient anywhere — not for a lamp halo, not for a plate, not for a background.
 - **Don't** use frosted glass, blur, or any translucent card.
 - **Don't** cast a shadow or raise elevation to express hierarchy. Nothing on this panel floats.

@@ -232,3 +232,87 @@ SMS and call that contact has ever received from this app went to the truncated 
   contact on the test device is the owner's own number, and it is the malformed one above. The
   arming path, both guard snackbars and the permission round trip were verified on device; the
   send, the banner body and the trip-log entry were not.
+
+---
+
+## 4. v2.2.0 — the icon system, the Circle rebuild, and five real defects
+
+Eighteen items from living with v2.1.1. Most were polish; five were not.
+
+### 4.1 Defects fixed, in order of how badly they mattered
+
+1. **The medication reminder could never be set.** `onEditMedicationTime` was a
+   hardcoded `{}` at both call sites, with a comment saying a picker was left
+   "for whoever owns the device screens". Two screens each drew a "Change"
+   button beside the time and neither did anything, so the reminder fired at
+   09:00 for everyone who ever switched it on. Both screens set the time inline
+   on a day strip now. Verified end to end on the device.
+2. **Paired devices could never list anything.** `upsertPairedDevice` was
+   defined at two layers and called from nowhere. Three more bugs sat behind
+   it: connect ignored which device was tapped, the connected row never showed
+   as connected, and a DTO field rename could have reset every remembered
+   device to the epoch. All four fixed; the write path itself still needs a
+   physical wearable to confirm.
+3. **The map could not be tapped.** Not missing, as first assumed — a WebView
+   whose Leaflet fetch from a CDN, on failure, returned before attaching the
+   tap handler. Replaced with native osmdroid: no key, no CDN, a disk tile
+   cache, and it now works on a second visit with no network at all.
+4. **Text ran off the right edge of the About screen.** In `BlockedFeatureCard`
+   neither side of the "Blocked by" row carried a weight, so a 150-character
+   explanation rendered as one unbroken line — at every font scale, not just a
+   raised one.
+5. **Two "add" CTAs on every empty list.** Zones and Contacts each wrote their
+   add button as a sibling of the `if (empty)` block rather than in its `else`
+   branch, so an empty list offered the same action twice.
+
+### 4.2 What the firmware still owes this app
+
+Nothing new was added to the wire protocol in this pass, so **§3.1 stands
+unchanged and is still the outstanding item**: there is no wire format for
+relaying a phone-originated SOS over the wearable's cellular gateway. It needs
+a new EXT tag and a firmware handler. The app can raise the alert locally; it
+cannot ask the device to relay it.
+
+Two firmware facts were *read* in this pass and are worth recording, because
+the app had them wrong:
+
+- **`updateRGBPattern()` is the source of truth for LED patterns**, and the
+  app's own descriptions of two of them were wrong. Cyber is a single violet
+  comet with a fading tail on a dark ring, not "a fast sweep between two cool
+  tones". Ocean's hue never leaves blue — it is the brightness that travels,
+  not "a wash between blue and green". The light swatches now transcribe that
+  function channel-for-channel and millisecond-for-millisecond.
+- **Torch is the only pattern that calls `setHeadlamp(true)`.** Choosing any
+  other pattern silently switches the wearable's front lamp off. Nothing in the
+  app said so; Torch's description now does. Worth deciding on the firmware
+  side whether that coupling is intended.
+
+### 4.3 Two assumptions that exploration overturned
+
+Recorded because both would have produced a fix that changed nothing:
+
+- **The intro wordmark was already the right font.** It was already Archivo at
+  W800 — the same family as the Board header, one weight heavier. What made it
+  read badly was `letterSpacing = -0.03em` at 38sp. Swapping the family would
+  have been a no-op.
+- **The real proportion bug was in the drawables, not the layout.**
+  `splash_emblem` was a 432px canvas holding a 169x259 glyph, so `size(112.dp)`
+  drew a 44dp mark inside 68dp of nothing; `brand_tagline` was a 2000px canvas
+  whose pill occupied 90.2% of it. No amount of tuning the layout constants
+  could have fixed either. Both are cropped to their content now, and the
+  wordmark's width is *measured* with the same `TextStyle` it is drawn with
+  rather than being a literal.
+
+### 4.4 Verified on the device, and not
+
+Verified live on the Redmi Note 10S: the medication strip sets and persists
+19:00; the map opens, renders tiles and moves its centre on a tap
+(22.5726/88.3639 to 22.579838/88.358746); the intro shows exactly one emblem
+and the tagline plate now matches the lockup within 2px; the empty states show
+one CTA and the right Shady; the light swatches animate per pattern; the Device
+header icon sits on the headline's centreline.
+
+**Not verified:** the paired-device write path (needs the wearable), any
+setting actually reaching the firmware (nothing was connected), and five of the
+six cramped-card fixes, which are code-verified only — blind-tap navigation on
+this MIUI device proved too unreliable to drive a full visual pass.
