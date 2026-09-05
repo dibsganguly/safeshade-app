@@ -27,6 +27,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.takeOrElse
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -159,6 +160,9 @@ fun TimeStrip(
     // moves. So `pointerInput` keys on Unit and reads the live callback through
     // rememberUpdatedState rather than capturing a stale one.
     val latestOnChange by rememberUpdatedState(onChange)
+    // Written from the layout phase via onSizeChanged, not assigned inside the
+    // draw scope. Writing snapshot state while drawing happens to work here
+    // only because nothing reads it during composition, and it buys nothing.
     val width = remember { mutableFloatStateOf(0f) }
 
     fun emit(x: Float) {
@@ -188,6 +192,7 @@ fun TimeStrip(
                     .fillMaxWidth()
                     .height(STRIP_HEIGHT)
                     .clip(RoundedCornerShape(Radius.plate))
+                    .onSizeChanged { width.floatValue = it.width.toFloat() }
                     .pointerInput(Unit) { detectTapGestures { emit(it.x) } }
                     .pointerInput(Unit) {
                         detectHorizontalDragGestures { change, _ -> emit(change.position.x) }
@@ -197,7 +202,6 @@ fun TimeStrip(
                         stateDescription = formatClock(minutes)
                     }
             ) {
-                width.floatValue = size.width
                 val w = size.width
                 val h = size.height
 

@@ -178,7 +178,12 @@ fun WelcomeScreen(onStart: () -> Unit, modifier: Modifier = Modifier) {
         Image(
             painter = painterResource(R.drawable.splash_emblem),
             contentDescription = null,
-            modifier = Modifier.size(96.dp)
+            // Height, not size. The drawable is the mark itself now rather
+            // than a mark floating inside a square of transparency, so a square
+            // box would reserve 96dp of width for a 63dp-wide image and centre
+            // the emblem inside its own padding. The same correction the Board
+            // masthead and the intro already carry.
+            modifier = Modifier.height(96.dp)
         )
         Spacer(Modifier.height(Spacing.lg))
         Text("SafeShade", style = MaterialTheme.typography.displayLarge, color = colors.ink)

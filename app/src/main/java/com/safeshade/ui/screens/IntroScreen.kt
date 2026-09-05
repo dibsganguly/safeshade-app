@@ -82,14 +82,27 @@ fun IntroScreen(
     // Measuring with the *same* TextStyle the words are drawn with is what
     // makes this exact rather than merely closer. The style is built once here
     // and handed to both the measurer and the two lines; they cannot drift.
+    val density = LocalDensity.current
+    // Sized in dp converted to sp, not in sp.
+    //
+    // A logotype is artwork, not reading matter. Left as `38.sp` the wordmark
+    // tracks the user's font-size preference while `EMBLEM_W` does not, so at
+    // 1.3x the name grows a third wider beside an emblem that has not moved and
+    // the lockup is back out of proportion - the exact complaint this screen was
+    // rewritten to fix. It also made the derived tagline width unbounded, which
+    // on a narrow phone at a large font scale could push the plate wider than
+    // the screen; the constant it replaced could not do that.
+    //
+    // Everything else in the app still honours the setting. This one element
+    // opts out because it is a picture of a name rather than a piece of text.
     val wordmarkStyle = MaterialTheme.typography.displayMedium.copy(
         fontFamily = BoardSans,
         // Archivo's variable weight axis runs to 900 and the family carries 800
         // and 900 for exactly this. A logotype wants more weight than any
         // heading in the app, or it reads as a large heading.
         fontWeight = FontWeight.W800,
-        fontSize = 38.sp,
-        lineHeight = 40.sp,
+        fontSize = with(density) { 38.dp.toSp() },
+        lineHeight = with(density) { 40.dp.toSp() },
         // No negative tracking. The family and weight were already right - this
         // is the same Archivo as the Board masthead, one step heavier - and
         // what made the wordmark read badly was -0.03em squeezing 38sp
@@ -98,7 +111,6 @@ fun IntroScreen(
         letterSpacing = 0.sp
     )
     val measurer = rememberTextMeasurer()
-    val density = LocalDensity.current
     val wordmarkWidth = remember(wordmarkStyle, density) {
         with(density) {
             // The wider of the two words. "Shade" is the longer string but not

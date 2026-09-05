@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -80,7 +81,9 @@ fun ChipRow(
     val tint = accent.takeOrElse { colors.brass }
 
     FlowRow(
-        modifier = modifier.fillMaxWidth(),
+        // So TalkBack announces "2 of 9" across the row. The bottom bar gets
+        // this free from NavigationBar; a hand-built row has to say it.
+        modifier = modifier.fillMaxWidth().selectableGroup(),
         horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
         verticalArrangement = Arrangement.spacedBy(Spacing.sm)
     ) {
