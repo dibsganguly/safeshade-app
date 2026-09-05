@@ -169,16 +169,26 @@ fun PairedDevice.toDto(): PairedDeviceDto = PairedDeviceDto(
 data class EmergencyContactDto(
     val name: String? = null,
     val phone: String? = null,
-    val isPrimary: Boolean? = null
+    val isPrimary: Boolean? = null,
+    /**
+     * Added after contacts were already being written to disk, which is why it
+     * is nullable with no default reached at read time: every contact saved
+     * before this field existed decodes with `relationship == null` and
+     * `orEmpty()` turns that into the empty string the domain type expects.
+     * No migration, no reset, nothing to write back.
+     */
+    val relationship: String? = null
 ) {
     fun toDomain(): EmergencyContact = EmergencyContact(
         name = name.orEmpty(),
         phone = phone.orEmpty(),
-        isPrimary = isPrimary ?: false
+        isPrimary = isPrimary ?: false,
+        relationship = relationship.orEmpty()
     )
 }
 
-fun EmergencyContact.toDto(): EmergencyContactDto = EmergencyContactDto(name, phone, isPrimary)
+fun EmergencyContact.toDto(): EmergencyContactDto =
+    EmergencyContactDto(name, phone, isPrimary, relationship)
 
 data class SafetySettingsDto(
     val parentalControlsEnabled: Boolean? = null,

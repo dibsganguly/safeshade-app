@@ -28,8 +28,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalInspectionMode
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.safeshade.R
@@ -64,6 +67,52 @@ fun IntroScreen(
 ) {
     val colors = MaterialTheme.board
     val isStatic = LocalInspectionMode.current
+
+    // The wordmark is measured, not estimated.
+    //
+    // Its width used to be a 152.dp literal, and the tagline plate's width was
+    // derived from it - so the plate was centred on a *layout* lockup that was
+    // wider than the ink actually drawn inside it, and settled visibly right of
+    // the mark above. That is the residual misalignment in the supplied logo
+    // comparison, and no amount of adjusting the literal fixes it, because the
+    // rendered width of "Shade" at 38sp W800 depends on the font file, the
+    // user's font scale and the platform's shaping - none of which a constant
+    // can know.
+    //
+    // Measuring with the *same* TextStyle the words are drawn with is what
+    // makes this exact rather than merely closer. The style is built once here
+    // and handed to both the measurer and the two lines; they cannot drift.
+    val wordmarkStyle = MaterialTheme.typography.displayMedium.copy(
+        fontFamily = BoardSans,
+        // Archivo's variable weight axis runs to 900 and the family carries 800
+        // and 900 for exactly this. A logotype wants more weight than any
+        // heading in the app, or it reads as a large heading.
+        fontWeight = FontWeight.W800,
+        fontSize = 38.sp,
+        lineHeight = 40.sp,
+        // No negative tracking. The family and weight were already right - this
+        // is the same Archivo as the Board masthead, one step heavier - and
+        // what made the wordmark read badly was -0.03em squeezing 38sp
+        // letterforms into each other. The masthead the user likes carries no
+        // tracking at all, so neither does this.
+        letterSpacing = 0.sp
+    )
+    val measurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    val wordmarkWidth = remember(wordmarkStyle, density) {
+        with(density) {
+            // The wider of the two words. "Shade" is the longer string but not
+            // necessarily the wider run, so both are measured rather than one
+            // assumed.
+            maxOf(
+                measurer.measure("Safe", wordmarkStyle).size.width,
+                measurer.measure("Shade", wordmarkStyle).size.width
+            ).toDp()
+        }
+    }
+    // The plate spans the whole lockup, as it does in the supplied logo. Now
+    // that the wordmark half is measured, this is the real drawn width.
+    val taglineWidth = EMBLEM_W + Spacing.md + wordmarkWidth
 
     // A single 0..1 clock. Every element below is a window onto it, which is
     // what keeps the stages overlapping instead of running as a queue of
@@ -121,7 +170,7 @@ fun IntroScreen(
                     painter = painterResource(R.drawable.splash_emblem),
                     contentDescription = null,
                     modifier = Modifier
-                        .offset(x = ((WORDMARK_W + Spacing.md) / 2) * (1f - slide))
+                        .offset(x = ((wordmarkWidth + Spacing.md) / 2) * (1f - slide))
                         .size(width = EMBLEM_W, height = EMBLEM_H)
                 )
 
@@ -132,17 +181,17 @@ fun IntroScreen(
                 // what make two short words read as a single mark instead of as
                 // two pieces of running text.
                 //
-                // Fixed width, not `WORDMARK_W * slide`. Animating the width
+                // Fixed width, not an animated one. Animating the width
                 // clipped the words as they appeared, so "Shade" spent the
                 // middle of the animation reading as "Shad". The words are
                 // revealed by their own alpha and rise instead, and the layout
                 // underneath never moves.
                 Column(
                     horizontalAlignment = Alignment.Start,
-                    modifier = Modifier.width(WORDMARK_W)
+                    modifier = Modifier.width(wordmarkWidth)
                 ) {
-                    WordmarkLine("Safe", safeIn, colors.ink)
-                    WordmarkLine("Shade", shadeIn, colors.ink)
+                    WordmarkLine("Safe", safeIn, colors.ink, wordmarkStyle)
+                    WordmarkLine("Shade", shadeIn, colors.ink, wordmarkStyle)
                 }
             }
 
@@ -156,7 +205,7 @@ fun IntroScreen(
                 painter = painterResource(R.drawable.brand_tagline),
                 contentDescription = "Your everything safety companion",
                 modifier = Modifier
-                    .width(TAGLINE_W)
+                    .width(taglineWidth)
                     .alpha(tagline)
                     // Rises the last few pixels into place rather than simply
                     // appearing, so it reads as settling under the lockup.
@@ -176,25 +225,14 @@ fun IntroScreen(
 private fun WordmarkLine(
     text: String,
     progress: Float,
-    color: androidx.compose.ui.graphics.Color
+    color: androidx.compose.ui.graphics.Color,
+    /** The style the caller measured with. Passing it is what keeps the drawn
+     *  width and the measured width the same number. */
+    style: TextStyle
 ) {
     Text(
         text = text,
-        style = MaterialTheme.typography.displayMedium.copy(
-            fontFamily = BoardSans,
-            // Archivo's variable weight axis runs to 900 and the family carries
-            // 800 and 900 for exactly this. A logotype wants more weight than
-            // any heading in the app, or it reads as a large heading.
-            fontWeight = FontWeight.W800,
-            fontSize = 38.sp,
-            lineHeight = 40.sp,
-            // No negative tracking. The family and weight were already right -
-            // this is the same Archivo as the Board masthead, one step heavier
-            // - and the thing that made the wordmark read badly was -0.03em
-            // squeezing 38sp letterforms into each other. The masthead the
-            // user likes carries no tracking at all, so neither does this.
-            letterSpacing = 0.sp
-        ),
+        style = style,
         color = color,
         maxLines = 1,
         modifier = Modifier
@@ -227,18 +265,10 @@ private val Rise: Easing = CubicBezierEasing(0.22f, 1f, 0.36f, 1f)
 private val EMBLEM_H = 112.dp
 private val EMBLEM_W = 73.dp
 
-private val WORDMARK_W = 152.dp
-
-/**
- * The tagline plate spans the whole lockup, as it does in the supplied logo.
- *
- * Derived, not typed. It was an independent 260.dp literal against a lockup
- * that measures 276 - so the plate sat 16dp narrower than the mark above it,
- * for no reason other than that the two numbers had never been related to each
- * other. Anything that changes the emblem or the wordmark now carries the
- * tagline with it.
- */
-private val TAGLINE_W = EMBLEM_W + Spacing.md + WORDMARK_W
+// The wordmark's width and the tagline plate's width are no longer constants.
+// Both were literals - 152dp and 260dp - typed independently of the type they
+// were supposed to enclose, which is why the plate never sat square under the
+// mark. They are measured in IntroScreen now; see the note there.
 
 /** Maps the global clock onto one stage's own 0..1, eased. */
 private fun window(t: Float, from: Float, to: Float, easing: Easing): Float {

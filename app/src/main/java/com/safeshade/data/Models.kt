@@ -231,7 +231,18 @@ enum class FallSensitivity(val label: String, val blurb: String) {
 data class EmergencyContact(
     val name: String,
     val phone: String,
-    val isPrimary: Boolean = false
+    val isPrimary: Boolean = false,
+    /**
+     * How this person is related to the wearer, in the wearer's own words.
+     *
+     * Free text rather than an enum, and empty rather than null. A responder
+     * reading a phone's lock screen needs "Daughter" or "Upstairs neighbour",
+     * not a value from a list the app happened to think of; the chip row that
+     * fills this field offers the common answers and then gets out of the way.
+     * Empty is a real state and means the contact predates this field or the
+     * user chose not to say - never render a placeholder in its place.
+     */
+    val relationship: String = ""
 )
 
 data class SafetySettings(
