@@ -157,7 +157,9 @@ fun HeatmapScreen(
                 icon = SafeShadeIcons.NavbarCircle,
                 checked = if (state.gated) null else state.communityOn,
                 onCheckedChange = if (state.gated) null else onToggleCommunity,
-                onClick = if (state.gated) onOpenPlan else null
+                // Gated: the row opens the plans. Otherwise the whole row
+                // throws the switch; the track alone is a small target.
+                onClick = if (state.gated) onOpenPlan else ({ onToggleCommunity(!state.communityOn) })
             )
             val status = state.status
             if (status != null) {

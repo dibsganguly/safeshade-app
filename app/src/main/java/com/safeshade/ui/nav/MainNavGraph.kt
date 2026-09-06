@@ -40,6 +40,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.safeshade.cloud.CloudResult
+import com.safeshade.cloud.CloudTier
 import com.safeshade.cloud.CloudSession
 import com.safeshade.ui.screens.profile.AccountScreen
 import com.safeshade.ui.screens.profile.AccountWay
@@ -1743,6 +1745,13 @@ fun MainNavGraph(
         composable(Routes.CIRCLE_HEATMAP) {
             val state = liveState.value
             val location = liveLocation.value
+            val cloudVm: CloudViewModel = viewModel(factory = CloudViewModel.Factory)
+            val cloudState by cloudVm.cloudState.collectAsStateWithLifecycle()
+            val gated = cloudState.effectiveTier == CloudTier.FREE
+            var communityOn by rememberSaveable { mutableStateOf(false) }
+            var cells by remember { mutableStateOf<List<HeatPoint>>(emptyList()) }
+            var cellsStatus by remember { mutableStateOf<String?>(null) }
+            var cellsLoading by remember { mutableStateOf(false) }
             val fix = state.lastKnownDeviceLocation ?: location.takeIf { it.isValid }
             // The household's own places: zones and the last fix. Alerts carry
             // a place as text, not a fix, so they cannot be drawn until a fix
@@ -1752,18 +1761,32 @@ fun MainNavGraph(
                 fix?.let { add(HeatPoint(it.lat, it.lon, 1, own = true)) }
             }
             val center = fix ?: state.zones.firstOrNull()?.let { LocationState(lat = it.lat, lon = it.lon, isValid = true) }
+            LaunchedEffect(communityOn, gated, center?.lat, center?.lon) {
+                if (!communityOn || gated || center == null) { cells = emptyList(); cellsStatus = null; return@LaunchedEffect }
+                cellsLoading = true
+                // About 25 km each way around the centre; the view opens at
+                // zoom 13 and a pinch out is still inside it.
+                val d = 0.22
+                when (val r = cloudVm.heatmapIn(center.lat - d, center.lat + d, center.lon - d, center.lon + d)) {
+                    is CloudResult.Ok -> { cells = r.value.map { HeatPoint(it.lat, it.lon, it.count) }; cellsStatus = if (r.value.isEmpty()) "No community cells around here yet. A cell needs five alerts before it is drawn." else null }
+                    is CloudResult.Failed -> cellsStatus = r.reason
+                    CloudResult.Disabled -> cellsStatus = "This build has no SafeShade Cloud project"
+                }
+                cellsLoading = false
+            }
             HeatmapScreen(
                 state = HeatmapUiState(
                     centerLat = center?.lat,
                     centerLon = center?.lon,
+                    cells = cells,
                     own = own,
-                    // The community layer arrives with the cloud tier and
-                    // heatmap_in; until the tier is known it is the Free
-                    // plan's view: gated, with the plan page one tap away.
-                    gated = true,
-                    tierLabel = "Free"
+                    communityOn = communityOn,
+                    gated = gated,
+                    tierLabel = PlanTier.fromKey(cloudState.effectiveTier.wire).label,
+                    status = cellsStatus,
+                    loading = cellsLoading
                 ),
-                onToggleCommunity = {},
+                onToggleCommunity = { communityOn = it },
                 onOpenPlan = { navController.navigate(Routes.SETTINGS_PLAN) },
                 onBack = { navController.popBackStack() }
             )
@@ -1833,6 +1856,7 @@ fun MainNavGraph(
         composable(Routes.SETTINGS_PLAN) {
             val cloudVm: CloudViewModel = viewModel(factory = CloudViewModel.Factory)
             val session by cloudVm.session.collectAsStateWithLifecycle()
+            val cloudState by cloudVm.cloudState.collectAsStateWithLifecycle()
             val planScope = rememberCoroutineScope()
             val billing = remember { PlayBilling(context.applicationContext) }
             DisposableEffect(Unit) { onDispose { billing.close() } }
@@ -1849,7 +1873,8 @@ fun MainNavGraph(
             }
             PlanScreen(
                 state = PlanUiState(
-                    current = PlanTier.FREE,
+                    current = PlanTier.fromKey(cloudState.effectiveTier.wire),
+                    overridden = cloudState.devTierOverride != null,
                     offers = offers,
                     offersError = offersError,
                     purchasing = purchasing,
@@ -1872,6 +1897,9 @@ fun MainNavGraph(
                     }
                 },
                 onOpenSignIn = { navController.navigate(Routes.SETTINGS_SIGN_IN) },
+                onSetOverride = { tier ->
+                    planScope.launch { cloudVm.setDevTierOverride(tier?.let { CloudTier.fromWire(it.key) }) }
+                },
                 onBack = { navController.popBackStack() }
             )
         }
@@ -1880,6 +1908,7 @@ fun MainNavGraph(
             val cloudVm: CloudViewModel = viewModel(factory = CloudViewModel.Factory)
             val session by cloudVm.session.collectAsStateWithLifecycle()
             val sync by cloudVm.syncSummary.collectAsStateWithLifecycle()
+            val cloudState by cloudVm.cloudState.collectAsStateWithLifecycle()
             AccountScreen(
                 session = session,
                 sync = sync,
@@ -1888,6 +1917,7 @@ fun MainNavGraph(
                 onDeleteAccount = { cloudVm.deleteAccount() },
                 onOpenSignIn = { navController.navigate(Routes.SETTINGS_SIGN_IN) },
                 onOpenPlan = { navController.navigate(Routes.SETTINGS_PLAN) },
+                planLabel = PlanTier.fromKey(cloudState.effectiveTier.wire).label,
                 onBack = { navController.popBackStack() }
             )
         }

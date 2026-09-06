@@ -9,8 +9,13 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.safeshade.BuildConfig
 import com.safeshade.SafeShadeApplication
+import com.safeshade.cloud.CircleInvite
+import com.safeshade.cloud.CircleRole
 import com.safeshade.cloud.CloudResult
 import com.safeshade.cloud.CloudSession
+import com.safeshade.cloud.CloudState
+import com.safeshade.cloud.CloudTier
+import com.safeshade.cloud.HeatCell
 import com.safeshade.cloud.sync.SyncState
 import com.safeshade.di.AppContainer
 import com.safeshade.platform.GoogleSignInHelper
@@ -76,6 +81,21 @@ class CloudViewModel(
                 lastError = failed?.reason ?: entries.firstNotNullOfOrNull { it.lastError }
             )
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SyncSummary())
+
+    /** The Circle and the tier, as the sync layer knows them. */
+    val cloudState: StateFlow<CloudState> get() = cloud.cloudState
+
+    suspend fun invite(email: String, role: CircleRole = CircleRole.GUARDIAN): CloudResult<CircleInvite> =
+        cloud.circleActions.invite(email, role)
+
+    suspend fun acceptInvite(token: String): CloudResult<Unit> =
+        cloud.circleActions.acceptInvite(token)
+
+    suspend fun setDevTierOverride(tier: CloudTier?) =
+        cloud.circleActions.setDevTierOverride(tier)
+
+    suspend fun heatmapIn(minLat: Double, maxLat: Double, minLon: Double, maxLon: Double): CloudResult<List<HeatCell>> =
+        cloud.circleActions.heatmapIn(minLat, maxLat, minLon, maxLon)
 
     suspend fun requestEmailCode(email: String): CloudResult<Unit> =
         cloud.auth.requestEmailOtp(email)
