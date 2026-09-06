@@ -34,21 +34,6 @@ import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.board
 
-/**
- * A feature that is genuinely not possible on this hardware or this
- * infrastructure.
- *
- * Not a backlog item and not a teaser. Each one names what would have to change
- * before it could exist, so that a reader can tell the difference between "we
- * have not got round to it" and "the sensor is not on the board".
- */
-data class BlockedFeature(
-    val title: String,
-    val description: String,
-    /** The specific thing standing in the way. No hedging, no dates. */
-    val blocker: String
-)
-
 /** Everything the about screen draws. */
 data class AboutUiState(
     /**
@@ -58,19 +43,16 @@ data class AboutUiState(
     val versionName: String = "",
     val versionCode: String = "",
     val buildLabel: String = "",
-    val firmwareTarget: String = "",
-    val roadmap: List<BlockedFeature> = DefaultRoadmap
+    val firmwareTarget: String = ""
 )
 
 /**
  * About.
  *
- * Half of this screen is a list of things the product cannot do. That is the
- * unusual half and the deliberate one: a demo audience and a first user both
- * arrive with expectations set by every other wearable on the market, and the
- * fastest way to lose their trust is to let them discover on their own that
- * there is no heart-rate sensor. Saying it first, with the reason, costs
- * nothing and buys the rest of the app the benefit of the doubt.
+ * The emblem, the version, the firmware this build talks to, and where alerts
+ * travel. It used to carry a "not in this version" roadmap; that ledger now
+ * lives in `DeviceCapabilities.awaitingFirmware` and the handoff, because the
+ * app reads as it will at launch.
  */
 @Composable
 fun AboutScreen(
@@ -155,120 +137,18 @@ fun AboutScreen(
             }
         }
 
-        item("roadmap-heading") { SectionPlate(title = "Not in this version") }
-
-        item("roadmap-intro") {
-            Text(
-                text = "These are asked about often enough to be worth answering. " +
-                    "None of them are close, and each one says why.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = colors.inkMuted
-            )
-        }
-
-        state.roadmap.forEach { feature ->
-            item("roadmap-${feature.title}") {
-                BlockedFeatureCard(feature = feature)
-            }
-        }
-
         item("footnote") {
             Text(
-                text = "SafeShade keeps everything on your phone and the device. There " +
-                    "is no account and no server; the only thing that leaves the phone " +
-                    "is a weather lookup for your location.",
+                text = "Fall alerts and SOS travel straight between the wearable and this " +
+                    "phone and never wait on a server. Signing in adds your Circle, " +
+                    "history and the family dashboard on top; the Privacy section of " +
+                    "your Profile lists exactly what leaves the phone and when.",
                 style = MaterialTheme.typography.bodySmall,
                 color = colors.inkFaint
             )
         }
     }
 }
-
-/**
- * One blocked feature.
- *
- * No badge, no "coming soon", and no [com.safeshade.ui.board.StubMark] — that
- * marker means "this data is representative rather than live", which is a
- * different claim entirely and would be the wrong one here. The whole treatment
- * is a plate, a name, a sentence, and the blocker stated flatly under a rule.
- */
-@Composable
-private fun BlockedFeatureCard(
-    feature: BlockedFeature,
-    modifier: Modifier = Modifier
-) {
-    val colors = MaterialTheme.board
-    BoardPlate(modifier = modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(Spacing.lg)) {
-            Nameplate(feature.title)
-            Spacer(Modifier.height(Spacing.xs))
-            Text(
-                text = feature.description,
-                style = MaterialTheme.typography.bodyMedium,
-                color = colors.ink
-            )
-        }
-        Hairline()
-        // Neither side of this row had a weight, and `feature.blocker` is a
-        // two-to-three sentence explanation — with no constraint on its
-        // width, Compose gave it a single unbroken line and let it run off
-        // the right edge of the screen instead of wrapping. The label is
-        // short and fixed ("Blocked by"), so it keeps its natural width
-        // unweighted; the explanation gets the weight so it wraps into the
-        // space that's left.
-        Row(modifier = Modifier.padding(Spacing.lg)) {
-            Nameplate("Blocked by", small = true, muted = true)
-            Spacer(Modifier.width(Spacing.md))
-            Text(
-                text = feature.blocker,
-                style = MaterialTheme.typography.bodySmall,
-                color = colors.inkMuted,
-                modifier = Modifier.weight(1f)
-            )
-        }
-    }
-}
-
-/**
- * The roadmap, as facts.
- *
- * Kept as data rather than as markup so the same list can be rendered in a
- * press kit, a README or a demo script without being retyped and quietly
- * softened on the way.
- */
-val DefaultRoadmap: List<BlockedFeature> = listOf(
-    BlockedFeature(
-        title = "Heart rate, blood oxygen and body temperature",
-        description = "Continuous vitals alongside fall detection, so a guardian can " +
-            "tell a faint from a trip.",
-        blocker = "There is no PPG sensor on this board. The temperature reading the " +
-            "device already sends is the ambient sensor, not a body reading. Adding " +
-            "vitals means a hardware revision, not a software update."
-    ),
-    BlockedFeature(
-        title = "Matter smart home",
-        description = "The wearable announcing a fall to lights, speakers and hubs " +
-            "already in the house.",
-        blocker = "Matter needs a certified device with an allocated vendor ID and a " +
-            "commissioning flow. SafeShade has none of the three, and certification " +
-            "is not open to a one-off build."
-    ),
-    BlockedFeature(
-        title = "Cloud tier – heatmap, family dashboard, mesh relay, over-the-air updates",
-        description = "A shared view for a whole family, alerts relayed between nearby " +
-            "SafeShade devices, and firmware updates pushed without a cable.",
-        blocker = "There is no SafeShade server, and every one of these needs one, plus " +
-            "accounts, storage and the running cost behind them. The app is built to " +
-            "work with no backend at all, which is why it currently does."
-    ),
-    BlockedFeature(
-        title = "SafeShade Spark",
-        description = "A second, smaller device – a clip or a pendant – paired alongside " +
-            "the main one.",
-        blocker = "Spark is hardware that does not exist yet. The app can already hold " +
-            "more than one paired device, which is as far as this half can go on its own."
-    )
-)
 
 // ============================================================================
 // Previews

@@ -362,7 +362,7 @@ fun CircleScreen(
  * the same line. It now sits with the state word in its own column at the top
  * right, the way a panel's pilot light sits apart from the circuit label it
  * lights for. That column is laid out in the row rather than overlaid on the
- * card corner — a state word is real text, not a fixed glyph like `StubMark`,
+ * card corner — a state word is real text, not a fixed glyph,
  * and it has to be free to grow at a raised font scale without drifting over
  * the name beside it.
  */

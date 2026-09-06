@@ -189,7 +189,7 @@ fun KitGallery(modifier: Modifier = Modifier) {
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
                 Gauge(label = "Temperature", value = "28", unit = "°C", caption = "Clear", modifier = Modifier.weight(1f))
-                Gauge(label = "Heart rate", value = "72", unit = "bpm", caption = "Resting", stub = true, modifier = Modifier.weight(1f))
+                Gauge(label = "Heart rate", value = "72", unit = "bpm", caption = "Resting", modifier = Modifier.weight(1f))
             }
         }
 

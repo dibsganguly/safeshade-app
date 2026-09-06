@@ -22,7 +22,7 @@ import kotlinx.serialization.Serializable
  * **Do not read this as "vitals ship".** The handoff's standing rule is that a
  * complete, correct, plausible API that nothing calls is a trap — the same one
  * that made `DeviceRepository.setNavTarget` look like a shipped feature for two
- * releases. Any UI built on this must carry `StubMark` until a real sample has
+ * releases. UI built on this shows a dash until a real sample has
  * been seen.
  *
  * Every measurement is nullable independently because one sample carries

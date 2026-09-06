@@ -531,7 +531,7 @@ Two rules carried from the firmware: **no speech or thought bubbles** (text emer
 
 **The Mode-Is-Icon-And-Plate Rule.** The eight adaptive modes are distinguished by icon and engraved nameplate alone. Per-mode accent hues were removed from the data layer deliberately: seven competing hues across a system whose one rule is that colour means circuit state is exactly the thing this world replaces. Icon plus label is how a real panel labels its ways, and it survives greyscale, colour vision deficiency and dark mode without a second thought.
 
-**The Honesty Rules.** Three conventions are part of the visual system, not decoration around it. A small dotted **stub mark** in a card's corner (with its own spoken description) is the only tell that data is representative rather than live, used only where hardware or infrastructure genuinely does not exist. A **device-only** row draws a readable value and no control where the app has no write path. **UNKNOWN** is a distinct lamp state meaning "we cannot currently tell" — rendered unlit and inert, never as a fault, because no link is not the same thing as a failure.
+**The Honesty Rules.** The app draws exactly what launch would draw for the current connection state, and no more. There is no "planned", "coming soon" or "representative" anywhere in the UI; what the firmware does not yet honour is recorded in `DeviceCapabilities.awaitingFirmware` and the handoff, not on a screen. Three conventions carry the honesty instead. **Absent data is absent**: a gauge with no reading shows a dash, never an invented number. **A failed action reports its reason**, and nothing draws a tick, a "Saved" or a "Sent" before its result is known. A **device-only** row draws a readable value and no control where the app has no write path. **UNKNOWN** is a distinct lamp state meaning "we cannot currently tell" — rendered unlit and inert, never as a fault, because no link is not the same thing as a failure.
 
 ## Known evidence limits
 
@@ -561,7 +561,7 @@ Everything else in this document was read off the built system.
 - **Do** set every label uppercase in the condensed nameplate voice, and every readable number in mono.
 - **Do** give every row, tappable or not, at least 48dp of height, and let heights grow with the font scale.
 - **Do** let a switch throw and a lamp warm up; the overshoot and the asymmetry are what make the panel feel mechanical.
-- **Do** mark representative data with a stub mark, and draw a device-only setting as a value with no control.
+- **Do** draw a device-only setting as a value with no control, and a gauge with no reading as a dash.
 - **Do** route the mascot through its host so the emergency suppression rule holds by construction.
 - **Do** measure a proportion off the artwork before typing it. The intro lockup was wrong three times running because its numbers were chosen rather than read; every one of them is now a fraction of the emblem's height taken from the supplied logo's alpha channel, and the wordmark is fitted to a measured width rather than set at a guessed size.
 
@@ -591,6 +591,6 @@ Everything else in this document was read off the built system.
   success and reaches nobody is worse than one that reports nothing.
 - **Don't** hedge. "This is a help, not a guarantee" and its relatives were deleted outright: a person setting up fall detection for their parent is not reassured by the app doubting itself, and the honest limitations are already stated where they apply.
 - **Don't** set text in a lamp-glass colour, or reach for the raw colour constants instead of the theme's semantic accessor.
-- **Don't** draw a control for a setting the app cannot actually write, and don't show representative data without its stub mark.
+- **Don't** draw a control for a setting the app cannot actually write, and don't label anything "planned", "coming soon" or "representative" — the app reads as it will at launch.
 - **Don't** place Shady inside a `Way` row, beside a pilot lamp, or on any emergency surface — and never give it a speech bubble.
 - **Don't** delete an instrument because it has no reading. A panel shows every way it has whether or not current is flowing, so a gauge with no value renders as an em-dash; only invent a reading that isn't there is forbidden.

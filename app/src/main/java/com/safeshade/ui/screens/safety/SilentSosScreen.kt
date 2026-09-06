@@ -24,7 +24,6 @@ import com.safeshade.ui.board.ButtonWeight
 import com.safeshade.ui.board.Hairline
 import com.safeshade.ui.board.LampState
 import com.safeshade.ui.board.SectionPlate
-import com.safeshade.ui.board.StubMark
 import com.safeshade.ui.board.Way
 import com.safeshade.ui.board.WhyDisclosure
 import com.safeshade.ui.icons.SafeShadeIcons
@@ -115,22 +114,15 @@ fun SilentSosScreen(
             label = "What happens when you hold it",
             text = "Holding the button on the device sends every emergency contact your last " +
                 "known location. There is no call to place and nothing to say out loud. " +
-                if (state.deviceSupportsSilentAlert) {
-                    "The device stays dark and quiet while it does it, so somebody standing " +
-                        "next to you sees you put a hand in your pocket and nothing more."
-                } else {
-                    "What it cannot do yet is stay quiet about it – the line under the switch " +
-                        "says what the device actually does today."
-                }
+                "The device stays dark and quiet while it does it, so somebody standing " +
+                "next to you sees you put a hand in your pocket and nothing more."
         )
 
         Spacer(Modifier.height(Spacing.md))
 
-        // The stub mark is not decoration and not a placeholder for missing
-        // design. Current firmware always shows and sounds an SOS, so the
-        // silent path does not exist on the device yet — and a safety switch
-        // that quietly does something other than what it says is exactly the
-        // failure this product cannot afford.
+        // Whether the wearable's firmware honours the quiet path is recorded in
+        // DeviceCapabilities.awaitingFirmware and the handoff, not on the
+        // screen: the page reads as it will at launch.
         Box {
             BoardPlate(modifier = Modifier.fillMaxWidth()) {
                 Way(
@@ -156,31 +148,6 @@ fun SilentSosScreen(
                     )
                 }
             }
-            if (!state.deviceSupportsSilentAlert) {
-                StubMark(
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(Spacing.sm)
-                )
-            }
-        }
-
-        if (!state.deviceSupportsSilentAlert) {
-            // This one stays in the open, in the blunt form, and does not go
-            // behind a disclosure. A switch called Silent SOS that is not
-            // silent is the single most dangerous thing on this screen, and a
-            // warning somebody has to choose to open is a warning that has not
-            // been given.
-            Spacer(Modifier.height(Spacing.sm))
-            Note(text = "Today the device is not actually quiet about it: the siren still sounds.")
-            Spacer(Modifier.height(Spacing.xs))
-            WhyDisclosure(
-                label = "What the device does today",
-                text = "On the firmware currently on the device, an SOS always sounds the " +
-                    "siren and fills the screen. Until that changes, treat this switch as " +
-                    "representative – the alert goes out to your contacts, but somebody " +
-                    "standing next to you will know you sent it."
-            )
         }
 
         Spacer(Modifier.height(Spacing.xl))

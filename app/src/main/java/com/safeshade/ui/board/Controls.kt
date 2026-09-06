@@ -290,8 +290,7 @@ fun Gauge(
     modifier: Modifier = Modifier,
     unit: String? = null,
     caption: String? = null,
-    state: LampState? = null,
-    stub: Boolean = false
+    state: LampState? = null
 ) {
     val colors = MaterialTheme.board
     Box(modifier = modifier) {
@@ -328,31 +327,5 @@ fun Gauge(
                 }
             }
         }
-        if (stub) StubMark(modifier = Modifier.align(Alignment.TopEnd).padding(Spacing.sm))
     }
-}
-
-/**
- * Marks a card whose data is representative rather than live.
- *
- * Used only where a feature is genuinely blocked by missing hardware or
- * infrastructure — a vitals sensor that is not on this board revision, a cloud
- * tier that does not exist. The card behaves and reads exactly like the real
- * feature; this small dotted square in the corner is the only tell.
- *
- * It carries a content description so the distinction is available to a screen
- * reader too. Showing representative data with no marker at all would be a
- * different thing entirely, and not an honest one.
- */
-@Composable
-fun StubMark(modifier: Modifier = Modifier) {
-    val colors = MaterialTheme.board
-    Box(
-        modifier = modifier
-            .size(10.dp)
-            .clip(RoundedCornerShape(Radius.tight))
-            .background(colors.inkFaint.copy(alpha = 0.22f))
-            .border(Stroke.hairline, colors.inkFaint.copy(alpha = 0.5f), RoundedCornerShape(Radius.tight))
-            .semantics { contentDescription = "Representative data, not live" }
-    )
 }
