@@ -44,6 +44,9 @@ import com.safeshade.cloud.CloudSession
 import com.safeshade.ui.screens.profile.AccountScreen
 import com.safeshade.ui.screens.profile.AccountWay
 import com.safeshade.ui.screens.profile.ProfilePerson
+import com.safeshade.ui.screens.circle.HeatmapScreen
+import com.safeshade.ui.screens.circle.HeatmapUiState
+import com.safeshade.ui.screens.circle.HeatPoint
 import com.safeshade.ui.screens.circle.PeopleScreen
 import com.safeshade.ui.screens.circle.WearerCard
 import com.safeshade.ui.screens.circle.PersonListRow
@@ -52,6 +55,14 @@ import com.safeshade.ui.screens.circle.WearerEditorUiState
 import com.safeshade.platform.OverpassClient
 import com.safeshade.ui.screens.safety.NearbyUiState
 import okhttp3.OkHttpClient
+import android.app.Activity
+import androidx.compose.runtime.DisposableEffect
+import com.safeshade.platform.BillingOutcome
+import com.safeshade.platform.PlanOffer
+import com.safeshade.platform.PlayBilling
+import com.safeshade.ui.screens.profile.PlanScreen
+import com.safeshade.ui.screens.profile.PlanTier
+import com.safeshade.ui.screens.profile.PlanUiState
 import com.safeshade.data.Wearer
 import com.safeshade.data.LocationState
 import com.safeshade.ActionResult
@@ -497,6 +508,7 @@ fun MainNavGraph(
                 onOpenCheckIn = { navController.navigate(Routes.CIRCLE_CHECKIN) },
                 onOpenSim = { navController.navigate(Routes.CIRCLE_SIM) },
                 onOpenPeople = { navController.navigate(Routes.CIRCLE_PEOPLE) },
+                onOpenHeatmap = { navController.navigate(Routes.CIRCLE_HEATMAP) },
                 onOpenPerson = { id -> navController.navigate(Routes.personEdit(id)) },
                 onLocate = { navController.navigate(Routes.DEVICE_LOCATE) },
                 onCallWearable = {
@@ -1728,6 +1740,35 @@ fun MainNavGraph(
         }
 
 
+        composable(Routes.CIRCLE_HEATMAP) {
+            val state = liveState.value
+            val location = liveLocation.value
+            val fix = state.lastKnownDeviceLocation ?: location.takeIf { it.isValid }
+            // The household's own places: zones and the last fix. Alerts carry
+            // a place as text, not a fix, so they cannot be drawn until a fix
+            // is stamped on them; nothing is invented for them here.
+            val own = buildList {
+                state.zones.forEach { add(HeatPoint(it.lat, it.lon, 1, own = true)) }
+                fix?.let { add(HeatPoint(it.lat, it.lon, 1, own = true)) }
+            }
+            val center = fix ?: state.zones.firstOrNull()?.let { LocationState(lat = it.lat, lon = it.lon, isValid = true) }
+            HeatmapScreen(
+                state = HeatmapUiState(
+                    centerLat = center?.lat,
+                    centerLon = center?.lon,
+                    own = own,
+                    // The community layer arrives with the cloud tier and
+                    // heatmap_in; until the tier is known it is the Free
+                    // plan's view: gated, with the plan page one tap away.
+                    gated = true,
+                    tierLabel = "Free"
+                ),
+                onToggleCommunity = {},
+                onOpenPlan = { navController.navigate(Routes.SETTINGS_PLAN) },
+                onBack = { navController.popBackStack() }
+            )
+        }
+
         composable(Routes.CIRCLE_PEOPLE) {
             val state = liveState.value
             PeopleScreen(
@@ -1789,6 +1830,52 @@ fun MainNavGraph(
             )
         }
 
+        composable(Routes.SETTINGS_PLAN) {
+            val cloudVm: CloudViewModel = viewModel(factory = CloudViewModel.Factory)
+            val session by cloudVm.session.collectAsStateWithLifecycle()
+            val planScope = rememberCoroutineScope()
+            val billing = remember { PlayBilling(context.applicationContext) }
+            DisposableEffect(Unit) { onDispose { billing.close() } }
+            var offers by remember { mutableStateOf<List<PlanOffer>?>(null) }
+            var offersError by remember { mutableStateOf<String?>(null) }
+            var purchasing by remember { mutableStateOf<String?>(null) }
+            var purchaseError by remember { mutableStateOf<String?>(null) }
+            LaunchedEffect(Unit) {
+                when (val r = billing.queryPlans()) {
+                    is BillingOutcome.Ok -> offers = r.value
+                    is BillingOutcome.Failed -> offersError = r.reason
+                    BillingOutcome.Cancelled -> Unit
+                }
+            }
+            PlanScreen(
+                state = PlanUiState(
+                    current = PlanTier.FREE,
+                    offers = offers,
+                    offersError = offersError,
+                    purchasing = purchasing,
+                    purchaseError = purchaseError,
+                    signedIn = session is CloudSession.SignedIn,
+                    showDeveloper = BuildConfig.DEBUG
+                ),
+                onChoose = { tier ->
+                    val productId = tier.productId ?: return@PlanScreen
+                    val activity = context as? Activity ?: return@PlanScreen
+                    purchasing = productId
+                    purchaseError = null
+                    planScope.launch {
+                        when (val r = billing.purchase(activity, productId)) {
+                            is BillingOutcome.Ok -> Unit // the subscription row, once synced, is what changes the tier
+                            is BillingOutcome.Failed -> purchaseError = r.reason
+                            BillingOutcome.Cancelled -> Unit
+                        }
+                        purchasing = null
+                    }
+                },
+                onOpenSignIn = { navController.navigate(Routes.SETTINGS_SIGN_IN) },
+                onBack = { navController.popBackStack() }
+            )
+        }
+
         composable(Routes.SETTINGS_ACCOUNT) {
             val cloudVm: CloudViewModel = viewModel(factory = CloudViewModel.Factory)
             val session by cloudVm.session.collectAsStateWithLifecycle()
@@ -1800,6 +1887,7 @@ fun MainNavGraph(
                 onSignOut = { cloudVm.signOut() },
                 onDeleteAccount = { cloudVm.deleteAccount() },
                 onOpenSignIn = { navController.navigate(Routes.SETTINGS_SIGN_IN) },
+                onOpenPlan = { navController.navigate(Routes.SETTINGS_PLAN) },
                 onBack = { navController.popBackStack() }
             )
         }

@@ -178,6 +178,7 @@ fun CircleScreen(
     onOpenJourney: () -> Unit,
     onOpenCheckIn: () -> Unit,
     onOpenSim: () -> Unit,
+    onOpenHeatmap: () -> Unit = {},
     onOpenPeople: () -> Unit = {},
     onOpenPerson: (id: String) -> Unit = {},
     onLocate: (id: String) -> Unit = {},
@@ -393,6 +394,15 @@ fun CircleScreen(
                     detail = state.checkIn.detail,
                     icon = SafeShadeIcons.HelpCircle,
                     onClick = onOpenCheckIn
+                )
+                Hairline()
+                Way(
+                    name = "Where alerts happen",
+                    state = LampState.OFF,
+                    stateLabel = "Map",
+                    detail = "Your household's places, and the community's",
+                    icon = SafeShadeIcons.SafeZone,
+                    onClick = onOpenHeatmap
                 )
                 Hairline()
                 Way(

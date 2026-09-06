@@ -61,6 +61,8 @@ fun AccountScreen(
     onSignOut: suspend () -> CloudResult<Unit>,
     onDeleteAccount: suspend () -> CloudResult<Unit>,
     onOpenSignIn: () -> Unit,
+    onOpenPlan: () -> Unit = {},
+    planLabel: String = "Free",
     onBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(0.dp)
@@ -169,6 +171,20 @@ fun AccountScreen(
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
+                }
+            }
+
+            item("plan-heading") { SectionPlate(title = "Plan") }
+            item("plan") {
+                BoardPlate(modifier = Modifier.fillMaxWidth()) {
+                    Way(
+                        name = "Your plan",
+                        state = LampState.LIVE,
+                        stateLabel = planLabel,
+                        detail = "What the cloud adds around the board, and what each plan costs",
+                        icon = SafeShadeIcons.Info,
+                        onClick = onOpenPlan
+                    )
                 }
             }
 

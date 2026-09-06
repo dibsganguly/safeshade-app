@@ -56,6 +56,10 @@ object Routes {
     const val CIRCLE_CHECKIN = "circle/checkin"
     const val CIRCLE_JOURNEY = "circle/journey"
     const val CIRCLE_SIM = "circle/sim"
+    /** Where alerts happen: the household's places and the community cells. */
+    const val CIRCLE_HEATMAP = "circle/heatmap"
+    /** The cloud tiers. */
+    const val SETTINGS_PLAN = "settings/plan"
     /** People I look after: every wearer this phone watches. */
     const val CIRCLE_PEOPLE = "circle/people"
     /** One wearer; a blank id adds a new one. */

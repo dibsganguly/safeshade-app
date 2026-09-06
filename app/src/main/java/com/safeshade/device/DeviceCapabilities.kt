@@ -122,7 +122,7 @@ object DeviceCapabilities {
         DeviceSetting(
             "emergencyServices", "Nearest emergency services, cached on the device",
             SyncCapability.AWAITING_FIRMWARE,
-            wire = "EXT ERS:<name>,<number>,<distanceMetres> per service"
+            wire = "EXT ERS: up to 4 entries kind:name:phoneDigits:distanceMetres joined by ';'"
         ),
         DeviceSetting(
             "firmwareVersion", "Firmware version over the link",
@@ -132,7 +132,7 @@ object DeviceCapabilities {
         DeviceSetting(
             "voiceChunks", "Push-to-talk to and from the wearable",
             SyncCapability.AWAITING_FIRMWARE,
-            wire = "VOICE:<seq>/<total>,<base64 ADPCM 8 kHz> chunks with per-chunk ack"
+            wire = "VOICE chunk path: binary [0x56][seq][total][length] header + 8 kHz ADPCM payload, per-chunk ack"
         ),
         DeviceSetting(
             "otaChunks", "Firmware update over the link",

@@ -181,6 +181,178 @@ object DeviceProtocol {
         numbers.take(8).joinToString(",") { clean(it, 16) }
 
     // ============================================
+    // EXT ERS - nearest emergency services cache
+    // ============================================
+
+    /**
+     * One cached emergency-services entry: `kind` is `'H'` hospital, `'P'`
+     * police, `'F'` fire, `'M'` pharmacy. `phone` is nullable — not every
+     * result the app fetches carries a number.
+     */
+    data class ErsEntry(val kind: Char, val name: String, val phone: String?, val distanceM: Int)
+
+    /** Deterministic on-device ordering: hospital, police, fire, pharmacy. */
+    private val ERS_KIND_ORDER = listOf('H', 'P', 'F', 'M')
+
+    private const val ERS_MAX_ENTRIES = 4
+
+    /**
+     * `EXT ERS` write budget.
+     *
+     * `BleManager` (`DESIRED_MTU = 247`) requests 247 and [health] budgets
+     * against `mtu - ATT_OVERHEAD` up to 512 once that is granted. Android is
+     * free to grant less, and stacks that refuse renegotiation commonly settle
+     * around 185 — the value this file's own tests use for the "generous" MTU
+     * case. This payload is fixed at a flat 180 bytes rather than taking an
+     * `mtu` parameter like [health] does, so the four cached entries always
+     * fit even on a link that never got past that fallback ceiling.
+     */
+    private const val ERS_BUDGET_BYTES = 180
+
+    /** Strips the `:` and `;` this format uses as delimiters, on top of [clean]. */
+    private fun ersClean(value: String, maxLength: Int): String =
+        clean(value, maxLength).replace(':', ' ').replace(';', ' ').replace(Regex("\\s+"), " ").trim()
+
+    /**
+     * `EXT ERS` payload: up to 4 entries, one per [ErsEntry.kind], joined by
+     * `;`; each entry is `kind:name:phoneDigits:distanceMetres` joined by `:`.
+     *
+     * Colons and semicolons are used instead of commas (unlike [health] or
+     * [weather]) following the same convention as [geofence] and [navigation]:
+     * a structured, non-comma format that survives the firmware's positional
+     * comma split at the outer `EXT` layer untouched. `phone` is digits-only;
+     * a missing phone renders as an empty field, still positionally present.
+     * Entries are sorted into [ERS_KIND_ORDER] regardless of input order, and
+     * duplicate kinds collapse to the first occurrence, so the device always
+     * sees at most one row per kind in a fixed order. Names are truncated
+     * (and, at 4 entries, truncated harder) until the whole payload fits
+     * [ERS_BUDGET_BYTES]; a payload that still would not fit is hard-cut as a
+     * last resort, exactly as [health] does.
+     */
+    fun encodeErsPayload(entries: List<ErsEntry>): String {
+        val ordered = entries
+            .distinctBy { it.kind }
+            .sortedBy { ERS_KIND_ORDER.indexOf(it.kind).let { i -> if (i < 0) ERS_KIND_ORDER.size else i } }
+            .take(ERS_MAX_ENTRIES)
+
+        fun render(nameLen: Int): String = ordered.joinToString(";") { entry ->
+            val phoneDigits = entry.phone.orEmpty().filter { it.isDigit() }
+            listOf(
+                entry.kind.toString(),
+                ersClean(entry.name, nameLen),
+                phoneDigits,
+                entry.distanceM.coerceIn(0, 999_999).toString()
+            ).joinToString(":")
+        }
+
+        var nameLen = 32
+        var payload = render(nameLen)
+        while (payload.toByteArray(Charsets.UTF_8).size > ERS_BUDGET_BYTES && nameLen > 0) {
+            nameLen = (nameLen - 4).coerceAtLeast(0)
+            payload = render(nameLen)
+        }
+        return payload.take(ERS_BUDGET_BYTES)
+    }
+
+    /**
+     * Inverse of [encodeErsPayload], for the round-trip test — the firmware
+     * never sends this back, but the format has to decode what it encodes.
+     * An entry with too few `:`-separated fields, or a non-numeric distance,
+     * is skipped rather than failing the whole parse.
+     */
+    fun parseErsPayload(payload: String): List<ErsEntry> {
+        if (payload.isBlank()) return emptyList()
+        return payload.split(";").mapNotNull { raw ->
+            val parts = raw.split(":")
+            if (parts.size < 4) return@mapNotNull null
+            val kind = parts[0].firstOrNull() ?: return@mapNotNull null
+            val distanceM = parts[3].toIntOrNull() ?: return@mapNotNull null
+            ErsEntry(kind, parts[1], parts[2].ifEmpty { null }, distanceM)
+        }
+    }
+
+    // ============================================
+    // VOICE chunk path - 8 kHz ADPCM push-to-talk
+    // ============================================
+
+    /** One binary-characteristic chunk: header tag, then payload bytes. */
+    data class VoiceChunk(val seq: Int, val total: Int, val bytes: ByteArray)
+
+    /** `0x56` = ASCII `'V'`, distinguishing this characteristic's frames from any other binary write. */
+    private const val VOICE_TAG: Byte = 0x56
+
+    /** tag(1) + seq(1) + total(1) + length(1). */
+    private const val VOICE_HEADER_BYTES = 4
+
+    /**
+     * `VOICE` binary frame: `[0x56][seq][total][length][...payload]`.
+     *
+     * `seq`, `total` and `length` are each a single unsigned byte (0..255),
+     * matching a fixed 4-byte header on a binary characteristic rather than
+     * the comma-delimited text format the rest of this file uses — there is
+     * no free text here to sanitise, only raw ADPCM samples. The ADPCM
+     * encoding of [VoiceChunk.bytes] itself is out of scope; this only
+     * frames and reassembles whatever bytes it is given.
+     */
+    fun encodeVoiceChunk(chunk: VoiceChunk): ByteArray {
+        require(chunk.seq in 0..255) { "seq must fit in a byte: ${chunk.seq}" }
+        require(chunk.total in 1..255) { "total must fit in a byte: ${chunk.total}" }
+        require(chunk.bytes.size in 0..255) { "chunk payload must fit in a byte length: ${chunk.bytes.size}" }
+        val header = byteArrayOf(VOICE_TAG, chunk.seq.toByte(), chunk.total.toByte(), chunk.bytes.size.toByte())
+        return header + chunk.bytes
+    }
+
+    /** Inverse of [encodeVoiceChunk]. Returns null on a bad tag or a length mismatch, never throws. */
+    fun decodeVoiceChunk(raw: ByteArray): VoiceChunk? {
+        if (raw.size < VOICE_HEADER_BYTES || raw[0] != VOICE_TAG) return null
+        val seq = raw[1].toInt() and 0xFF
+        val total = raw[2].toInt() and 0xFF
+        val length = raw[3].toInt() and 0xFF
+        val payload = raw.copyOfRange(VOICE_HEADER_BYTES, raw.size)
+        if (payload.size != length) return null
+        return VoiceChunk(seq, total, payload)
+    }
+
+    /**
+     * Splits raw ADPCM bytes into [VoiceChunk]s sized to fit one write at
+     * `mtu`: payload per chunk is `mtu - ATT_OVERHEAD - VOICE_HEADER_BYTES`,
+     * mirroring how [health] budgets against `mtu - ATT_OVERHEAD` for a text
+     * write. `total` is capped at 255 to keep it representable in the header's
+     * single byte, so a clip long enough to need more chunks than that at the
+     * given MTU is truncated to the first 255 — acceptable for a
+     * push-to-talk clip, not for a file transfer.
+     */
+    fun chunkVoice(adpcm: ByteArray, mtu: Int): List<VoiceChunk> {
+        if (adpcm.isEmpty()) return emptyList()
+        val maxPayload = (mtu - ATT_OVERHEAD - VOICE_HEADER_BYTES).coerceAtLeast(1)
+        val total = ((adpcm.size + maxPayload - 1) / maxPayload).coerceIn(1, 255)
+        return (0 until total).map { seq ->
+            val start = seq * maxPayload
+            val end = minOf(start + maxPayload, adpcm.size)
+            VoiceChunk(seq, total, adpcm.copyOfRange(start, end))
+        }
+    }
+
+    /**
+     * Reassembles chunks in `seq` order. Null whenever the set is incomplete
+     * or inconsistent — a missing `seq`, a duplicate, or chunks disagreeing on
+     * `total` — since a partial voice clip is worse than none: it must never
+     * play back as if it were the whole message.
+     */
+    fun reassembleVoice(chunks: List<VoiceChunk>): ByteArray? {
+        if (chunks.isEmpty()) return null
+        val total = chunks[0].total
+        if (chunks.any { it.total != total } || chunks.size != total) return null
+        val bySeq = chunks.associateBy { it.seq }
+        var result = ByteArray(0)
+        for (seq in 0 until total) {
+            val chunk = bySeq[seq] ?: return null
+            result += chunk.bytes
+        }
+        return result
+    }
+
+    // ============================================
     // Literal commands
     // ============================================
 
