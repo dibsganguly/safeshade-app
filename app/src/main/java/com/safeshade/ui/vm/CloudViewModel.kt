@@ -132,7 +132,16 @@ class CloudViewModel(
 
     suspend fun deleteAccount(): CloudResult<Unit> = cloud.auth.deleteAccount()
 
-    fun syncNow() = cloud.syncEngine.kick()
+    /**
+     * Sync Now queues everything again and drains. The forced backfill is
+     * for the person who has been told their data is not there; per-record
+     * truth still comes from the outbox states, never from this call.
+     */
+    suspend fun syncNow(): CloudResult<Int> {
+        val r = cloud.circleActions.enqueueAll()
+        cloud.syncEngine.kick()
+        return r
+    }
 
     companion object {
         /** The reason a cancelled Google picker reports; screens show nothing for it. */

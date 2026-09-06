@@ -60,6 +60,8 @@ object Routes {
     const val CIRCLE_HEATMAP = "circle/heatmap"
     /** The cloud tiers. */
     const val SETTINGS_PLAN = "settings/plan"
+    /** The guardians in the Circle, and inviting one by email. */
+    const val CIRCLE_GUARDIANS = "circle/guardians"
     /** People I look after: every wearer this phone watches. */
     const val CIRCLE_PEOPLE = "circle/people"
     /** One wearer; a blank id adds a new one. */

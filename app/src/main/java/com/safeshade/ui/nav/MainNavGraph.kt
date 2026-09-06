@@ -42,6 +42,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.safeshade.cloud.CloudResult
 import com.safeshade.cloud.CloudTier
+import com.safeshade.cloud.InviteStatus
+import com.safeshade.ui.screens.circle.GuardiansScreen
+import com.safeshade.ui.screens.circle.GuardiansUiState
 import com.safeshade.cloud.CloudSession
 import com.safeshade.ui.screens.profile.AccountScreen
 import com.safeshade.ui.screens.profile.AccountWay
@@ -420,6 +423,9 @@ fun MainNavGraph(
         composable(Routes.CIRCLE) {
             val circleScope = rememberCoroutineScope()
             val state = liveState.value
+            val circleCloudVm: CloudViewModel = viewModel(factory = CloudViewModel.Factory)
+            val circleCloud by circleCloudVm.cloudState.collectAsStateWithLifecycle()
+            val circleSession by circleCloudVm.session.collectAsStateWithLifecycle()
             val location = liveLocation.value
             val isSyncing = liveSyncing.value
             val lastFix = state.lastKnownDeviceLocation ?: location.takeIf { it.isValid }
@@ -429,6 +435,11 @@ fun MainNavGraph(
             CircleScreen(
                 state = CircleUiState(
                     wearers = if (state.role == UserRole.GUARDIAN) state.wearers.map { w -> wearerCard(state, w, connectedAddress, lastFix) } else emptyList(),
+                    guardians = when {
+                        circleSession !is CloudSession.SignedIn -> CircleWay(LampState.OFF, "Only you", "Sign in to share the board with another phone")
+                        circleCloud.members.size <= 1 -> CircleWay(LampState.OFF, "Only you", "Invite a guardian by email")
+                        else -> CircleWay(LampState.LIVE, "${circleCloud.members.size} people", circleCloud.invites.count { it.status is InviteStatus.Pending }.let { if (it > 0) "$it invitation waiting" else "Everyone has accepted" })
+                    },
                     role = state.role,
                     // The headline forms, not the raw ones. See
                     wearerName = state.wearerName,
@@ -511,6 +522,7 @@ fun MainNavGraph(
                 onOpenSim = { navController.navigate(Routes.CIRCLE_SIM) },
                 onOpenPeople = { navController.navigate(Routes.CIRCLE_PEOPLE) },
                 onOpenHeatmap = { navController.navigate(Routes.CIRCLE_HEATMAP) },
+                onOpenGuardians = { navController.navigate(Routes.CIRCLE_GUARDIANS) },
                 onOpenPerson = { id -> navController.navigate(Routes.personEdit(id)) },
                 onLocate = { navController.navigate(Routes.DEVICE_LOCATE) },
                 onCallWearable = {
@@ -1742,6 +1754,24 @@ fun MainNavGraph(
         }
 
 
+        composable(Routes.CIRCLE_GUARDIANS) {
+            val cloudVm: CloudViewModel = viewModel(factory = CloudViewModel.Factory)
+            val cloudState by cloudVm.cloudState.collectAsStateWithLifecycle()
+            val session by cloudVm.session.collectAsStateWithLifecycle()
+            GuardiansScreen(
+                state = GuardiansUiState(
+                    signedIn = session is CloudSession.SignedIn,
+                    hasCircle = cloudState.hasCircle,
+                    members = cloudState.members,
+                    invites = cloudState.invites,
+                    selfUserId = (session as? CloudSession.SignedIn)?.userId
+                ),
+                onInvite = { email, role -> cloudVm.invite(email, role) },
+                onOpenSignIn = { navController.navigate(Routes.SETTINGS_SIGN_IN) },
+                onBack = { navController.popBackStack() }
+            )
+        }
+
         composable(Routes.CIRCLE_HEATMAP) {
             val state = liveState.value
             val location = liveLocation.value
@@ -1909,10 +1939,11 @@ fun MainNavGraph(
             val session by cloudVm.session.collectAsStateWithLifecycle()
             val sync by cloudVm.syncSummary.collectAsStateWithLifecycle()
             val cloudState by cloudVm.cloudState.collectAsStateWithLifecycle()
+            val accountScope = rememberCoroutineScope()
             AccountScreen(
                 session = session,
                 sync = sync,
-                onSyncNow = { cloudVm.syncNow() },
+                onSyncNow = { accountScope.launch { cloudVm.syncNow() } },
                 onSignOut = { cloudVm.signOut() },
                 onDeleteAccount = { cloudVm.deleteAccount() },
                 onOpenSignIn = { navController.navigate(Routes.SETTINGS_SIGN_IN) },

@@ -123,6 +123,8 @@ data class WearerCard(
 data class CircleUiState(
     /** A Guardian's people, one plate each. Empty for a Companion. */
     val wearers: List<WearerCard> = emptyList(),
+    /** The Guardians way: who else sees this board. */
+    val guardians: CircleWay = CircleWay(state = LampState.OFF, stateLabel = "Only you"),
     val role: UserRole = UserRole.GUARDIAN,
     /** Who wears the device. Used in guardian copy: "Baba". */
     val wearerName: String = "",
@@ -179,6 +181,7 @@ fun CircleScreen(
     onOpenCheckIn: () -> Unit,
     onOpenSim: () -> Unit,
     onOpenHeatmap: () -> Unit = {},
+    onOpenGuardians: () -> Unit = {},
     onOpenPeople: () -> Unit = {},
     onOpenPerson: (id: String) -> Unit = {},
     onLocate: (id: String) -> Unit = {},
@@ -394,6 +397,15 @@ fun CircleScreen(
                     detail = state.checkIn.detail,
                     icon = SafeShadeIcons.HelpCircle,
                     onClick = onOpenCheckIn
+                )
+                Hairline()
+                Way(
+                    name = "Guardians",
+                    state = state.guardians.state,
+                    stateLabel = state.guardians.stateLabel,
+                    detail = state.guardians.detail,
+                    icon = SafeShadeIcons.NavbarCircle,
+                    onClick = onOpenGuardians
                 )
                 Hairline()
                 Way(
