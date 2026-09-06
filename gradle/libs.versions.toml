@@ -17,6 +17,10 @@ playServicesLocation = "21.1.0"
 zxing = "3.5.4"
 osmdroid = "6.1.20"
 coroutines = "1.9.0"
+# --- Phase 2 ---
+credentials = "1.5.0"
+googleid = "1.1.1"
+billing = "7.1.1"
 
 # --- Cloud (Phase 1) ---
 # supabase-kt is published as a BOM; every module below is versionless and takes
@@ -95,6 +99,15 @@ supabase-functions = { group = "io.github.jan-tennert.supabase", name = "functio
 ktor-client-okhttp = { group = "io.ktor", name = "ktor-client-okhttp", version.ref = "ktor" }
 okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
+
+# Phase 2: Google sign-in through Credential Manager (the Web client ID is
+# the audience; see docs/wizards/google-signin.md) and Play Billing for the
+# cloud tiers. play-services-auth is the Credential Manager backend for
+# Android 13 and below, which the test phone is.
+androidx-credentials = { group = "androidx.credentials", name = "credentials", version.ref = "credentials" }
+androidx-credentials-play-services-auth = { group = "androidx.credentials", name = "credentials-play-services-auth", version.ref = "credentials" }
+googleid = { group = "com.google.android.libraries.identity.googleid", name = "googleid", version.ref = "googleid" }
+billing-ktx = { group = "com.android.billingclient", name = "billing-ktx", version.ref = "billing" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

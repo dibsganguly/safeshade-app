@@ -78,3 +78,8 @@
 -dontwarn org.conscrypt.**
 -dontwarn org.bouncycastle.**
 -dontwarn org.openjsse.**
+# Credential Manager on Android 13 and below dispatches through Play Services
+# by reflection; without this the release build finds no provider and Google
+# sign-in reports "no credential" with nothing else wrong.
+-if class androidx.credentials.CredentialManager
+-keep class androidx.credentials.playservices.** { *; }

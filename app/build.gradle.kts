@@ -135,6 +135,16 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.kotlinx.serialization.json)
 
+    // Phase 2. Google sign-in via Credential Manager: the phone asks Google
+    // for an ID token whose audience is the Web client ID, and hands it to
+    // Supabase; no browser round-trip. Play Billing backs the cloud tiers
+    // and reports its real result, which without a Console listing is an
+    // error, and that error is what the plan screen shows.
+    implementation(libs.androidx.credentials)
+    implementation(libs.androidx.credentials.play.services.auth)
+    implementation(libs.googleid)
+    implementation(libs.billing.ktx)
+
     // Test
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
