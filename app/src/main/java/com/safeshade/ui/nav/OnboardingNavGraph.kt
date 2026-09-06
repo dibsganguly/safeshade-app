@@ -129,13 +129,17 @@ fun OnboardingNavGraph(
                 avatarId = wearerAvatar,
                 onAvatarChange = { wearerAvatar = it },
                 onContinue = {
-                    viewModel.setWearerName(wearerName)
-                    viewModel.setWearerAvatar(wearerAvatar)
-                    // A Companion is their own wearer, so "Me" on the Profile
-                    // page is the same person; a Guardian names themselves
-                    // there later.
-                    if ((pickedRole ?: state.role) == UserRole.COMPANION) {
-                        viewModel.setOwner(wearerName, wearerAvatar)
+                    // A skipped step must not write an empty name over one
+                    // that is already stored - a replay of onboarding from the
+                    // Developer screen reaches here with the buffer untouched.
+                    if (wearerName.isNotBlank()) {
+                        viewModel.setWearer(wearerName, wearerAvatar)
+                        // A Companion is their own wearer, so "Me" on the
+                        // Profile page is the same person; a Guardian names
+                        // themselves there later.
+                        if ((pickedRole ?: state.role) == UserRole.COMPANION) {
+                            viewModel.setOwner(wearerName, wearerAvatar)
+                        }
                     }
                     navController.navigate(Routes.ONBOARDING_PERMISSIONS)
                 }
@@ -202,8 +206,7 @@ fun OnboardingNavGraph(
                     // route that skipped the wearer step's own save — back out
                     // and forward again, say. The write is idempotent, and the
                     // name being wrong is visible on every screen afterwards.
-                    viewModel.setWearerName(wearerName)
-                    viewModel.setWearerAvatar(wearerAvatar)
+                    if (wearerName.isNotBlank()) viewModel.setWearer(wearerName, wearerAvatar)
                     // Last, and only here. Flipping this is what tears the
                     // whole graph down, so anything that still needs writing
                     // must already have been written.

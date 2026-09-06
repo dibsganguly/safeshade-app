@@ -83,6 +83,8 @@ object Routes {
     /** Reached from the Board's top bar, not from the bottom bar. */
     const val SETTINGS = "settings"
     const val SETTINGS_ROLE = "settings/role"
+    /** Name and face for one person; argument is a [com.safeshade.ui.screens.profile.ProfileTarget] name. */
+    const val SETTINGS_PROFILE_EDIT = "settings/profile/edit"
     const val SETTINGS_RELIABILITY = "settings/reliability"
     const val SETTINGS_ABOUT = "settings/about"
     const val SETTINGS_DEVELOPER = "settings/developer"
@@ -105,6 +107,7 @@ object Routes {
         const val TRIP_ID = "tripId"
         const val CONTACT_INDEX = "contactIndex"
         const val MODE = "mode"
+        const val TARGET = "target"
         const val LAT = "lat"
         const val LON = "lon"
         const val RADIUS = "radius"
@@ -119,6 +122,8 @@ object Routes {
     // next, because its arguments would have been silently dropped.
 
     fun tripDetail(tripId: String): String = "$SAFETY_TRIP_DETAIL/$tripId"
+
+    fun profileEdit(target: com.safeshade.ui.screens.profile.ProfileTarget): String = "$SETTINGS_PROFILE_EDIT/${target.name}"
 
     /** One profile's page. The argument is the enum name, which is also the wire name. */
     fun modeDetail(mode: com.safeshade.data.PersonaMode): String = "$DEVICE_MODE_DETAIL/${mode.name}"

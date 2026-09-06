@@ -143,8 +143,11 @@ import com.safeshade.ui.screens.settings.ReliabilityScreen
 import com.safeshade.ui.screens.settings.ReliabilityUiState
 import com.safeshade.ui.screens.settings.RoleScreen
 import com.safeshade.ui.screens.settings.RoleUiState
-import com.safeshade.ui.screens.settings.SettingsScreen
-import com.safeshade.ui.screens.settings.SettingsUiState
+import com.safeshade.ui.screens.profile.ProfileEditScreen
+import com.safeshade.ui.screens.profile.ProfileEditUiState
+import com.safeshade.ui.screens.profile.ProfileScreen
+import com.safeshade.ui.screens.profile.ProfileTarget
+import com.safeshade.ui.screens.profile.ProfileUiState
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.board
 import com.safeshade.ui.vm.SafeShadeViewModel
@@ -1235,6 +1238,9 @@ fun MainNavGraph(
                     connection = state.connection,
                     deviceName = state.deviceSettings.name,
                     wearerName = state.wearerName,
+                    ownerName = state.ownerName,
+                    ownerAvatarId = state.ownerAvatarId,
+                    wearerAvatarId = state.deviceSettings.wearerAvatarId,
                     iconType = state.deviceSettings.iconType,
                     batteryPercent = state.telemetry.batteryLevel.takeIf { state.telemetry.isRealData },
                     signalDbm = state.rssiSmoothed.takeIf { state.connection.isUsable },
@@ -1600,16 +1606,50 @@ fun MainNavGraph(
 
         composable(Routes.SETTINGS) {
             val state = liveState.value
-            SettingsScreen(
-                onSelectDarkMode = { viewModel.setDarkMode(it) },
-                state = SettingsUiState(
+            ProfileScreen(
+                state = ProfileUiState(
+                    ownerName = state.ownerName,
+                    ownerAvatarId = state.ownerAvatarId,
                     role = state.role,
+                    wearerName = state.deviceSettings.wearerName,
+                    wearerAvatarId = state.deviceSettings.wearerAvatarId,
+                    deviceName = state.deviceSettings.name,
                     darkMode = state.darkMode,
                     reliabilityIssueCount = reliabilityStatuses(context)
                         .count { it.value == CheckStatus.FAILING },
                     versionName = BuildConfig.VERSION_NAME
                 ),
+                onEditOwner = { navController.navigate(Routes.profileEdit(ProfileTarget.OWNER)) },
+                onEditWearer = { navController.navigate(Routes.profileEdit(ProfileTarget.WEARER)) },
                 onOpenWay = { route -> navController.navigate(route) },
+                onSelectDarkMode = { viewModel.setDarkMode(it) },
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            route = "${Routes.SETTINGS_PROFILE_EDIT}/{${Routes.Args.TARGET}}",
+            arguments = listOf(navArgument(Routes.Args.TARGET) { type = NavType.StringType })
+        ) { entry ->
+            val state = liveState.value
+            val target = entry.arguments?.getString(Routes.Args.TARGET)
+                ?.let { name -> ProfileTarget.entries.firstOrNull { it.name == name } }
+                ?: ProfileTarget.OWNER
+            // A Companion is their own wearer, so editing "you" edits both
+            // records; a Guardian's wearer is a different person.
+            val companion = state.role == UserRole.COMPANION
+            val editsWearer = target == ProfileTarget.WEARER || companion
+            ProfileEditScreen(
+                state = ProfileEditUiState(
+                    target = target,
+                    name = if (editsWearer) state.deviceSettings.wearerName else state.ownerName,
+                    avatarId = if (editsWearer) state.deviceSettings.wearerAvatarId else state.ownerAvatarId
+                ),
+                onSave = { name, avatarId ->
+                    if (editsWearer) viewModel.setWearer(name, avatarId)
+                    if (target == ProfileTarget.OWNER || companion) viewModel.setOwner(name, avatarId)
+                    navController.popBackStack()
+                },
                 onBack = { navController.popBackStack() }
             )
         }

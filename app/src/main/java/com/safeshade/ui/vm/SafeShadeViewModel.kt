@@ -483,6 +483,20 @@ class SafeShadeViewModel(
         container.profileRepository.setDeviceSettings(current.copy(wearerAvatarId = avatarId))
     }
 
+    /**
+     * Name and face together, in one write.
+     *
+     * Two consecutive `launchIo` setters each read `appState.value` before
+     * either has landed, and the second overwrites the first with its stale
+     * copy — the wearer's name was lost that way on the Profile edit page.
+     */
+    fun setWearer(name: String, avatarId: String) = launchIo {
+        val current = appState.value.readyOrNull?.deviceSettings ?: return@launchIo
+        container.profileRepository.setDeviceSettings(
+            current.copy(wearerName = name.trim(), wearerAvatarId = avatarId)
+        )
+    }
+
     fun setOwner(name: String, avatarId: String) = launchIo {
         container.profileRepository.setOwner(name, avatarId)
     }

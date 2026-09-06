@@ -23,7 +23,13 @@ import com.safeshade.data.DeviceIconType
 import com.safeshade.data.LedPattern
 import com.safeshade.data.PersonaMode
 import com.safeshade.device.ConnectionState
+import com.safeshade.ui.board.Avatar
 import com.safeshade.ui.board.BoardPlate
+import com.safeshade.ui.board.plateClickable
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.Alignment
 import com.safeshade.ui.board.Hairline
 import com.safeshade.ui.board.LampState
 import com.safeshade.ui.board.MainsPlate
@@ -184,6 +190,10 @@ data class DeviceUiState(
     val deviceName: String = "SafeShade S1",
     /** Whose device it is, when a guardian has named the wearer. */
     val wearerName: String = "",
+    /** The person holding the phone, for the header's profile control. */
+    val ownerName: String = "",
+    val ownerAvatarId: String = "",
+    val wearerAvatarId: String = "",
     val iconType: DeviceIconType = DeviceIconType.BACKPACK,
     val batteryPercent: Int? = null,
     val signalDbm: Int? = null,
@@ -249,15 +259,21 @@ fun DeviceScreen(
                 // No subtitle - it named the rows underneath it.
                 tier = ScreenTier.ROOT,
                 trailing = {
-                    IconButton(onClick = onOpenSettings) {
-                        Icon(
-                            SafeShadeIcons.TopRightSettings,
-                            // Not "Settings": this screen already carries a
-                            // "Device settings" row a few items down, and
-                            // TalkBack would announce two identical controls
-                            // that go to entirely different places.
-                            contentDescription = "App settings",
-                            tint = colors.inkMuted
+                    // The person, not a gear. What used to be "settings" —
+                    // role, appearance, whether alerts reach you — are facts
+                    // about the person holding the phone, and the Profile
+                    // page opens on their face.
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .plateClickable(role = androidx.compose.ui.semantics.Role.Button, onClick = onOpenSettings)
+                            .clearAndSetSemantics { contentDescription = "Profile" },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Avatar(
+                            avatarId = state.ownerAvatarId.ifBlank { state.wearerAvatarId },
+                            name = state.ownerName.ifBlank { state.wearerName },
+                            size = 34.dp
                         )
                     }
                 }
@@ -269,6 +285,9 @@ fun DeviceScreen(
                 state = lamp,
                 headline = state.deviceName,
                 subline = deviceSubline(state),
+                // The Protecting bay was never fed here, so it read "Not set"
+                // under a subline that named the wearer.
+                protectedName = state.wearerName,
                 // Battery and signal are omitted entirely while there is no
                 // link, rather than shown as dashes. The lamp has already said
                 // why, and "--" in a readout reads as a broken instrument.

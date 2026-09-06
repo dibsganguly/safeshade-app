@@ -1,0 +1,322 @@
+package com.safeshade.ui.screens.profile
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import com.safeshade.BuildConfig
+import com.safeshade.data.DarkModePreference
+import com.safeshade.data.UserRole
+import com.safeshade.ui.board.Avatar
+import com.safeshade.ui.board.BoardPlate
+import com.safeshade.ui.board.BusTick
+import com.safeshade.ui.board.ExpandableSection
+import com.safeshade.ui.board.Hairline
+import com.safeshade.ui.board.LampState
+import com.safeshade.ui.board.Nameplate
+import com.safeshade.ui.board.ScreenHeader
+import com.safeshade.ui.board.SectionPlate
+import com.safeshade.ui.board.Way
+import com.safeshade.ui.board.plateClickable
+import com.safeshade.ui.board.rowClickable
+import com.safeshade.ui.icons.SafeShadeIcons
+import com.safeshade.ui.nav.Routes
+import com.safeshade.ui.screens.settings.blurb
+import com.safeshade.ui.screens.settings.icon
+import com.safeshade.ui.screens.settings.label
+import com.safeshade.ui.theme.SafeShadeTheme
+import com.safeshade.ui.theme.Spacing
+import com.safeshade.ui.theme.board
+import com.safeshade.ui.theme.boardType
+
+/** Which person an edit page is about. */
+enum class ProfileTarget { OWNER, WEARER }
+
+/** Everything the profile page draws. */
+data class ProfileUiState(
+    val ownerName: String = "",
+    val ownerAvatarId: String = "",
+    val role: UserRole = UserRole.GUARDIAN,
+    val wearerName: String = "",
+    val wearerAvatarId: String = "",
+    val deviceName: String = "SafeShade S1",
+    val darkMode: DarkModePreference = DarkModePreference.SYSTEM,
+    /** How many reliability checks are failing; every one is a way for a fall alert to silently not arrive. */
+    val reliabilityIssueCount: Int = 0,
+    val versionName: String = "",
+    val showDeveloperOptions: Boolean = BuildConfig.DEBUG
+)
+
+/**
+ * The Profile page: who is holding the phone, who they look after, and how
+ * the app presents itself.
+ *
+ * It replaces the Settings hub. The top-right control on the Device page is
+ * now this person's face rather than a gear, because the things that used to
+ * be "settings" — role, appearance, whether alerts will reach you — are all
+ * facts about a person and their phone, and a page that opens on a face says
+ * so. Everything that is part of *using* the product still lives on the four
+ * main destinations; this page is the person and the phone.
+ *
+ * A Companion is their own wearer, so the page shows one identity plate. A
+ * Guardian sees themselves and, under "People I look after", the wearer.
+ * Phase 2 turns that section into a list.
+ */
+@Composable
+fun ProfileScreen(
+    state: ProfileUiState,
+    onEditOwner: () -> Unit,
+    onEditWearer: () -> Unit,
+    onOpenWay: (String) -> Unit,
+    onSelectDarkMode: (DarkModePreference) -> Unit,
+    onBack: (() -> Unit)? = null,
+    modifier: Modifier = Modifier,
+    contentPadding: PaddingValues = PaddingValues(0.dp)
+) {
+    val colors = MaterialTheme.board
+    val guardian = state.role == UserRole.GUARDIAN
+
+    LazyColumn(
+        modifier = modifier.fillMaxSize(),
+        contentPadding = PaddingValues(
+            start = Spacing.gutter,
+            end = Spacing.gutter,
+            top = contentPadding.calculateTopPadding() + Spacing.sm,
+            bottom = contentPadding.calculateBottomPadding() + Spacing.xxl
+        ),
+        verticalArrangement = Arrangement.spacedBy(Spacing.lg)
+    ) {
+        item("title") {
+            ScreenHeader(title = "Profile", onBack = onBack)
+        }
+
+        item("identity") {
+            IdentityPlate(
+                name = if (guardian) state.ownerName else state.wearerName,
+                avatarId = if (guardian) state.ownerAvatarId else state.wearerAvatarId,
+                line = state.role.blurb,
+                placeholder = "Add your name",
+                onClick = if (guardian) onEditOwner else onEditWearer
+            )
+        }
+
+        if (guardian) {
+            item("people-heading") { SectionPlate(title = "People I look after") }
+            item("people") {
+                BoardPlate(modifier = Modifier.fillMaxWidth()) {
+                    PersonRow(
+                        name = state.wearerName,
+                        avatarId = state.wearerAvatarId,
+                        detail = "Wears ${state.deviceName}",
+                        placeholder = "Name the person who wears it",
+                        onClick = onEditWearer
+                    )
+                }
+            }
+        }
+
+        item("app-heading") { SectionPlate(title = "This phone") }
+
+        item("app") {
+            BoardPlate(modifier = Modifier.fillMaxWidth()) {
+                Way(
+                    name = "Your role",
+                    state = LampState.LIVE,
+                    stateLabel = state.role.label,
+                    detail = state.role.blurb,
+                    icon = SafeShadeIcons.NavbarCircle,
+                    onClick = { onOpenWay(Routes.SETTINGS_ROLE) }
+                )
+                Hairline()
+                ExpandableSection(
+                    label = "Appearance",
+                    count = DarkModePreference.entries.size
+                ) {
+                    DarkModePreference.entries.forEach { option ->
+                        Hairline()
+                        Way(
+                            name = option.label,
+                            state = if (option == state.darkMode) LampState.LIVE else LampState.OFF,
+                            stateLabel = if (option == state.darkMode) "On" else "Off",
+                            detail = option.blurb,
+                            icon = option.icon,
+                            onClick = { onSelectDarkMode(option) }
+                        )
+                    }
+                }
+                Hairline()
+                Way(
+                    name = "Alert reliability",
+                    // Amber, not red. A missing permission is not an emergency;
+                    // it is a thing that will quietly cost you one later.
+                    state = if (state.reliabilityIssueCount > 0) LampState.ATTENTION else LampState.LIVE,
+                    stateLabel = if (state.reliabilityIssueCount > 0) "${state.reliabilityIssueCount} to fix" else "All set",
+                    detail = if (state.reliabilityIssueCount > 0) "Some alerts may not reach this phone"
+                    else "Permissions and battery settings are in order",
+                    icon = SafeShadeIcons.Alert02,
+                    onClick = { onOpenWay(Routes.SETTINGS_RELIABILITY) }
+                )
+            }
+        }
+
+        item("about-heading") { SectionPlate(title = "About") }
+
+        item("about") {
+            BoardPlate(modifier = Modifier.fillMaxWidth()) {
+                Way(
+                    name = "About SafeShade",
+                    state = LampState.OFF,
+                    stateLabel = state.versionName.ifBlank { "Version" },
+                    icon = SafeShadeIcons.Info,
+                    onClick = { onOpenWay(Routes.SETTINGS_ABOUT) }
+                )
+                if (state.showDeveloperOptions) {
+                    Hairline()
+                    Way(
+                        name = "Developer",
+                        state = LampState.OFF,
+                        stateLabel = "Debug",
+                        icon = SafeShadeIcons.DeviceSettings,
+                        onClick = { onOpenWay(Routes.SETTINGS_DEVELOPER) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * The person at the top of the page: a large face, a name, one line, and a
+ * chevron. Tapping anywhere on it edits them.
+ */
+@Composable
+private fun IdentityPlate(
+    name: String,
+    avatarId: String,
+    line: String,
+    placeholder: String,
+    onClick: () -> Unit
+) {
+    val colors = MaterialTheme.board
+    val shown = name.ifBlank { placeholder }
+    BoardPlate(
+        modifier = Modifier
+            .fillMaxWidth()
+            .plateClickable(role = Role.Button, onClick = onClick)
+            .clearAndSetSemantics { contentDescription = "$shown. $line. Edit." }
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(Spacing.lg)
+        ) {
+            Avatar(avatarId = avatarId, name = name, size = 72.dp)
+            Spacer(Modifier.width(Spacing.lg))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = shown,
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = if (name.isBlank()) colors.inkMuted else colors.ink
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(text = line, style = MaterialTheme.typography.bodyMedium, color = colors.inkMuted)
+            }
+            Spacer(Modifier.width(Spacing.sm))
+            Icon(
+                imageVector = SafeShadeIcons.ArrowRight01,
+                contentDescription = null,
+                tint = colors.inkFaint,
+                modifier = Modifier.size(18.dp)
+            )
+        }
+    }
+}
+
+/** A person in a list: avatar, name, a detail line, a chevron. */
+@Composable
+private fun PersonRow(
+    name: String,
+    avatarId: String,
+    detail: String,
+    placeholder: String,
+    onClick: () -> Unit
+) {
+    val colors = MaterialTheme.board
+    val shown = name.ifBlank { placeholder }
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .rowClickable(role = Role.Button, onClick = onClick)
+            .padding(start = Spacing.lg, end = Spacing.md, top = Spacing.md, bottom = Spacing.md)
+            .height(IntrinsicSize.Min)
+            .clearAndSetSemantics { contentDescription = "$shown, $detail. Edit." }
+    ) {
+        BusTick(state = LampState.OFF, modifier = Modifier.fillMaxHeight())
+        Spacer(Modifier.width(Spacing.md))
+        Avatar(avatarId = avatarId, name = name, size = 44.dp)
+        Spacer(Modifier.width(Spacing.md))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = shown,
+                style = MaterialTheme.typography.titleMedium,
+                color = if (name.isBlank()) colors.inkMuted else colors.ink
+            )
+            Text(text = detail, style = MaterialTheme.boardType.rowDetail, color = colors.inkMuted)
+        }
+        Icon(
+            imageVector = SafeShadeIcons.ArrowRight01,
+            contentDescription = null,
+            tint = colors.inkFaint,
+            modifier = Modifier.size(18.dp)
+        )
+    }
+}
+
+@Preview(name = "Profile · guardian", showBackground = true)
+@Composable
+private fun ProfilePreview() {
+    SafeShadeTheme {
+        Box(Modifier.background(MaterialTheme.board.ground)) {
+            ProfileScreen(
+                state = ProfileUiState(ownerName = "Dibyendu", wearerName = "Baba", reliabilityIssueCount = 1, versionName = "2.5.0", showDeveloperOptions = true),
+                onEditOwner = {}, onEditWearer = {}, onOpenWay = {}, onSelectDarkMode = {}
+            )
+        }
+    }
+}
+
+@Preview(name = "Profile · companion, dark", showBackground = true)
+@Composable
+private fun ProfilePreviewDark() {
+    SafeShadeTheme(darkTheme = true) {
+        Box(Modifier.background(MaterialTheme.board.ground)) {
+            ProfileScreen(
+                state = ProfileUiState(role = UserRole.COMPANION, wearerName = "Priya", versionName = "2.5.0"),
+                onEditOwner = {}, onEditWearer = {}, onOpenWay = {}, onSelectDarkMode = {}
+            )
+        }
+    }
+}
