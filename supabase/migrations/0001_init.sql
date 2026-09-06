@@ -46,6 +46,13 @@
 
 create extension if not exists "pgcrypto";
 
+-- The is_circle_* helpers are SQL-language functions that read circle_members,
+-- and Postgres validates a SQL function body at creation time - so defining
+-- them ahead of the table they read fails with "relation does not exist".
+-- They are defined first on purpose (every policy below uses them), so body
+-- checking is switched off for the duration of this migration only.
+set local check_function_bodies = off;
+
 -- ============================================================================
 -- Helpers
 -- ============================================================================
