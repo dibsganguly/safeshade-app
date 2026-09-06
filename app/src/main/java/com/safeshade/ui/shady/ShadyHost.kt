@@ -61,13 +61,23 @@ fun ShadyHost(
 fun shadyMoodFor(
     connection: ConnectionState,
     batteryPercent: Int? = null,
-    hasUnresolvedTrip: Boolean = false
+    hasUnresolvedTrip: Boolean = false,
+    /** A sync or an ack landed in the last few seconds. Short-lived by design. */
+    justSucceeded: Boolean = false,
+    /** The wearer's quiet hours are running. */
+    inQuietHours: Boolean = false,
+    /** Outside temperature where the wearer is, if the app has it. */
+    temperatureC: Float? = null
 ): ShadyMood = when {
     hasUnresolvedTrip -> ShadyMood.CONCERNED
     connection is ConnectionState.Scanning || connection is ConnectionState.Connecting ->
         ShadyMood.SEARCHING
     connection is ConnectionState.Ready && batteryPercent != null && batteryPercent <= 20 ->
         ShadyMood.CONCERNED
+    // The good news beats the weather: pride is momentary and the cold is not.
+    connection is ConnectionState.Ready && justSucceeded -> ShadyMood.PROUD
+    connection is ConnectionState.Ready && temperatureC != null && temperatureC <= 10f -> ShadyMood.CHILLY
+    connection is ConnectionState.Ready && inQuietHours -> ShadyMood.SLEEPY
     connection is ConnectionState.Ready -> ShadyMood.WATCHING
     connection is ConnectionState.Connected -> ShadyMood.SEARCHING
     connection is ConnectionState.Disconnected -> ShadyMood.OFFLINE

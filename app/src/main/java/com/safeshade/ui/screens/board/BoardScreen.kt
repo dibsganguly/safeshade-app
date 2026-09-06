@@ -101,6 +101,8 @@ data class BoardUiState(
     val signalDbm: Int? = null,
     val ways: List<BoardWay> = emptyList(),
     val temperatureC: Float? = null,
+    /** Chance of rain where the wearer is, 0–100, if the app has weather. */
+    val rainChance: Int? = null,
     val weatherCondition: String? = null,
     val uvIndex: Float? = null,
     val lastSyncLabel: String? = null,
@@ -215,7 +217,8 @@ fun BoardScreen(
                         mood = shadyMoodFor(
                             connection = state.connection,
                             batteryPercent = state.batteryPercent,
-                            hasUnresolvedTrip = state.hasUnresolvedTrip
+                            hasUnresolvedTrip = state.hasUnresolvedTrip,
+                            temperatureC = state.temperatureC
                         ),
                         emergencyActive = state.hasUnresolvedTrip,
                         size = 72.dp,
@@ -384,7 +387,7 @@ fun BoardScreen(
             // scrolling past the whole board, which is why it never competes
             // with the status above and why the card's Shady has left the
             // screen by the time this one arrives.
-            ShadyStage()
+            ShadyStage(raining = (state.rainChance ?: 0) >= 50)
         }
     }
 }

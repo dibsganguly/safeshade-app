@@ -65,14 +65,17 @@ class ShadyReactor(
             listOf(
                 ::blinkAndBeam, ::littleHop, ::curiousTilt, ::quickWave,
                 ::sparkle, ::ponder, ::raisedBrow, ::nod,
-                ::peer, ::shiver, ::doubleTake, ::yawn
+                ::peer, ::shiver, ::doubleTake, ::yawn,
+                ::wink, ::blush, ::tiptoe, ::headBob, ::leanIn, ::stretchTall
             )
         } else {
             listOf(
                 ::startle, ::spin, ::cheer, ::tumble,
                 ::delight, ::wobble, ::backflip, ::sneeze,
                 ::hiccup, ::trip, ::shakeOff, ::nodOff,
-                ::bow, ::sidestep
+                ::bow, ::sidestep,
+                ::moonwalk, ::cartwheel, ::juggle, ::dance,
+                ::faint, ::leapSpin, ::slide, ::pounce
             )
         }
 
@@ -270,6 +273,73 @@ class ShadyReactor(
         wait(200)
     }
 
+    private suspend fun wink() {
+        anim(160, FastOutSlowInEasing) { t -> pose = ShadyPose(rotation = -4f * t, eyes = EyeStyle.WINK, mouth = MouthStyle.SMIRK) }
+        wait(520)
+        anim(200, FastOutSlowInEasing) { t -> pose = ShadyPose(rotation = -4f * (1f - t), mouth = MouthStyle.SMILE) }
+    }
+
+    private suspend fun blush() {
+        // Looks away and down, cheeks up. The gaze is the whole thing; the
+        // blush only confirms it.
+        anim(260, FastOutSlowInEasing) { t ->
+            pose = ShadyPose(rotation = 5f * t, gazeX = -0.9f * t, gazeY = 0.6f * t, mouth = MouthStyle.SMILE, flourish = Flourish.BLUSH)
+        }
+        wait(700)
+        anim(260, FastOutSlowInEasing) { t ->
+            pose = ShadyPose(rotation = 5f * (1f - t), gazeX = -0.9f * (1f - t), gazeY = 0.6f * (1f - t), mouth = MouthStyle.SMILE, flourish = Flourish.BLUSH)
+        }
+    }
+
+    private suspend fun tiptoe() {
+        // Up on the toes to see over something, then down. A stretch in Y
+        // with the legs tucked, not a hop: the feet never leave.
+        anim(240, FastOutSlowInEasing) { t ->
+            pose = ShadyPose(scaleY = 1f + 0.10f * t, scaleX = 1f - 0.05f * t, gazeY = -0.7f * t, eyes = EyeStyle.NORMAL, mouth = MouthStyle.FLAT)
+        }
+        wait(500)
+        anim(220, Overshoot) { t ->
+            pose = ShadyPose(scaleY = 1f + 0.10f * (1f - t), scaleX = 1f - 0.05f * (1f - t), gazeY = -0.7f * (1f - t), mouth = MouthStyle.SMILE)
+        }
+    }
+
+    private suspend fun headBob() {
+        // Humming along to something. Three bobs, notes drifting.
+        repeat(3) { i ->
+            anim(260, FastOutSlowInEasing) { t ->
+                val bob = sin(t * PI).toFloat()
+                pose = ShadyPose(
+                    rotation = (if (i % 2 == 0) -5f else 5f) * bob,
+                    scaleY = 1f - 0.03f * bob,
+                    eyes = EyeStyle.CLOSED,
+                    mouth = MouthStyle.SMILE,
+                    flourish = Flourish.NOTES
+                )
+            }
+        }
+    }
+
+    private suspend fun leanIn() {
+        // Leans toward the viewer as if to see them better, brows up.
+        anim(260, FastOutSlowInEasing) { t ->
+            pose = ShadyPose(scaleX = 1f + 0.06f * t, scaleY = 1f + 0.03f * t, offsetY = 0.01f * t, eyes = EyeStyle.WIDE, browRaise = 0.5f * t, mouth = MouthStyle.FLAT)
+        }
+        wait(560)
+        anim(260, FastOutSlowInEasing) { t ->
+            pose = ShadyPose(scaleX = 1f + 0.06f * (1f - t), scaleY = 1f + 0.03f * (1f - t), offsetY = 0.01f * (1f - t), mouth = MouthStyle.SMILE)
+        }
+    }
+
+    private suspend fun stretchTall() {
+        anim(420, FastOutSlowInEasing) { t ->
+            pose = ShadyPose(scaleY = 1f + 0.14f * t, scaleX = 1f - 0.08f * t, handsUp = t > 0.5f, eyes = EyeStyle.CLOSED, mouth = MouthStyle.GASP)
+        }
+        wait(300)
+        anim(360, Overshoot) { t ->
+            pose = ShadyPose(scaleY = 1f + 0.14f * (1f - t), scaleX = 1f - 0.08f * (1f - t), eyes = EyeStyle.SLEEPY, mouth = MouthStyle.SMILE)
+        }
+    }
+
     // ============================================
     // Bold set — the stage
     // ============================================
@@ -300,8 +370,13 @@ class ShadyReactor(
     }
 
     private suspend fun spin() {
+        // Anticipation: a crouch and a small wind-up the other way. A spin
+        // that starts from stillness reads as a glitch, not an action.
+        anim(110, FastOutSlowInEasing) { t ->
+            pose = ShadyPose(scaleY = 1f - 0.08f * t, scaleX = 1f + 0.05f * t, rotation = -14f * t, eyes = EyeStyle.SQUINT)
+        }
         anim(620, FastOutSlowInEasing) { t ->
-            pose = ShadyPose(rotation = 360f * t, mouth = MouthStyle.OPEN, eyes = EyeStyle.CLOSED)
+            pose = ShadyPose(rotation = -14f + 374f * t, mouth = MouthStyle.OPEN, eyes = EyeStyle.CLOSED)
         }
         pose = ShadyPose(eyes = EyeStyle.DIZZY, mouth = MouthStyle.WOBBLE, flourish = Flourish.SWIRL)
         wait(760)
@@ -578,6 +653,161 @@ class ShadyReactor(
             )
         }
         wait(180)
+    }
+
+    private suspend fun moonwalk() {
+        // Slides backward while the legs walk forward. Sold entirely by the
+        // lean: the body tips away from the direction of travel.
+        anim(140, FastOutSlowInEasing) { t -> pose = ShadyPose(rotation = 8f * t, eyes = EyeStyle.SQUINT, mouth = MouthStyle.SMIRK) }
+        anim(900, LinearEasing) { t ->
+            val step = sin(t * 6f * PI).toFloat()
+            pose = ShadyPose(
+                offsetX = -0.22f * t,
+                rotation = 8f + step * 2f,
+                legSwing = step * 0.025f,
+                offsetY = -0.01f * abs(step),
+                eyes = EyeStyle.SQUINT,
+                mouth = MouthStyle.SMIRK
+            )
+        }
+        anim(320, FastOutSlowInEasing) { t -> pose = ShadyPose(offsetX = -0.22f * (1f - t), rotation = 8f * (1f - t), mouth = MouthStyle.SMILE) }
+    }
+
+    private suspend fun cartwheel() {
+        anim(120, FastOutSlowInEasing) { t -> pose = ShadyPose(scaleY = 1f - 0.12f * t, scaleX = 1f + 0.08f * t, rotation = -10f * t, eyes = EyeStyle.SQUINT) }
+        anim(640, LinearEasing) { t ->
+            val lift = sin(t * PI).toFloat()
+            pose = ShadyPose(
+                offsetX = 0.30f * t,
+                offsetY = -0.16f * lift,
+                rotation = -10f + 370f * t,
+                handsUp = true,
+                eyes = EyeStyle.CLOSED,
+                mouth = MouthStyle.BIG_SMILE
+            )
+        }
+        anim(300, Overshoot) { t -> pose = ShadyPose(offsetX = 0.30f, scaleY = 0.88f + 0.12f * t, scaleX = 1.08f - 0.08f * t, eyes = EyeStyle.STAR, mouth = MouthStyle.GRIN, flourish = Flourish.PUFF) }
+        wait(300)
+        anim(360, FastOutSlowInEasing) { t -> pose = ShadyPose(offsetX = 0.30f * (1f - t), mouth = MouthStyle.SMILE) }
+    }
+
+    private suspend fun juggle() {
+        // Hands up, eyes tracking three imagined balls: gaze arcs up and over
+        // in time with a small bounce. Nothing is drawn in the air — the eyes
+        // are what say there is something there.
+        repeat(4) { i ->
+            anim(300, LinearEasing) { t ->
+                val arc = sin(t * PI).toFloat()
+                pose = ShadyPose(
+                    handsUp = true,
+                    gazeX = (if (i % 2 == 0) -0.8f else 0.8f) * (1f - t) + (if (i % 2 == 0) 0.8f else -0.8f) * t,
+                    gazeY = -0.9f * arc,
+                    scaleY = 1f - 0.02f * arc,
+                    eyes = EyeStyle.NORMAL,
+                    mouth = MouthStyle.TONGUE
+                )
+            }
+        }
+        // Drops one.
+        anim(200, LinearEasing) { t -> pose = ShadyPose(gazeY = 0.9f * t, eyes = EyeStyle.WIDE, mouth = MouthStyle.GASP, flourish = Flourish.SWEAT) }
+        wait(500)
+    }
+
+    private suspend fun dance() {
+        // Side to side with a hip, hands up on the offbeats, notes rising.
+        repeat(4) { i ->
+            anim(260, FastOutSlowInEasing) { t ->
+                val sway = sin(t * PI).toFloat()
+                val dir = if (i % 2 == 0) 1f else -1f
+                pose = ShadyPose(
+                    offsetX = dir * 0.05f * sway,
+                    rotation = dir * 7f * sway,
+                    scaleY = 1f - 0.05f * sway,
+                    scaleX = 1f + 0.03f * sway,
+                    handsUp = i % 2 == 1,
+                    eyes = EyeStyle.CLOSED,
+                    mouth = MouthStyle.BIG_SMILE,
+                    flourish = Flourish.NOTES
+                )
+            }
+        }
+        anim(200, FastOutSlowInEasing) { t -> pose = ShadyPose(mouth = MouthStyle.SMILE, flourish = Flourish.NOTES) }
+    }
+
+    private suspend fun faint() {
+        // Overcome. Sways, hand to the head (both up, one is the gesture),
+        // topples backward slowly, lies there, then sits up dizzy.
+        anim(500, LinearEasing) { t ->
+            pose = ShadyPose(rotation = sin(t * 3f * PI).toFloat() * 5f, eyes = EyeStyle.SLEEPY, mouth = MouthStyle.WOBBLE, handsUp = t > 0.4f)
+        }
+        anim(520, FastOutSlowInEasing) { t ->
+            pose = ShadyPose(rotation = -80f * t, offsetY = 0.02f * t, eyes = EyeStyle.CLOSED, mouth = MouthStyle.FLAT)
+        }
+        pose = ShadyPose(rotation = -80f, offsetY = 0.02f, eyes = EyeStyle.CLOSED, mouth = MouthStyle.FLAT, flourish = Flourish.PUFF)
+        wait(700)
+        pose = ShadyPose(rotation = -80f, offsetY = 0.02f, eyes = EyeStyle.DIZZY, mouth = MouthStyle.OPEN, flourish = Flourish.SWIRL)
+        wait(600)
+        anim(560, Overshoot) { t -> pose = ShadyPose(rotation = -80f * (1f - t), offsetY = 0.02f * (1f - t), eyes = EyeStyle.DIZZY, mouth = MouthStyle.WOBBLE) }
+        wait(300)
+    }
+
+    private suspend fun leapSpin() {
+        anim(130, FastOutSlowInEasing) { t -> pose = ShadyPose(scaleY = 1f - 0.16f * t, scaleX = 1f + 0.11f * t, eyes = EyeStyle.SQUINT, mouth = MouthStyle.SMILE) }
+        anim(620, LinearEasing) { t ->
+            val lift = sin(t * PI).toFloat()
+            pose = ShadyPose(
+                offsetY = -0.30f * lift,
+                scaleY = 1f + 0.10f * lift,
+                scaleX = 1f - 0.06f * lift,
+                rotation = 360f * t,
+                handsUp = true,
+                eyes = EyeStyle.STAR,
+                mouth = MouthStyle.BIG_SMILE
+            )
+        }
+        anim(300, Overshoot) { t -> pose = ShadyPose(scaleY = 0.86f + 0.14f * t, scaleX = 1.10f - 0.10f * t, eyes = EyeStyle.STAR, mouth = MouthStyle.GRIN, flourish = Flourish.PUFF) }
+        wait(260)
+    }
+
+    private suspend fun slide() {
+        // A run-up in place and a knee slide: low, fast, and a long scuff.
+        anim(240, LinearEasing) { t ->
+            val step = sin(t * 4f * PI).toFloat()
+            pose = ShadyPose(offsetY = -0.03f * abs(step), rotation = step * 4f, eyes = EyeStyle.SQUINT, mouth = MouthStyle.TONGUE)
+        }
+        anim(560, FastOutSlowInEasing) { t ->
+            pose = ShadyPose(
+                offsetX = 0.34f * t,
+                scaleY = 1f - 0.22f * (1f - (1f - t) * (1f - t)) ,
+                scaleX = 1f + 0.10f,
+                rotation = 12f,
+                handsUp = true,
+                eyes = EyeStyle.SQUINT,
+                mouth = MouthStyle.GRIN,
+                flourish = Flourish.PUFF
+            )
+        }
+        wait(400)
+        anim(360, Overshoot) { t -> pose = ShadyPose(offsetX = 0.34f * (1f - t), scaleY = 0.78f + 0.22f * t, scaleX = 1.10f - 0.10f * t, rotation = 12f * (1f - t), mouth = MouthStyle.SMILE) }
+    }
+
+    private suspend fun pounce() {
+        // Sees something, crouches with the wiggle, springs at it, and it
+        // was not there. The wiggle is the cat's.
+        anim(200, FastOutSlowInEasing) { t -> pose = ShadyPose(eyes = EyeStyle.WIDE, gazeX = 0.9f, gazeY = 0.6f, mouth = MouthStyle.FLAT, scaleY = 1f - 0.10f * t, scaleX = 1f + 0.06f * t) }
+        anim(520, LinearEasing) { t ->
+            val wiggle = sin(t * 6f * PI).toFloat()
+            pose = ShadyPose(eyes = EyeStyle.WIDE, gazeX = 0.9f, gazeY = 0.6f, scaleY = 0.90f, scaleX = 1.06f, rotation = wiggle * 2.5f, offsetX = wiggle * 0.006f, mouth = MouthStyle.FLAT)
+        }
+        anim(380, FastOutSlowInEasing) { t ->
+            val lift = sin(t * PI).toFloat()
+            pose = ShadyPose(offsetX = 0.26f * t, offsetY = -0.16f * lift, scaleY = 1f + 0.10f * lift, scaleX = 1f - 0.06f * lift, rotation = 12f * lift, handsUp = true, eyes = EyeStyle.WIDE, mouth = MouthStyle.OPEN)
+        }
+        anim(220, Overshoot) { t -> pose = ShadyPose(offsetX = 0.26f, scaleY = 0.90f + 0.10f * t, scaleX = 1.06f - 0.06f * t, eyes = EyeStyle.NORMAL, gazeY = 0.8f, mouth = MouthStyle.FLAT, flourish = Flourish.PUFF) }
+        wait(400)
+        pose = ShadyPose(offsetX = 0.26f, eyes = EyeStyle.NORMAL, mouth = MouthStyle.WOBBLE, browRaise = 0.5f)
+        wait(500)
+        anim(360, FastOutSlowInEasing) { t -> pose = ShadyPose(offsetX = 0.26f * (1f - t), mouth = MouthStyle.SMILE) }
     }
 
     // ============================================

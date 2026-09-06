@@ -58,7 +58,26 @@ data class ShadyPose(
      * when the body is otherwise still — it is the whole point of sitting on
      * the edge of something.
      */
-    val legSwing: Float = 0f
+    val legSwing: Float = 0f,
+    /**
+     * How far through a turn the body is, 0 = square on, 1 = edge on.
+     *
+     * A mirror flip on its own reads as a cut. Passing through 1 on the way
+     * from one facing to the other narrows the silhouette, slides the antenna
+     * to the centreline and pulls the eyes together, so the character reads
+     * as *rotating* toward the camera and away again. Set only by the stage
+     * director; a reaction never turns.
+     */
+    val turn: Float = 0f,
+    /**
+     * Where the antenna tip trails, in fractions of the drawn size. Secondary
+     * motion: the stalk is springy, so it lags a hop upward on take-off and
+     * overshoots downward on landing, and it sweeps back against the
+     * direction of travel on a walk. Normally computed from the pose's own
+     * frame-to-frame motion inside [Shady]; a beat may set it deliberately.
+     */
+    val antennaLagX: Float = 0f,
+    val antennaLagY: Float = 0f
 ) {
     companion object {
         val Neutral = ShadyPose()
@@ -87,7 +106,13 @@ enum class EyeStyle {
     SLEEPY,
 
     /** Screwed shut against something — a sneeze, a shiver, a hard landing. */
-    SCRUNCH
+    SCRUNCH,
+
+    /** One eye shut, the other open. Knowing, not sleepy. */
+    WINK,
+
+    /** Two small hearts. Smitten — reserved for the cat. */
+    HEART
 }
 
 enum class MouthStyle {
@@ -102,7 +127,16 @@ enum class MouthStyle {
     GASP,
 
     /** Lopsided. The one expression that reads as knowing rather than sunny. */
-    SMIRK
+    SMIRK,
+
+    /** A grin with the tongue out. Effort, or mischief. */
+    TONGUE,
+
+    /** A small pursed circle. Whistling, or blowing on something hot. */
+    WHISTLE,
+
+    /** A wide toothy grin — the proud one. */
+    GRIN
 }
 
 enum class Flourish {
@@ -127,5 +161,23 @@ enum class Flourish {
     QUESTION,
 
     /** A magnifying glass, held up while looking something over. */
-    MAGNIFY
+    MAGNIFY,
+
+    /** Two flat discs on the cheeks. Drawn on the face, not above it. */
+    BLUSH,
+
+    /** Two note glyphs drifting up. Humming — glyphs, never text. */
+    NOTES,
+
+    /** A single drop beside the head. Effort, or a near miss. */
+    SWEAT,
+
+    /** One small heart above the head. */
+    HEART,
+
+    /** A leaf, drifting down past the head. */
+    LEAF,
+
+    /** Wisps rising — steam or heat, drawn at the hands. */
+    STEAM
 }

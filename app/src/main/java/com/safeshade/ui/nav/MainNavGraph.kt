@@ -343,6 +343,7 @@ fun MainNavGraph(
                     signalDbm = state.rssiSmoothed.takeIf { state.connection.isUsable },
                     ways = boardWays(state),
                     temperatureC = weather.temp.takeIf { weather.isLoaded },
+                    rainChance = weather.rainChance.takeIf { weather.isLoaded },
                     weatherCondition = weather.condition.takeIf { weather.isLoaded },
                     uvIndex = weather.uvIndex.takeIf { weather.isLoaded },
                     lastSyncLabel = weather.lastSyncTime.takeIf { weather.isLoaded },

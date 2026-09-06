@@ -402,6 +402,8 @@ Depth is expressed the way a real panel expresses it, in three registers:
 
 **The Nothing-Floats Rule.** Surfaces separate by tone, hairline and rule. The bottom bar is divided from content by a rule, not a shadow. If a surface needs to feel raised, step its tone and draw its border; do not lift it.
 
+**The one depth carve-out is the character.** Shady and the props on its stage are cel-shaded: a rim band along the lit edges, a core band along the shadowed ones, a flat contact ellipse on the ground, and one small sheen. Three flat tones and a low-alpha ellipse — the same vocabulary as the pilot lamp's halo, and still no gradient and no blur anywhere in the build. It applies to the character and its world only; a plate, a button or a gauge never takes a band or a contact shadow.
+
 **The No-Emitted-Light Rule.** This panel does not emit light, so nothing on it glows. The pilot lamp's halo is a flat low-alpha ring, not a radial gradient, and buttons respond to a press with a 0.985 scale-down rather than a ripple — a ripple spreads light across a surface that has none.
 
 ## Shapes
@@ -505,7 +507,11 @@ The tripped state takes the whole frame and refuses to be a card among cards: tr
 
 ### Shady (the one exception)
 
-The mascot: a rounded companion-device character with a curved antenna, a real face, and six moods mapped from link state by a single pure function so every screen tells the same story about the same situation. Shady is the **single deliberate exception to the colour-means-state rule** — it is a character, not an indicator — and it is kept out of `Way` rows and away from pilot lamps where the two languages could be confused. Its antenna nub is the one part of it that reports something real.
+The mascot: a rounded companion-device character with a curved antenna, a real face, and twelve moods mapped from link state (and, for three of them, from a fresh success, the quiet hours and the outside temperature) by a single pure function so every screen tells the same story about the same situation. Shady is the **single deliberate exception to the colour-means-state rule** — it is a character, not an indicator — and it is kept out of `Way` rows and away from pilot lamps where the two languages could be confused. Its antenna nub is the one part of it that reports something real.
+
+**Depth.** The character is subtly three-dimensional inside the flat draw code: the light comes from the upper left as three flat tones (rim band, skin, core band, each the body's own silhouette minus the same silhouette pushed diagonally, so the bands follow the corners and taper where the light grazes), a flat contact ellipse on the ground that the body lifts off in a hop, a specular dot on the nub and a lid shadow in the eye whites. A turn is a rotation rather than a mirror cut: the silhouette narrows to edge-on, the antenna slides to the centreline and the eyes pull together, then it widens facing the other way. The antenna is a springy stalk with secondary motion derived from the body's own frame-to-frame movement, so every beat lags and overshoots without asking for it.
+
+**The stage and its props.** At the foot of the Board, Shady shares the ground with one prop at a time — a plant it waters, a cat that rubs against it, a phone that buzzes, a kettle that whistles, a ball it nudges off the edge, a box it climbs into, an umbrella when the app knows it is raining. Props are drawn in the character's register and sized against it; they never report state. The umbrella reads the weather to decide whether to exist, which is a detail, not an indicator. Reactions stay hand-keyframed with an anticipation frame before every launch and an overshoot on every landing.
 
 Two rules carried from the firmware: **no speech or thought bubbles** (text emerging from a mascot competes with the copy that actually matters on a safety screen), and **absent during emergencies**. Screens never draw Shady directly; they go through a host that removes it from the composition entirely when an emergency is live, so it cannot animate, cannot be read aloud, and cannot consume frames while a countdown runs. Enforcing the rule at one boundary is why a new emergency surface cannot forget it.
 
