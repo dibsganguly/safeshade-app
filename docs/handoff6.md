@@ -498,7 +498,7 @@ honest real-versus-promised list and the starting point for §1.6.
 | C-V2X cyclist-vehicle broadcast | **Nothing.** Not named; a candidate recommendation. |
 | SafeShade Spark — LTE-M panic ring, pre-recorded distress message, NFC Medical ID, anti-removal alert | **Nothing.** Named for the next pass, including a brand-specific pairing screen. |
 | 7 adaptive modes, context-aware thresholds (the patent claim) | **Eight modes exist** including `AUTO`, and the mode is synced. The per-mode *content* from slide 13 is not surfaced — see §6. |
-| Per-mode priority features: turn-by-turn, brake light, ride tracking, virtual leash, lost-pet mode, stranger-danger SOS, concussion alerts, worker check-ins, sleep/fitness | **Mostly absent.** Navigation exists as straight-line distance and bearing to a Guardian-entered destination (`EXT NAV`) — **not turn-by-turn, no road graph, no route line.** |
+| Per-mode priority features: turn-by-turn, brake light, ride tracking, virtual leash, lost-pet mode, stranger-danger SOS, concussion alerts, worker check-ins, sleep/fitness | **Absent.** Note in particular that **navigation is not reachable from the app at all** — v1.x had a Bike/Helmet destination editor that computed straight-line distance and bearing, and it did not survive the v2.0.0 rebuild. The wire path is intact and orphaned; see §9. |
 | Rotary mode selector, spring clip, 270° LEDs, 7-day battery | Hardware. Not app scope. |
 
 **Also worth knowing, from the app's own honesty markers:**
@@ -596,6 +596,9 @@ MIUI 14.0.11, Android 13 (API 33), 1.0× font scale.
   resolution is asynchronous — if the probe ever ran before the face loaded it
   would fit to the fallback's width for one frame. All captures were post-load,
   so this has not been seen.
+- **Dark theme on the map picker and on the intro.** The rest of the app has
+  now been swept in dark; these two were listed as unswept a pass ago and still
+  are.
 - **The location-refresh nod animation.** It fires on tap; a still cannot show
   it.
 - **API 34+ paths.** The test device is API 33, so the install-time
@@ -650,6 +653,15 @@ fail quietly, and the app's habit until now has been to draw the happy path.
   and its handle runs behind it. It reads as "held" and balances the antenna,
   but it was not the drawn intention.
 - **Quiet hours are not persisted** (see §7).
+- **`DeviceRepository.setNavTarget` is called from nowhere.** It writes
+  `EXT NAV` correctly, `DeviceProtocol.navigation()` formats the payload
+  correctly, `DeviceCapabilities` advertises "Navigation target" as a synced
+  setting — and no ViewModel method and no screen reaches any of it. The v1.x
+  Bike/Helmet destination editor did not survive the v2.0.0 rebuild and the
+  wire path was left behind. This is the same class of trap as the dead
+  booleans: **a complete, correct, plausible API that nothing calls.** Either
+  give it a UI (the deck asks for ride navigation) or delete it — but do not
+  let a future pass read `DeviceCapabilities` and conclude the feature ships.
 - **`material-icons-extended` is still a dependency** (see §4.3).
 - **The stored emergency contact on the test device has eleven digits after the
   country code** and cannot be repaired from here — `…66006` and `…60065` are
