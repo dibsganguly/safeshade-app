@@ -102,6 +102,10 @@ import com.safeshade.ui.screens.device.LightsScreen
 import com.safeshade.ui.screens.device.LightsUiState
 import com.safeshade.ui.screens.device.LocateScreen
 import com.safeshade.ui.screens.device.LocateUiState
+import com.safeshade.ui.screens.device.ModeCompareScreen
+import com.safeshade.ui.screens.device.ModeCompareUiState
+import com.safeshade.ui.screens.device.ModeDetailScreen
+import com.safeshade.ui.screens.device.ModeDetailUiState
 import com.safeshade.ui.screens.device.ModePickerScreen
 import com.safeshade.ui.screens.device.ModePickerUiState
 import com.safeshade.ui.screens.device.PairedDevicesScreen
@@ -1252,47 +1256,87 @@ fun MainNavGraph(
 
         composable(Routes.DEVICE_MODE) {
             val state = liveState.value
+            ModePickerScreen(
+                state = ModePickerUiState(
+                    connection = state.connection,
+                    activeMode = state.activeMode
+                ),
+                onOpenMode = { mode -> navController.navigate(Routes.modeDetail(mode)) },
+                onCompare = { navController.navigate(Routes.DEVICE_MODE_COMPARE) },
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            route = "${Routes.DEVICE_MODE_DETAIL}/{${Routes.Args.MODE}}",
+            arguments = listOf(navArgument(Routes.Args.MODE) { type = NavType.StringType })
+        ) { entry ->
+            val state = liveState.value
+            val mode = entry.arguments?.getString(Routes.Args.MODE)
+                ?.let { name -> PersonaMode.entries.firstOrNull { it.name == name } }
+            if (mode == null) {
+                LaunchedEffect(Unit) { navController.popBackStack() }
+                return@composable
+            }
             var inFlight by remember { mutableStateOf<PersonaMode?>(null) }
             var ack by remember { mutableStateOf(AckState.IDLE) }
-            var confirming by remember { mutableStateOf<PersonaMode?>(null) }
+            var confirming by remember { mutableStateOf(false) }
+            val scope = rememberCoroutineScope()
 
-            // The device never sends a mode ack the app can see here, but the
-            // repository writes the mode back into the profile once the switch
-            // has actually been made, so agreement is the confirmation.
-            LaunchedEffect(state.activeMode) {
-                if (inFlight != null && state.activeMode == inFlight) {
-                    ack = AckState.CONFIRMED
+            // The result is the wearable's actual answer, not the tap. On a
+            // dead link the profile is stored and the page reads "stored";
+            // on a live one the ack window decides between confirmed and no
+            // reply. Nothing here draws a confirmation before it is known.
+            fun apply() {
+                inFlight = mode
+                ack = AckState.PENDING
+                scope.launch {
+                    val usable = state.connection.isUsable
+                    val acked = viewModel.setActiveMode(mode).await()
+                    ack = when {
+                        acked -> AckState.CONFIRMED
+                        usable -> AckState.NO_RESPONSE
+                        else -> AckState.IDLE
+                    }
                     inFlight = null
                 }
             }
 
-            ModePickerScreen(
-                state = ModePickerUiState(
+            ModeDetailScreen(
+                state = ModeDetailUiState(
+                    mode = mode,
                     connection = state.connection,
                     activeMode = state.activeMode,
                     inFlightMode = inFlight,
                     ack = ack,
-                    confirmingMode = confirming
+                    confirming = confirming,
+                    fallSensitivity = state.safetySettings.fallSensitivity
                 ),
-                onSelectMode = { mode ->
+                onUse = {
                     // A guardian-locked mode hides mode switching and the whole
                     // safety menu on the wearable, so it is never applied on a
                     // single tap.
-                    if (mode.isGuardianLocked) {
-                        confirming = mode
-                    } else {
-                        inFlight = mode
-                        ack = AckState.PENDING
-                        viewModel.setActiveMode(mode)
-                    }
+                    if (mode.isGuardianLocked) confirming = true else apply()
                 },
-                onConfirmMode = { mode ->
-                    confirming = null
-                    inFlight = mode
-                    ack = AckState.PENDING
-                    viewModel.setActiveMode(mode)
+                onConfirm = {
+                    confirming = false
+                    apply()
                 },
-                onCancelConfirm = { confirming = null },
+                onCancelConfirm = { confirming = false },
+                onOpenFeature = { route -> navController.navigate(route) },
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Routes.DEVICE_MODE_COMPARE) {
+            val state = liveState.value
+            ModeCompareScreen(
+                state = ModeCompareUiState(
+                    connection = state.connection,
+                    activeMode = state.activeMode,
+                    fallSensitivity = state.safetySettings.fallSensitivity
+                ),
+                onOpenMode = { mode -> navController.navigate(Routes.modeDetail(mode)) },
                 onBack = { navController.popBackStack() }
             )
         }

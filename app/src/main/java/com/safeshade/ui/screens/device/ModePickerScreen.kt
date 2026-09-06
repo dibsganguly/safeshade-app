@@ -16,21 +16,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.PagerState
-import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -40,21 +33,20 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.safeshade.data.PersonaMode
 import com.safeshade.device.ConnectionState
-import com.safeshade.ui.board.BoardButton
 import com.safeshade.ui.board.BoardPlate
 import com.safeshade.ui.board.BusTick
-import com.safeshade.ui.board.ButtonWeight
 import com.safeshade.ui.board.Hairline
 import com.safeshade.ui.board.LampState
-import com.safeshade.ui.board.Nameplate
 import com.safeshade.ui.board.PilotLamp
 import com.safeshade.ui.board.ScreenHeader
 import com.safeshade.ui.board.Seal
 import com.safeshade.ui.board.SectionPlate
+import com.safeshade.ui.board.Way
 import com.safeshade.ui.board.icon
 import com.safeshade.ui.board.plateClickable
+import com.safeshade.ui.board.rowClickable
+import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.theme.BoardColors
-import com.safeshade.ui.theme.Radius
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.Stroke
@@ -64,91 +56,49 @@ import com.safeshade.ui.theme.boardType
 /** Everything the mode picker draws. */
 data class ModePickerUiState(
     val connection: ConnectionState = ConnectionState.Disconnected,
-    val activeMode: PersonaMode = PersonaMode.AUTO,
-    /**
-     * The mode written to `EXT MODE` and still waiting for `ACK:MODE:<name>`.
-     *
-     * Kept separate from [activeMode] so the picker can show the old mode as
-     * still current while the new one shows as in flight. Collapsing them would
-     * mean the card lights up before the wearable has agreed to anything.
-     */
-    val inFlightMode: PersonaMode? = null,
-    val ack: AckState = AckState.IDLE,
-    /**
-     * A guardian-locked mode the user has tapped but not yet confirmed.
-     *
-     * Hoisted rather than held in a `remember` inside the composable: the
-     * confirmation gates a change with real consequences on the wearable, and
-     * the caller is entitled to be able to cancel it, restore it, or test it.
-     */
-    val confirmingMode: PersonaMode? = null
+    val activeMode: PersonaMode = PersonaMode.AUTO
 )
 
 /**
- * Which profile the wearable is running.
+ * Which profile the wearable is running, and the seven it could.
  *
- * Three things shape this screen. The first is that AUTO is not one of eight
- * peers — it is the firmware's fresh-boot default and the answer for anyone who
- * does not want to think about this at all, so it gets a hero of its own above
- * the rule and the seven explicit modes are paged below it.
- *
- * The second is that four of those seven take something away from the person
- * wearing the device. In ELDERLY, KIDS, PET and HELMET the firmware hides its
- * own Mode and Safety menus, so the wearer cannot quietly turn their own fall
- * detection down. That is a defensible thing to do to a person and an
- * indefensible thing to do to them silently, which is why those modes carry a
- * seal on the card, name the seal in their spoken description, and take a
- * plainly worded confirmation on selection.
- *
- * The third is that a profile is a *choice about a life*, not a settings row.
- * A list of seven near-identical rows asks the reader to work out from four
- * words apiece which one describes the person they are worried about. One large
- * card at a time, colour-identified and carrying a scene of the character
- * actually doing the thing, answers that before the blurb is read. Paging is
- * what buys the room for it: swiping browses and costs nothing, and only a tap
- * selects — so the expensive action stays deliberate while looking is free.
+ * A profile is a choice about a life, and the previous page asked the reader
+ * to make it from a carousel of cards below the fold, each carrying four
+ * facts. This one separates *looking* from *choosing*. The list shows every
+ * profile at once — the one running first, at the size it deserves, then the
+ * other seven as rows a thumb can scan without swiping — and tapping any of
+ * them opens a page that says everything the app knows about it: what the
+ * wearable trips at in g, which screens it shows, what its lights do, what it
+ * seals away from the wearer, and what the profile is for. Choosing happens
+ * there, on a single deliberate button, so nothing on this list can
+ * reconfigure somebody's fall detection by accident.
  */
 @Composable
 fun ModePickerScreen(
     state: ModePickerUiState,
-    onSelectMode: (PersonaMode) -> Unit,
-    onConfirmMode: (PersonaMode) -> Unit,
-    onCancelConfirm: () -> Unit,
+    onOpenMode: (PersonaMode) -> Unit,
+    onCompare: () -> Unit,
     onBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(0.dp)
 ) {
     val colors = MaterialTheme.board
-    val explicit = remember { PersonaMode.entries.filter { it != PersonaMode.AUTO } }
-
-    // Hoisted out of the carousel's list item on purpose. A pager state
-    // remembered inside a `LazyColumn` item is destroyed the moment the item
-    // scrolls out of the viewport, which silently resets the reader to the
-    // first profile every time they look at the footnote and scroll back.
-    val pagerState = rememberPagerState(
-        initialPage = explicit.indexOf(state.activeMode).coerceAtLeast(0),
-        pageCount = { explicit.size }
-    )
+    val others = remember(state.activeMode) { PersonaMode.entries.filter { it != state.activeMode } }
+    val gutter = Modifier.padding(horizontal = Spacing.gutter)
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
-        // Only the vertical inset belongs to the list. The horizontal gutter is
-        // applied per item so the carousel can run edge to edge underneath it
-        // and let the neighbouring cards show, which is the affordance that
-        // says there are more profiles than the one on screen.
         contentPadding = PaddingValues(
             top = contentPadding.calculateTopPadding() + Spacing.sm,
             bottom = contentPadding.calculateBottomPadding() + Spacing.xxl
         ),
         verticalArrangement = Arrangement.spacedBy(Spacing.lg)
     ) {
-        val gutter = Modifier.padding(horizontal = Spacing.gutter)
-
         item("title") {
             ScreenHeader(
                 title = "Adaptive mode",
-                subtitle = "The profile decides how hard the device listens for a " +
-                    "fall and what it shows on its own screen.",
+                subtitle = "The profile decides how hard the wearable listens for a fall, " +
+                    "what it shows on its own screen and what its lights do.",
                 onBack = onBack,
                 modifier = gutter
             )
@@ -157,117 +107,92 @@ fun ModePickerScreen(
         item("offline") {
             OfflineNotice(
                 connection = state.connection,
-                // The mode is persisted and re-pushed when the link reaches
-                // Ready, so this promise is one the caller actually keeps.
-                queuedNote = "A mode chosen now is stored and sent as soon as the " +
-                    "device connects.",
+                queuedNote = "A profile chosen now is stored and sent as soon as the device connects.",
                 modifier = gutter
             )
         }
 
-        // AUTO is separated from the seven by a rule and a whole different
-        // shape, because choosing it is a different kind of decision: it is
-        // declining to choose, and that deserves to be the easy path rather
-        // than the eighth card in a carousel somebody has to swipe to reach.
-        item("auto") {
-            AutoHero(
-                selected = state.activeMode == PersonaMode.AUTO,
-                inFlight = state.inFlightMode == PersonaMode.AUTO,
-                linkUsable = state.connection.isUsable,
-                ack = state.ack,
-                onSelect = { onSelectMode(PersonaMode.AUTO) },
-                modifier = gutter
-            )
+        item("running") {
+            Column(modifier = gutter) {
+                SectionPlate(title = "Current profile")
+                Spacer(Modifier.height(Spacing.md))
+                RunningPlate(
+                    mode = state.activeMode,
+                    linkUsable = state.connection.isUsable,
+                    onOpen = { onOpenMode(state.activeMode) }
+                )
+            }
         }
 
-        item("explicit-heading") {
-            SectionPlate(
-                title = "Choose a profile",
-                modifier = gutter,
-                trailing = {
-                    // A counter rather than only dots: seven dots is past the
-                    // count a person can read at a glance, so the position is
-                    // given in words as well as in shape.
-                    Text(
-                        text = "${pagerState.currentPage + 1} of ${explicit.size}",
-                        style = MaterialTheme.boardType.stateLabel,
-                        color = colors.inkFaint
-                    )
+        item("profiles") {
+            Column(modifier = gutter) {
+                SectionPlate(title = "Other profiles")
+                Spacer(Modifier.height(Spacing.md))
+                BoardPlate(modifier = Modifier.fillMaxWidth()) {
+                    others.forEachIndexed { index, mode ->
+                        if (index > 0) Hairline()
+                        ModeRow(mode = mode, onOpen = { onOpenMode(mode) })
+                    }
                 }
-            )
+            }
         }
 
-        item("explicit") {
-            ModeCarousel(
-                modes = explicit,
-                pagerState = pagerState,
-                state = state,
-                onSelectMode = onSelectMode
-            )
+        item("compare") {
+            BoardPlate(modifier = gutter.fillMaxWidth()) {
+                Way(
+                    name = "Compare the profiles",
+                    detail = "Every profile's thresholds, screens and lights side by side.",
+                    state = LampState.OFF,
+                    stateLabel = "",
+                    icon = SafeShadeIcons.AdaptiveMode,
+                    accent = colors.inkMuted,
+                    onClick = onCompare
+                )
+            }
         }
 
         item("footnote") {
             Text(
-                text = "Fall sensitivity shown here is the profile's starting " +
-                    "point. You can change it afterwards in device settings.",
+                text = "Fall sensitivity is the profile's starting point. It can be changed " +
+                    "afterwards in device settings without leaving the profile.",
                 style = MaterialTheme.typography.bodySmall,
                 color = colors.inkFaint,
                 modifier = gutter
             )
         }
     }
-
-    if (state.confirmingMode != null) {
-        GuardianLockDialog(
-            mode = state.confirmingMode,
-            onConfirm = { onConfirmMode(state.confirmingMode) },
-            onCancel = onCancelConfirm
-        )
-    }
 }
 
 // ============================================================================
-// Identity
+// Identity and state, shared with the detail page
 // ============================================================================
 
 /**
  * The decorative accent a mode is known by.
  *
- * Six tokens across eight modes, so two hues appear twice. The pairs are chosen
- * so that no two modes *adjacent in the carousel* share one — a reader swiping
- * has to see the colour change to know the card changed, and a repeat two or
- * three pages apart is never seen side by side.
- *
- * Decorative, never state: this colour says which profile a card is, and says
- * nothing whatever about whether the wearable is running it. That job belongs
- * to the pilot lamp and the state word beside it.
+ * Decorative, never state: this colour says which profile a plate is, and
+ * says nothing whatever about whether the wearable is running it. That job
+ * belongs to the pilot lamp and the state word beside it.
  */
-private fun accentFor(mode: PersonaMode, colors: BoardColors): Color = when (mode) {
+internal fun modeAccent(mode: PersonaMode, colors: BoardColors): Color = when (mode) {
     PersonaMode.AUTO -> colors.accentSage
     PersonaMode.ELDERLY -> colors.accentSky
     PersonaMode.KIDS -> colors.accentSand
     PersonaMode.BIKE -> colors.accentMoss
     PersonaMode.PET -> colors.accentClay
-    PersonaMode.HELMET -> colors.accentSand
+    PersonaMode.HELMET -> colors.accentOchre
     PersonaMode.WRIST -> colors.accentLilac
-    PersonaMode.BACKPACK -> colors.accentSky
+    PersonaMode.BACKPACK -> colors.accentCove
 }
 
 /**
- * The lamp for a mode card.
+ * The lamp for a mode.
  *
- * The middle branch is the one that matters. A teal lamp on a dead link would
- * claim we know what profile the wearable is running. We know what we last
- * stored, which is not the same thing and is exactly the Connected-versus-Ready
- * lie this codebase has already paid for once — so a selected mode with no
- * usable link is UNKNOWN, not LIVE.
+ * A teal lamp on a dead link would claim we know what profile the wearable
+ * is running. We know what we last stored, which is not the same thing — so a
+ * selected mode with no usable link is UNKNOWN, not LIVE.
  */
-private fun modeLamp(
-    selected: Boolean,
-    inFlight: Boolean,
-    linkUsable: Boolean,
-    ack: AckState
-): LampState = when {
+internal fun modeLamp(selected: Boolean, inFlight: Boolean, linkUsable: Boolean, ack: AckState): LampState = when {
     inFlight -> ackLamp(ack, LampState.LIVE)
     selected && linkUsable -> LampState.LIVE
     selected -> LampState.UNKNOWN
@@ -275,513 +200,211 @@ private fun modeLamp(
 }
 
 /** The same distinction in words, because colour alone never carries it. */
-private fun modeStateWord(
-    selected: Boolean,
-    inFlight: Boolean,
-    linkUsable: Boolean,
-    unselectedWord: String = "Off"
-): String = when {
+internal fun modeStateWord(selected: Boolean, inFlight: Boolean, linkUsable: Boolean, unselectedWord: String = "Off"): String = when {
     inFlight -> "Sending"
     selected && linkUsable -> "Active"
     selected -> "Last set"
     else -> unselectedWord
 }
 
-private fun stateInk(lamp: LampState, colors: BoardColors): Color = when (lamp) {
+internal fun stateInk(lamp: LampState, colors: BoardColors): Color = when (lamp) {
     LampState.LIVE -> colors.inkLive
     LampState.ATTENTION -> colors.inkAttention
     LampState.TRIP -> colors.inkTrip
     LampState.OFF, LampState.UNKNOWN -> colors.inkFaint
 }
 
-/**
- * Everything a card says, said once, for a reader who cannot see it.
- *
- * The seal clause is not optional. A sighted reader gets the seal badge on the
- * card and the dialog after the tap; without this sentence a screen-reader user
- * would meet the consequence for the first time in the confirmation, which is
- * the wrong place to learn what you are agreeing to.
- */
-private fun modeDescription(
-    mode: PersonaMode,
-    stateWord: String,
-    inFlight: Boolean,
-    ack: AckState
-): String = buildString {
-    append(mode.label)
-    append(", ")
-    append(stateWord)
-    append(". ")
-    if (mode.isGuardianLocked) {
-        append("Guardian-sealed: the wearer cannot change this from the device. ")
-    }
-    append(mode.blurb)
-    append(" Starting fall sensitivity ")
-    append(mode.defaultFallSensitivity.label)
-    append(".")
-    if (inFlight) ackWord(ack)?.let { append(" "); append(it); append(".") }
-}
-
 // ============================================================================
-// The carousel
+// The running plate
 // ============================================================================
 
 /**
- * The seven explicit profiles, one at a time.
+ * The profile the wearable is on, at the size the answer deserves.
  *
- * Swiping only browses. Selection is always a tap on the card, so a thumb
- * flicking through seven profiles cannot reconfigure somebody's fall detection
- * on the way past.
+ * The scene band carries the identity — a wash of the profile's accent behind
+ * the animation, and the accent at full strength as the rule beneath it —
+ * while the plate, the ink and the lamp are the same materials as every
+ * other surface. Identity in the band, state below the rule.
  */
 @Composable
-private fun ModeCarousel(
-    modes: List<PersonaMode>,
-    pagerState: PagerState,
-    state: ModePickerUiState,
-    onSelectMode: (PersonaMode) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val colors = MaterialTheme.board
-
-    // Follow the active mode when it changes underneath us — an ack landing, a
-    // guardian confirming, another phone changing the profile. Keyed on the
-    // mode rather than driven from the pager, so a reader browsing is never
-    // dragged back to the card they happen to have selected.
-    LaunchedEffect(state.activeMode) {
-        val target = modes.indexOf(state.activeMode)
-        if (target >= 0 && target != pagerState.currentPage) {
-            pagerState.animateScrollToPage(target)
-        }
-    }
-
-    Column(modifier = modifier.fillMaxWidth()) {
-        HorizontalPager(
-            state = pagerState,
-            // One height for every page. A pager is a lazy layout, so letting
-            // pages size themselves makes the whole list jump as a taller card
-            // scrolls in mid-swipe. Text scale is the only thing that changes
-            // the content height materially, so it is the only thing the height
-            // is allowed to depend on.
-            modifier = Modifier.height(carouselHeight()),
-            contentPadding = PaddingValues(horizontal = Spacing.gutter),
-            pageSpacing = Spacing.xs
-        ) { page ->
-            val mode = modes[page]
-            ModeCard(
-                mode = mode,
-                accent = accentFor(mode, colors),
-                selected = state.activeMode == mode,
-                inFlight = state.inFlightMode == mode,
-                linkUsable = state.connection.isUsable,
-                ack = state.ack,
-                onSelect = { onSelectMode(mode) },
-                modifier = Modifier.fillMaxSize()
-            )
-        }
-
-        Spacer(Modifier.height(Spacing.md))
-        CarouselDots(
-            count = modes.size,
-            current = pagerState.currentPage,
-            accent = accentFor(modes[pagerState.currentPage], colors),
-            modifier = Modifier.fillMaxWidth()
-        )
-    }
-}
-
-/**
- * A page height that survives large text.
- *
- * The 300dp base is the card at default scale with a three-line blurb and the
- * acknowledgement line present. The rest is headroom bought at the same rate
- * the text grows, so the sensitivity row at the foot of the card stays inside
- * it at a 1.3 font scale — which is not a hypothetical on a product whose
- * audience includes elderly guardians.
- */
-@Composable
-private fun carouselHeight() =
-    300.dp + ((LocalDensity.current.fontScale - 1f).coerceAtLeast(0f) * 150f).dp
-
-/** Position in the set. Decoration — the counter beside the section heading says it in words. */
-@Composable
-private fun CarouselDots(
-    count: Int,
-    current: Int,
-    accent: Color,
-    modifier: Modifier = Modifier
-) {
-    val colors = MaterialTheme.board
-    Row(
-        modifier = modifier.clearAndSetSemantics { },
-        horizontalArrangement = Arrangement.spacedBy(Spacing.xs, Alignment.CenterHorizontally),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        repeat(count) { index ->
-            val here = index == current
-            Box(
-                modifier = Modifier
-                    .height(Stroke.brass)
-                    .width(if (here) 20.dp else 8.dp)
-                    .background(
-                        color = if (here) accent else colors.hairline,
-                        shape = RoundedCornerShape(Radius.tight)
-                    )
-            )
-        }
-    }
-}
-
-/**
- * One profile, at the size the decision deserves.
- *
- * The scene band carries the mode's identity twice over — a wash of its accent
- * behind the animation, and the accent at full strength as the rule under it —
- * while the plate, the ink and the lamp underneath are the same materials as
- * every other surface in the app. Identity above the rule, state below it.
- */
-@Composable
-private fun ModeCard(
+private fun RunningPlate(
     mode: PersonaMode,
-    accent: Color,
-    selected: Boolean,
-    inFlight: Boolean,
     linkUsable: Boolean,
-    ack: AckState,
-    onSelect: () -> Unit,
+    onOpen: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val colors = MaterialTheme.board
-    val lamp = modeLamp(selected, inFlight, linkUsable, ack)
-    val stateWord = modeStateWord(selected, inFlight, linkUsable, unselectedWord = "Not selected")
+    val accent = modeAccent(mode, colors)
+    val lamp = modeLamp(selected = true, inFlight = false, linkUsable = linkUsable, ack = AckState.IDLE)
+    val stateWord = modeStateWord(selected = true, inFlight = false, linkUsable = linkUsable)
+    val facts = ModeFacts.of(mode)
 
     BoardPlate(
         modifier = modifier
-            .plateClickable(role = Role.RadioButton, onClick = onSelect)
-            .clearAndSetSemantics {
-                this.selected = selected
-                contentDescription = modeDescription(mode, stateWord, inFlight, ack)
-            }
-    ) {
-        Row(modifier = Modifier.fillMaxSize()) {
-            // The busbar the card taps off. It runs the full height of the
-            // plate, which is what makes a selected card legible from across
-            // the carousel without spending a decorative colour on state.
-            BusTick(state = lamp, modifier = Modifier.fillMaxHeight())
-
-            Column(modifier = Modifier.fillMaxSize()) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(140.dp)
-                        .background(accent.copy(alpha = if (colors.isDark) 0.16f else 0.12f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    ModeScene(mode = mode, accent = accent, size = 124.dp)
-
-                    // The seal appears whether or not the mode is active, so it
-                    // reads as a property of the choice rather than as a
-                    // consequence discovered after making it.
-                    if (mode.isGuardianLocked) {
-                        Seal(
-                            modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .padding(Spacing.sm)
-                        )
-                    }
-                }
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(Stroke.brass)
-                        .background(accent)
-                )
-
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
-                        .padding(Spacing.lg)
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = mode.icon,
-                            contentDescription = null,
-                            tint = accent,
-                            modifier = Modifier.size(22.dp)
-                        )
-                        Spacer(Modifier.width(Spacing.sm))
-                        // The label is weighted so the state word (a short,
-                        // fixed vocabulary: SENDING/LAST SET/RUNNING) is
-                        // measured first and always stays whole — but a
-                        // weighted Text still wraps by default when squeezed,
-                        // which broke a long mode label into two lines and
-                        // threw off the row's vertical centering against the
-                        // icon and lamp. One line with an ellipsis instead.
-                        Text(
-                            text = mode.label,
-                            style = MaterialTheme.typography.headlineSmall,
-                            color = colors.ink,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f)
-                        )
-                        Text(
-                            text = stateWord.uppercase(),
-                            style = MaterialTheme.boardType.stateLabel,
-                            color = stateInk(lamp, colors)
-                        )
-                        Spacer(Modifier.width(Spacing.sm))
-                        PilotLamp(state = lamp, size = 14.dp)
-                    }
-
-                    Spacer(Modifier.height(Spacing.sm))
-                    Text(
-                        // Straight from the enum. The firmware, the app and
-                        // this sentence should never be able to drift apart.
-                        text = mode.blurb,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = colors.inkMuted,
-                        maxLines = 3,
-                        overflow = TextOverflow.Ellipsis
-                    )
-
-                    Spacer(Modifier.weight(1f))
-
-                    // The acknowledgement replaces nothing here — it sits under
-                    // the sensitivity, because on a card this size there is room
-                    // to say both what the profile is and whether the device has
-                    // agreed to it yet.
-                    val ackLine = if (inFlight) ackWord(ack) else null
-                    if (ackLine != null) {
-                        Text(
-                            text = ackLine,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = colors.inkFaint
-                        )
-                        Spacer(Modifier.height(Spacing.xs))
-                    }
-                    Hairline()
-                    Spacer(Modifier.height(Spacing.sm))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        // The label takes the weight so the *value* is measured
-                        // first and stays whole. Without it a large text scale
-                        // leaves "Medium" too little room and breaks it across
-                        // two lines mid-word.
-                        Nameplate(
-                            "Starting fall sensitivity",
-                            small = true,
-                            muted = true,
-                            modifier = Modifier.weight(1f)
-                        )
-                        Spacer(Modifier.width(Spacing.sm))
-                        Text(
-                            text = mode.defaultFallSensitivity.label,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = colors.inkMuted
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-/**
- * The adaptive hero.
- *
- * Built from a plate, a bus tick and a lamp rather than a new card type: it is
- * wider and shaped differently from a carousel card, but it is the same
- * material and obeys the same rule that only the lamp carries state colour.
- *
- * It sits outside the pager deliberately. Anything inside a carousel is one of
- * a set of peers to be compared; AUTO is the option for a person who does not
- * want to compare anything, and putting it behind a swipe would hide the easy
- * answer behind the hard question.
- */
-@Composable
-private fun AutoHero(
-    selected: Boolean,
-    inFlight: Boolean,
-    linkUsable: Boolean,
-    ack: AckState,
-    onSelect: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val colors = MaterialTheme.board
-    val accent = accentFor(PersonaMode.AUTO, colors)
-    val lamp = modeLamp(selected, inFlight, linkUsable, ack)
-    val stateWord = modeStateWord(selected, inFlight, linkUsable, unselectedWord = "Not selected")
-
-    BoardPlate(
-        modifier = modifier
-            .plateClickable(role = Role.RadioButton, onClick = onSelect)
             .fillMaxWidth()
+            .plateClickable(role = Role.Button, onClick = onOpen)
             .clearAndSetSemantics {
-                this.selected = selected
-                contentDescription =
-                    modeDescription(PersonaMode.AUTO, stateWord, inFlight, ack)
+                selected = true
+                contentDescription = "${mode.label}, $stateWord. ${facts.forWhom} Opens the profile."
             }
     ) {
         Row(modifier = Modifier.height(IntrinsicSize.Min)) {
             BusTick(state = lamp, modifier = Modifier.fillMaxHeight())
-
             Column(modifier = Modifier.weight(1f).padding(Spacing.lg)) {
-                // The state word gets a line of its own above the title rather
-                // than sharing one with it. Sharing cost the heading four
-                // characters of width, which is exactly enough to break
-                // "Adaptive" across two lines on a 393dp phone.
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = mode.label,
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = colors.ink,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                    if (mode.isGuardianLocked) {
+                        Spacer(Modifier.width(Spacing.sm))
+                        Seal()
+                    }
+                }
+                Spacer(Modifier.height(Spacing.xs))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    PilotLamp(state = lamp, size = 12.dp)
+                    Spacer(Modifier.width(Spacing.sm))
                     Text(
                         text = stateWord.uppercase(),
                         style = MaterialTheme.boardType.stateLabel,
                         color = stateInk(lamp, colors)
                     )
-                    Spacer(Modifier.width(Spacing.sm))
-                    PilotLamp(state = lamp, size = 18.dp)
                 }
-                Spacer(Modifier.height(Spacing.xs))
-                Text(
-                    text = PersonaMode.AUTO.label,
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = colors.ink
-                )
-                Text(
-                    // Identity type at full accent strength — the one place the
-                    // hero states which colour it is.
-                    text = "The device's own default",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = accent
-                )
-
                 Spacer(Modifier.height(Spacing.md))
                 Text(
-                    // Straight from the enum. The firmware, the app and this
-                    // sentence should never be able to drift apart.
-                    text = PersonaMode.AUTO.blurb,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = colors.ink
+                    text = facts.forWhom,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colors.inkMuted,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis
                 )
-
-                Spacer(Modifier.height(Spacing.md))
-                Hairline()
                 Spacer(Modifier.height(Spacing.md))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Nameplate(
-                        "Starting fall sensitivity",
-                        small = true,
-                        muted = true,
+                    Text(
+                        text = "Everything about this profile",
+                        style = MaterialTheme.boardType.nameplateSmall,
+                        color = colors.inkMuted,
                         modifier = Modifier.weight(1f)
                     )
-                    Spacer(Modifier.width(Spacing.sm))
-                    Text(
-                        text = PersonaMode.AUTO.defaultFallSensitivity.label,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = colors.inkMuted
-                    )
-                }
-                val ackLine = if (inFlight) ackWord(ack) else null
-                if (ackLine != null) {
-                    Spacer(Modifier.height(Spacing.xs))
-                    Text(
-                        text = ackLine,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = colors.inkFaint
+                    Icon(
+                        imageVector = SafeShadeIcons.ArrowRight01,
+                        contentDescription = null,
+                        tint = colors.inkFaint,
+                        modifier = Modifier.size(18.dp)
                     )
                 }
             }
-
             Box(
                 modifier = Modifier
-                    .width(108.dp)
+                    .width(124.dp)
                     .fillMaxHeight()
                     .background(accent.copy(alpha = if (colors.isDark) 0.16f else 0.12f)),
                 contentAlignment = Alignment.Center
             ) {
-                ModeScene(
-                    mode = PersonaMode.AUTO,
-                    accent = accent,
-                    size = 96.dp,
-                    modifier = Modifier.padding(Spacing.sm)
+                ModeScene(mode = mode, accent = accent, size = 108.dp)
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterStart)
+                        .width(Stroke.brass)
+                        .fillMaxHeight()
+                        .background(accent)
                 )
             }
         }
     }
 }
 
+// ============================================================================
+// A profile row
+// ============================================================================
+
 /**
- * The consequence of a guardian-locked mode, said once and plainly.
+ * One profile in the list: a scene thumbnail, the name, one line on who it is
+ * for, and the seal where the wearer would lose the device's own menus.
  *
- * Deliberately not a "are you sure?" — that asks the user to guess what they
- * are agreeing to. It names the two things the wearer loses and the one way
- * back, and it uses the wearable's own menu names so the sentence can be
- * checked against the device in front of them.
+ * Built by hand rather than from `Way` because the leading slot holds a live
+ * scene rather than a glyph, and a `Way` cannot carry one. The anatomy is
+ * otherwise the row's: bus tick, nameplate, detail, trailing chevron.
  */
 @Composable
-private fun GuardianLockDialog(
+private fun ModeRow(
     mode: PersonaMode,
-    onConfirm: () -> Unit,
-    onCancel: () -> Unit
+    onOpen: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val colors = MaterialTheme.board
-    AlertDialog(
-        onDismissRequest = onCancel,
-        containerColor = colors.plate,
-        titleContentColor = colors.ink,
-        textContentColor = colors.inkMuted,
-        icon = {
-            Icon(
-                imageVector = mode.icon,
-                contentDescription = null,
-                tint = colors.inkMuted
-            )
-        },
-        title = {
+    val accent = modeAccent(mode, colors)
+    val facts = ModeFacts.of(mode)
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier
+            .fillMaxWidth()
+            .rowClickable(role = Role.Button, onClick = onOpen)
+            .padding(start = Spacing.lg, end = Spacing.md, top = Spacing.sm, bottom = Spacing.sm)
+            .height(IntrinsicSize.Min)
+            .clearAndSetSemantics {
+                contentDescription = buildString {
+                    append(mode.label); append(". ")
+                    if (mode.isGuardianLocked) append("Guardian-sealed. ")
+                    append(facts.forWhom)
+                }
+            }
+    ) {
+        BusTick(state = LampState.OFF, modifier = Modifier.fillMaxHeight())
+        Spacer(Modifier.width(Spacing.md))
+        Box(
+            modifier = Modifier
+                .size(64.dp)
+                .background(accent.copy(alpha = if (colors.isDark) 0.16f else 0.12f)),
+            contentAlignment = Alignment.Center
+        ) {
+            ModeScene(mode = mode, accent = accent, size = 58.dp, playing = false)
+        }
+        Spacer(Modifier.width(Spacing.md))
+        Column(modifier = Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = "Seal the device to ${mode.label}",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = colors.ink
+                Icon(
+                    imageVector = mode.icon,
+                    contentDescription = null,
+                    tint = accent,
+                    modifier = Modifier.size(18.dp)
                 )
                 Spacer(Modifier.width(Spacing.sm))
-                Seal()
-            }
-        },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                 Text(
-                    text = "While ${mode.label} is active the wearable hides mode " +
-                        "switching and its whole Safety menu. The person wearing " +
-                        "it cannot change the profile or turn fall detection " +
-                        "down from the device.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = colors.inkMuted
+                    text = mode.label,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = colors.ink,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
                 )
-                Text(
-                    text = "Only this app can change it back.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = colors.ink
-                )
+                if (mode.isGuardianLocked) {
+                    Spacer(Modifier.width(Spacing.sm))
+                    Seal()
+                }
             }
-        },
-        confirmButton = {
-            BoardButton(
-                label = "Seal to ${mode.label}",
-                onClick = onConfirm,
-                weight = ButtonWeight.PRIMARY
-            )
-        },
-        dismissButton = {
-            BoardButton(
-                label = "Cancel",
-                onClick = onCancel,
-                weight = ButtonWeight.QUIET
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = facts.forWhom,
+                style = MaterialTheme.boardType.rowDetail,
+                color = colors.inkMuted,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
             )
         }
-    )
+        Spacer(Modifier.width(Spacing.sm))
+        Icon(
+            imageVector = SafeShadeIcons.ArrowRight01,
+            contentDescription = null,
+            tint = colors.inkFaint,
+            modifier = Modifier.size(18.dp)
+        )
+    }
 }
 
 // ============================================================================
@@ -794,89 +417,23 @@ private fun ModePickerPreviewLight() {
     SafeShadeTheme(darkTheme = false) {
         Box(Modifier.background(MaterialTheme.board.ground)) {
             ModePickerScreen(
-                state = ModePickerUiState(
-                    connection = ConnectionState.Ready,
-                    activeMode = PersonaMode.AUTO
-                ),
-                onSelectMode = {},
-                onConfirmMode = {},
-                onCancelConfirm = {}
+                state = ModePickerUiState(connection = ConnectionState.Ready, activeMode = PersonaMode.ELDERLY),
+                onOpenMode = {},
+                onCompare = {}
             )
         }
     }
 }
 
-@Preview(name = "Modes · dark, sealed active", showBackground = true)
+@Preview(name = "Modes · dark, offline", showBackground = true)
 @Composable
 private fun ModePickerPreviewDark() {
     SafeShadeTheme(darkTheme = true) {
         Box(Modifier.background(MaterialTheme.board.ground)) {
             ModePickerScreen(
-                state = ModePickerUiState(
-                    connection = ConnectionState.Ready,
-                    activeMode = PersonaMode.ELDERLY,
-                    ack = AckState.CONFIRMED
-                ),
-                onSelectMode = {},
-                onConfirmMode = {},
-                onCancelConfirm = {}
-            )
-        }
-    }
-}
-
-@Preview(name = "Modes · offline, last set", showBackground = true)
-@Composable
-private fun ModePickerPreviewOffline() {
-    SafeShadeTheme(darkTheme = false) {
-        Box(Modifier.background(MaterialTheme.board.ground)) {
-            ModePickerScreen(
-                state = ModePickerUiState(
-                    connection = ConnectionState.Disconnected,
-                    activeMode = PersonaMode.PET
-                ),
-                onSelectMode = {},
-                onConfirmMode = {},
-                onCancelConfirm = {}
-            )
-        }
-    }
-}
-
-@Preview(name = "Modes · confirming a seal", showBackground = true)
-@Composable
-private fun ModePickerPreviewConfirming() {
-    SafeShadeTheme(darkTheme = false) {
-        Box(Modifier.background(MaterialTheme.board.ground)) {
-            ModePickerScreen(
-                state = ModePickerUiState(
-                    connection = ConnectionState.Ready,
-                    activeMode = PersonaMode.BACKPACK,
-                    confirmingMode = PersonaMode.KIDS
-                ),
-                onSelectMode = {},
-                onConfirmMode = {},
-                onCancelConfirm = {}
-            )
-        }
-    }
-}
-
-@Preview(name = "Modes · large text", showBackground = true, fontScale = 1.3f)
-@Composable
-private fun ModePickerPreviewLargeText() {
-    SafeShadeTheme(darkTheme = false) {
-        Box(Modifier.background(MaterialTheme.board.ground)) {
-            ModePickerScreen(
-                state = ModePickerUiState(
-                    connection = ConnectionState.Ready,
-                    activeMode = PersonaMode.BACKPACK,
-                    inFlightMode = PersonaMode.BIKE,
-                    ack = AckState.PENDING
-                ),
-                onSelectMode = {},
-                onConfirmMode = {},
-                onCancelConfirm = {}
+                state = ModePickerUiState(connection = ConnectionState.Disconnected, activeMode = PersonaMode.AUTO),
+                onOpenMode = {},
+                onCompare = {}
             )
         }
     }

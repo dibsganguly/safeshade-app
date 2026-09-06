@@ -71,6 +71,8 @@ object Routes {
     /** Bottom destination 4 — the wearable itself. */
     const val DEVICE = "device"
     const val DEVICE_MODE = "device/mode"
+    const val DEVICE_MODE_DETAIL = "device/mode/detail"
+    const val DEVICE_MODE_COMPARE = "device/mode/compare"
     const val DEVICE_SETTINGS = "device/settings"
     const val DEVICE_LOCATE = "device/locate"
     const val DEVICE_TELEMETRY = "device/telemetry"
@@ -102,6 +104,7 @@ object Routes {
         const val ZONE_ID = "zoneId"
         const val TRIP_ID = "tripId"
         const val CONTACT_INDEX = "contactIndex"
+        const val MODE = "mode"
         const val LAT = "lat"
         const val LON = "lon"
         const val RADIUS = "radius"
@@ -116,6 +119,9 @@ object Routes {
     // next, because its arguments would have been silently dropped.
 
     fun tripDetail(tripId: String): String = "$SAFETY_TRIP_DETAIL/$tripId"
+
+    /** One profile's page. The argument is the enum name, which is also the wire name. */
+    fun modeDetail(mode: com.safeshade.data.PersonaMode): String = "$DEVICE_MODE_DETAIL/${mode.name}"
 
     fun contactEdit(index: Int): String = "$SAFETY_CONTACTS/edit?${Args.CONTACT_INDEX}=$index"
 }

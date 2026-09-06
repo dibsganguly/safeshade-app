@@ -276,7 +276,25 @@ class SafeShadeViewModel(
     fun setMedicalId(id: MedicalId) = launchIo { container.profileRepository.setMedicalId(id) }
     fun setDarkMode(pref: DarkModePreference) = launchIo { container.profileRepository.setDarkMode(pref) }
     fun setOnboardingSeen(seen: Boolean) = launchIo { container.profileRepository.setOnboardingSeen(seen) }
-    fun setActiveMode(mode: PersonaMode) = launchIo { container.deviceRepository.setMode(mode) }
+    /**
+     * Stores the profile, then sends it if the link is usable.
+     *
+     * The store comes first, and unconditionally: `pushAll` re-sends the
+     * *stored* mode on every reconnect, so the store is what makes "chosen
+     * now, sent when the device connects" a promise the app keeps. Until this
+     * wrote it, nothing did — the mode went to the radio and nowhere else, and
+     * a choice made with no device in range vanished.
+     *
+     * Returns whether the wearable acknowledged. `false` on a dead link means
+     * "stored, not sent", which the caller can tell from the connection state;
+     * `false` on a live link means the ack window elapsed.
+     */
+    fun setActiveMode(mode: PersonaMode): Deferred<Boolean> = viewModelScope.async {
+        container.profileRepository.setActiveMode(mode)
+        val usable = appState.value.readyOrNull?.connection?.isUsable == true
+        if (!usable) return@async false
+        container.deviceRepository.setMode(mode)
+    }
     fun setDeviceName(name: String) = launchIo { container.deviceRepository.setDeviceName(name) }
     fun setLedPattern(pattern: LedPattern) = launchIo { container.deviceRepository.setLed(pattern) }
 
