@@ -188,6 +188,48 @@ fun AccountScreen(
                 }
             }
 
+            item("privacy-heading") { SectionPlate(title = "What leaves this phone") }
+            item("privacy") {
+                // Facts, not reassurance: the exact records the cloud copy
+                // holds and the exact ones it never sees. A person deciding
+                // whether to sign in is entitled to the list, and a list is
+                // checkable against the code in a way "we respect your
+                // privacy" is not.
+                BoardPlate(modifier = Modifier.fillMaxWidth()) {
+                    Way(
+                        name = "Copied to SafeShade Cloud",
+                        state = LampState.LIVE,
+                        stateLabel = "Synced",
+                        detail = "Wearers, medical IDs, emergency contacts, paired wearables, alerts, messages, safe zones, your name",
+                        icon = SafeShadeIcons.NavbarCircle
+                    )
+                    Hairline()
+                    Way(
+                        name = "Never leaves this phone",
+                        state = LampState.OFF,
+                        stateLabel = "Local",
+                        detail = "The parental PIN, the SMS allowlist, the wearable's SIM number, and photos used as faces",
+                        icon = SafeShadeIcons.Info
+                    )
+                    Hairline()
+                    Way(
+                        name = "Who can read it",
+                        state = LampState.LIVE,
+                        stateLabel = "Circle",
+                        detail = "Only members of your Circle. Every table is row-locked to the Circle on the server; a viewer can read and not write.",
+                        icon = SafeShadeIcons.SafeZone
+                    )
+                    Hairline()
+                    Way(
+                        name = "Where it lives",
+                        state = LampState.LIVE,
+                        stateLabel = "Singapore",
+                        detail = "Supabase, region ap-southeast-1. Deleting the account removes every row.",
+                        icon = SafeShadeIcons.Info
+                    )
+                }
+            }
+
             item("account-heading") { SectionPlate(title = "This account") }
             item("account-actions") {
                 BoardPlate(modifier = Modifier.fillMaxWidth()) {
