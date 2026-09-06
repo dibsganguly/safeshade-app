@@ -56,6 +56,10 @@ object Routes {
     const val CIRCLE_CHECKIN = "circle/checkin"
     const val CIRCLE_JOURNEY = "circle/journey"
     const val CIRCLE_SIM = "circle/sim"
+    /** People I look after: every wearer this phone watches. */
+    const val CIRCLE_PEOPLE = "circle/people"
+    /** One wearer; a blank id adds a new one. */
+    const val CIRCLE_PERSON_EDIT = "circle/people/edit"
 
     /** Bottom destination 3 — everything that fires in an emergency. */
     const val SAFETY = "safety"
@@ -116,6 +120,7 @@ object Routes {
         const val LAT = "lat"
         const val LON = "lon"
         const val RADIUS = "radius"
+        const val WEARER_ID = "wearerId"
     }
 
     fun zoneEdit(zoneId: String?): String =
@@ -127,6 +132,13 @@ object Routes {
     // next, because its arguments would have been silently dropped.
 
     fun tripDetail(tripId: String): String = "$SAFETY_TRIP_DETAIL/$tripId"
+
+    fun personEdit(wearerId: String?): String =
+        "$CIRCLE_PERSON_EDIT?${Args.WEARER_ID}=${wearerId.orEmpty()}"
+
+    /** The medical ID of one wearer; blank means the primary (mirrored) one. */
+    fun medicalId(wearerId: String?): String =
+        "$SAFETY_MEDICAL?${Args.WEARER_ID}=${wearerId.orEmpty()}"
 
     fun profileEdit(target: com.safeshade.ui.screens.profile.ProfileTarget): String = "$SETTINGS_PROFILE_EDIT/${target.name}"
 

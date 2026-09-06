@@ -37,6 +37,7 @@ import com.safeshade.ui.board.ExpandableSection
 import com.safeshade.ui.board.Hairline
 import com.safeshade.ui.board.LampState
 import com.safeshade.ui.board.Nameplate
+import com.safeshade.ui.board.PersonRow
 import com.safeshade.ui.board.ScreenHeader
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.Way
@@ -67,9 +68,19 @@ data class ProfileUiState(
     /** How many reliability checks are failing; every one is a way for a fall alert to silently not arrive. */
     val reliabilityIssueCount: Int = 0,
     val versionName: String = "",
+    /** The people a Guardian looks after, as the section lists them. */
+    val people: List<ProfilePerson> = emptyList(),
     val showDeveloperOptions: Boolean = BuildConfig.DEBUG,
     /** The account way: lamp, word and line come from the cloud session, never from a guess. */
     val account: AccountWay = AccountWay()
+)
+
+/** One person in the "People I look after" bank. */
+data class ProfilePerson(
+    val id: String,
+    val name: String,
+    val avatarId: String,
+    val detail: String
 )
 
 /** How the Profile page reports SafeShade Cloud in one row. */
@@ -101,6 +112,8 @@ fun ProfileScreen(
     state: ProfileUiState,
     onEditOwner: () -> Unit,
     onEditWearer: () -> Unit,
+    onOpenPerson: (id: String) -> Unit,
+    onAddPerson: () -> Unit,
     onOpenWay: (String) -> Unit,
     onSelectDarkMode: (DarkModePreference) -> Unit,
     onBack: (() -> Unit)? = null,
@@ -138,12 +151,23 @@ fun ProfileScreen(
             item("people-heading") { SectionPlate(title = "People I look after") }
             item("people") {
                 BoardPlate(modifier = Modifier.fillMaxWidth()) {
-                    PersonRow(
-                        name = state.wearerName,
-                        avatarId = state.wearerAvatarId,
-                        detail = "Wears ${state.deviceName}",
-                        placeholder = "Name the person who wears it",
-                        onClick = onEditWearer
+                    state.people.forEachIndexed { index, person ->
+                        if (index > 0) Hairline()
+                        PersonRow(
+                            name = person.name,
+                            avatarId = person.avatarId,
+                            detail = person.detail,
+                            placeholder = "Name the person who wears it",
+                            onClick = { onOpenPerson(person.id) }
+                        )
+                    }
+                    if (state.people.isNotEmpty()) Hairline()
+                    Way(
+                        name = "Add a person",
+                        state = LampState.OFF,
+                        stateLabel = "Add",
+                        icon = SafeShadeIcons.NavbarCircle,
+                        onClick = onAddPerson
                     )
                 }
             }
@@ -274,55 +298,17 @@ private fun IdentityPlate(
     }
 }
 
-/** A person in a list: avatar, name, a detail line, a chevron. */
-@Composable
-private fun PersonRow(
-    name: String,
-    avatarId: String,
-    detail: String,
-    placeholder: String,
-    onClick: () -> Unit
-) {
-    val colors = MaterialTheme.board
-    val shown = name.ifBlank { placeholder }
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .fillMaxWidth()
-            .rowClickable(role = Role.Button, onClick = onClick)
-            .padding(start = Spacing.lg, end = Spacing.md, top = Spacing.md, bottom = Spacing.md)
-            .height(IntrinsicSize.Min)
-            .clearAndSetSemantics { contentDescription = "$shown, $detail. Edit." }
-    ) {
-        BusTick(state = LampState.OFF, modifier = Modifier.fillMaxHeight())
-        Spacer(Modifier.width(Spacing.md))
-        Avatar(avatarId = avatarId, name = name, size = 44.dp)
-        Spacer(Modifier.width(Spacing.md))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = shown,
-                style = MaterialTheme.typography.titleMedium,
-                color = if (name.isBlank()) colors.inkMuted else colors.ink
-            )
-            Text(text = detail, style = MaterialTheme.boardType.rowDetail, color = colors.inkMuted)
-        }
-        Icon(
-            imageVector = SafeShadeIcons.ArrowRight01,
-            contentDescription = null,
-            tint = colors.inkFaint,
-            modifier = Modifier.size(18.dp)
-        )
-    }
-}
-
 @Preview(name = "Profile · guardian", showBackground = true)
 @Composable
 private fun ProfilePreview() {
     SafeShadeTheme {
         Box(Modifier.background(MaterialTheme.board.ground)) {
             ProfileScreen(
-                state = ProfileUiState(ownerName = "Dibyendu", wearerName = "Baba", reliabilityIssueCount = 1, versionName = "2.5.0", showDeveloperOptions = true),
-                onEditOwner = {}, onEditWearer = {}, onOpenWay = {}, onSelectDarkMode = {}
+                state = ProfileUiState(
+                    ownerName = "Dibyendu", wearerName = "Baba", reliabilityIssueCount = 1, versionName = "2.6.0", showDeveloperOptions = true,
+                    people = listOf(ProfilePerson("1", "Baba", "", "Wears SafeShade S1"))
+                ),
+                onEditOwner = {}, onEditWearer = {}, onOpenPerson = {}, onAddPerson = {}, onOpenWay = {}, onSelectDarkMode = {}
             )
         }
     }
@@ -334,8 +320,8 @@ private fun ProfilePreviewDark() {
     SafeShadeTheme(darkTheme = true) {
         Box(Modifier.background(MaterialTheme.board.ground)) {
             ProfileScreen(
-                state = ProfileUiState(role = UserRole.COMPANION, wearerName = "Priya", versionName = "2.5.0"),
-                onEditOwner = {}, onEditWearer = {}, onOpenWay = {}, onSelectDarkMode = {}
+                state = ProfileUiState(role = UserRole.COMPANION, wearerName = "Priya", versionName = "2.6.0"),
+                onEditOwner = {}, onEditWearer = {}, onOpenPerson = {}, onAddPerson = {}, onOpenWay = {}, onSelectDarkMode = {}
             )
         }
     }

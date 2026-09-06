@@ -43,6 +43,13 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.safeshade.cloud.CloudSession
 import com.safeshade.ui.screens.profile.AccountScreen
 import com.safeshade.ui.screens.profile.AccountWay
+import com.safeshade.ui.screens.profile.ProfilePerson
+import com.safeshade.ui.screens.circle.PeopleScreen
+import com.safeshade.ui.screens.circle.PersonListRow
+import com.safeshade.ui.screens.circle.WearerEditorScreen
+import com.safeshade.ui.screens.circle.WearerEditorUiState
+import com.safeshade.data.Wearer
+import com.safeshade.data.WearerResult
 import com.safeshade.ui.screens.profile.SignInActions
 import com.safeshade.ui.screens.profile.SignInScreen
 import com.safeshade.ui.vm.CloudViewModel
@@ -1097,27 +1104,39 @@ fun MainNavGraph(
             )
         }
 
-        composable(Routes.SAFETY_MEDICAL) {
+        composable(
+            route = "${Routes.SAFETY_MEDICAL}?${Routes.Args.WEARER_ID}={${Routes.Args.WEARER_ID}}",
+            arguments = listOf(navArgument(Routes.Args.WEARER_ID) { type = NavType.StringType; defaultValue = "" })
+        ) { entry ->
             val state = liveState.value
+            // A wearer other than the primary edits their own record; blank,
+            // or the primary's id, edits the mirrored one exactly as before.
+            val wearerId = entry.arguments?.getString(Routes.Args.WEARER_ID).orEmpty()
+            val other = state.wearers.firstOrNull { it.id == wearerId }
+                ?.takeIf { it.id != state.wearers.firstOrNull()?.id }
+            val stored = other?.medicalId ?: state.medicalId
             // The one genuinely dirty form in the app. Held here so the screen
             // stays stateless, and saved only on the explicit action — the
             // medical ID is pushed to the wearable on write, so autosaving
             // every keystroke would put a half-typed allergy on the device.
             var draft by rememberSaveable(stateSaver = MedicalIdSaver) {
-                mutableStateOf(state.medicalId)
+                mutableStateOf(stored)
             }
 
             MedicalIdScreen(
                 state = MedicalIdUiState(
                     medicalId = draft,
-                    wearerName = state.wearerName,
+                    wearerName = other?.name ?: state.wearerName,
                     linkLive = state.connection.isUsable,
-                    isDirty = draft != state.medicalId,
+                    isDirty = draft != stored,
                     lastSyncedLabel = syncSummary(state.syncStatus)
                 ),
                 onBack = { navController.popBackStack() },
                 onChange = { draft = it },
-                onSave = { viewModel.setMedicalId(draft) },
+                onSave = {
+                    if (other == null) viewModel.setMedicalId(draft)
+                    else viewModel.updateWearer(other.copy(medicalId = draft))
+                },
                 onOpenCard = { navController.navigate(Routes.SAFETY_MEDICAL_CARD) }
             )
         }
@@ -1627,10 +1646,13 @@ fun MainNavGraph(
                     reliabilityIssueCount = reliabilityStatuses(context)
                         .count { it.value == CheckStatus.FAILING },
                     versionName = BuildConfig.VERSION_NAME,
-                    account = accountWay(session)
+                    account = accountWay(session),
+                    people = state.wearers.map { w -> ProfilePerson(w.id, w.name, w.avatarId, wearerDetail(state, w)) }
                 ),
                 onEditOwner = { navController.navigate(Routes.profileEdit(ProfileTarget.OWNER)) },
                 onEditWearer = { navController.navigate(Routes.profileEdit(ProfileTarget.WEARER)) },
+                onOpenPerson = { id -> navController.navigate(Routes.personEdit(id)) },
+                onAddPerson = { navController.navigate(Routes.personEdit(null)) },
                 onOpenWay = { route -> navController.navigate(route) },
                 onSelectDarkMode = { viewModel.setDarkMode(it) },
                 onBack = { navController.popBackStack() }
@@ -1664,6 +1686,67 @@ fun MainNavGraph(
             )
         }
 
+
+        composable(Routes.CIRCLE_PEOPLE) {
+            val state = liveState.value
+            PeopleScreen(
+                role = state.role,
+                people = state.wearers.map { w ->
+                    val bound = w.deviceAddresses.isNotEmpty()
+                    val live = bound && state.connection.isUsable &&
+                        w.deviceAddresses.any { it.equals(connectedAddress, ignoreCase = true) }
+                    PersonListRow(
+                        id = w.id,
+                        name = w.name,
+                        avatarId = w.avatarId,
+                        detail = wearerDetail(state, w),
+                        state = when {
+                            live -> LampState.LIVE
+                            bound -> LampState.OFF
+                            else -> LampState.UNKNOWN
+                        },
+                        stateLabel = when {
+                            live -> "Live"
+                            bound -> "Off"
+                            else -> "No wearable"
+                        },
+                        isSelf = w.isSelf
+                    )
+                },
+                onOpen = { id -> navController.navigate(Routes.personEdit(id)) },
+                onAdd = { navController.navigate(Routes.personEdit(null)) },
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            route = "${Routes.CIRCLE_PERSON_EDIT}?${Routes.Args.WEARER_ID}={${Routes.Args.WEARER_ID}}",
+            arguments = listOf(navArgument(Routes.Args.WEARER_ID) { type = NavType.StringType; defaultValue = "" })
+        ) { entry ->
+            val state = liveState.value
+            val id = entry.arguments?.getString(Routes.Args.WEARER_ID).orEmpty()
+            val existing = state.wearers.firstOrNull { it.id == id }
+            val wearer = existing ?: Wearer()
+            WearerEditorScreen(
+                state = WearerEditorUiState(
+                    wearer = wearer,
+                    isNew = existing == null,
+                    pairedDevices = state.pairedDevices,
+                    connectedAddress = connectedAddress.takeIf { state.connection.isUsable },
+                    medicalFieldsFilled = wearer.medicalId.filledFieldCount,
+                    canRemove = existing != null && !wearer.isSelf && state.wearers.size > 1
+                ),
+                onSave = { edited ->
+                    if (existing == null) viewModel.addWearer(edited).await()
+                    else viewModel.updateWearer(edited).await()
+                },
+                onRemove = { viewModel.removeWearer(wearer.id).await() },
+                onOpenMedicalId = { navController.navigate(Routes.medicalId(wearer.id)) },
+                onOpenPairing = { navController.navigate(Routes.DEVICE_PAIRED) },
+                onDone = { navController.popBackStack() },
+                onBack = { navController.popBackStack() }
+            )
+        }
 
         composable(Routes.SETTINGS_ACCOUNT) {
             val cloudVm: CloudViewModel = viewModel(factory = CloudViewModel.Factory)
@@ -2308,4 +2391,11 @@ private fun accountWay(session: CloudSession): AccountWay = when (session) {
         detail = "This build has no SafeShade Cloud project",
         tappable = false
     )
+}
+
+/** "Wears SafeShade S1 · Elderly", or what is true instead. */
+private fun wearerDetail(state: AppState.Ready, w: Wearer): String {
+    val device = state.pairedDevices.firstOrNull { d -> w.deviceAddresses.any { it.equals(d.address, ignoreCase = true) } }
+    val wears = device?.let { "Wears ${it.name.ifBlank { "a wearable" }}" } ?: "No wearable bound"
+    return "$wears · ${w.activeMode.label}"
 }
