@@ -1,9 +1,11 @@
 # SafeShade Cloud — setting it up
 
-Everything the app needs on the server side lives in this folder. **None of it
-has been run.** It was written against a project that does not exist yet, on a
-machine with no `SUPABASE_URL` in `local.properties`, so treat the first
-`db push` as the real test rather than as a formality.
+Everything the app needs on the server side lives in this folder. The project
+is **SafeShade App** (`qlgbxhlbzyykxagsvwzv`, ap-southeast-1); the schema is
+applied, both edge functions are deployed, and `local.properties` points the app
+at it. What has **not** happened is a single real email or a single
+authenticated call: no user account exists yet, so every claim below about what
+a signed-in caller sees is reasoned from the code and the policies, not observed.
 
 Until you finish step 3, the Android app builds and runs exactly as before:
 `CloudContainer` sees a blank `BuildConfig.SUPABASE_URL` and installs a disabled
@@ -20,7 +22,10 @@ addition to it, never a dependency of it.**
 | `migrations/0001_init.sql` | The whole schema: 19 tables, RLS on every one, the heat-map materialized view, the storage buckets, `handle_new_user`, `delete_account`. |
 | `functions/send-alert-email/` | Emails a Circle when an alert is raised. Takes `{ alert_id }` and nothing else. |
 | `functions/send-invite/` | Creates an invite row and emails the link. |
-| `functions/_shared/email/` | The branded templates, the renderer, and the Resend transport. |
+| `migrations/0004_realtime_publication.sql` | Puts `alerts` and `messages` in the `supabase_realtime` publication. Without it a Postgres-changes subscription reports SUBSCRIBED and then delivers nothing, forever, with no error. |
+| `functions/_shared/email/` | The branded templates (`.html`, the source of truth), the renderer, the Resend transport, and the generated `templates.ts`. |
+| `auth-templates/` | **Generated.** The three sign-in emails, ready to paste into the dashboard, with every placeholder already a Supabase `{{ .X }}`. See §6. |
+| `../tools/gen_email_templates.py` | Regenerates `templates.ts` and `auth-templates/` from the `.html` files. Run it after editing any of them. |
 
 ---
 
@@ -75,9 +80,9 @@ owner-write: the policy deliberately does *not* let a person insert their own
 `circle_members` row, because circle ids travel in invite links and in every
 synced row, so "you need an id nobody publishes" is not an access control.
 Joining goes through `accept_invite(<token>)`, a `security definer` function
-gated on the server-minted invite token. **Nothing in the app calls it yet** —
-`CloudClient` has no generic RPC method, so Phase 2 either adds one or reaches
-`postgrest.rpc` directly the way `deleteAccount()` does.
+gated on the server-minted invite token. `CloudClient.rpc(function, args)` is
+the way in — it exists and is implemented on both clients, but **no screen calls
+it yet**; wiring the invite-acceptance path is Phase 2.
 
 Related: reads use `is_circle_member`, writes use `is_circle_actor`, which
 excludes `viewer`. That is what makes the viewer role mean anything.
@@ -138,27 +143,35 @@ supabase functions deploy send-alert-email
 supabase functions deploy send-invite
 ```
 
+**Both are already deployed** (version 1, `verify_jwt` on) -- they were pushed
+through the Supabase MCP rather than the CLI, which is why there is still no
+`supabase/config.toml` and why the CLI has never been linked to this project.
+The MCP upload mirrors the repo tree, so `_shared/email/*.ts` sits beside the
+function directory and the committed `../_shared/email/...` imports resolve
+unchanged. Redeploying with the CLI would work the same way.
+
 `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` are injected
 into every function by the platform — do not set them as secrets yourself.
 
-**Check the templates got uploaded.** The functions load their HTML with
-`Deno.readTextFile` relative to `import.meta.url`, and the CLI uploads
-everything under the functions directory. If a deployment ever drops the `.html`
-files the send does not fail — `composeEmail` falls back to a plain but complete
-message and logs `template load failed`. An alert email that looks unstyled is
-far better than one that does not arrive, but a `template load failed` line in
-**Edge Functions → Logs** means the deploy is broken and nobody would otherwise
-notice. The fix, on a recent CLI, is a `supabase/config.toml` entry:
+**The templates are compiled in, not uploaded.** They used to be `.html` files
+read at runtime with `Deno.readTextFile`, with a fallback to unbranded HTML if
+the read failed -- which meant a deploy that dropped them still sent mail, and
+only a `template load failed` line in **Edge Functions -> Logs** said why the
+alert looked wrong. Nobody watches that.
 
-```toml
-[functions.send-alert-email]
-static_files = ["./functions/_shared/email/*.html"]
+`tools/gen_email_templates.py` now turns every `.html` in
+`functions/_shared/email/` into string constants in `templates.ts`, which
+`resend.ts` imports like any other module. **Edit the `.html` files -- they are
+still the source of truth -- then run the generator and redeploy:**
+
+```bash
+python tools/gen_email_templates.py
 ```
 
-That file is deliberately **not** committed here: a `config.toml` containing a
-key an older CLI does not recognise fails *every* `supabase` command, including
-`db push`, and none of this could be tested from the machine it was written on.
-Add it once you know your CLI version accepts it.
+A missing template is now a build failure rather than a silent downgrade, so
+there is no `config.toml` `static_files` entry to add and no fallback path left
+to reason about.
+
 
 Smoke test, with a real alert id and a signed-in user's JWT:
 
@@ -176,25 +189,57 @@ sender that says SafeShade.
 
 ## 6. Auth email templates in the dashboard
 
-Supabase sends the sign-in emails itself, from its own templates, so the two
-files here have to be pasted in.
+Supabase sends the sign-in emails itself, from its own templates, so they have
+to be pasted in. **`auth-templates/` holds them ready to paste** -- whole
+documents, layout and body already merged, emblem and accent already inlined,
+and every placeholder already resolved to a Supabase Go-template variable.
 
-Go to **Authentication → Email Templates**.
+Go to **Authentication -> Email Templates** and paste each file whole.
 
-| Template in the dashboard | Paste | Then swap |
+| Dashboard template | Paste this file | Supabase supplies |
 |---|---|---|
-| **Magic Link** | `functions/_shared/email/otp.html` if you want the six-digit code (what the app asks for first), or `magic-link.html` for a link | `{{code}}` → `{{ .Token }}`, or `{{action_url}}` → `{{ .ConfirmationURL }}` |
-| **Confirm signup** | `magic-link.html` | `{{action_url}}` → `{{ .ConfirmationURL }}` |
+| **Magic Link** | `auth-templates/magic-link-otp.html` | `{{ .Token }}` -- the six-digit code, which is what the app asks for first |
+| **Magic Link** (alternative) | `auth-templates/magic-link.html` | `{{ .ConfirmationURL }}` -- a link instead, for reading mail on a laptop |
+| **Confirm signup** | `auth-templates/confirm-signup.html` | `{{ .Token }}` -- a code, not a link. Read the next paragraph before "correcting" this. |
 
-**The placeholder syntaxes are different and they look alike.** These files use
-`{{name}}`, handled by `render.ts`. Supabase uses Go templates, `{{ .Token }}`.
-Pasting a file unchanged sends everybody the literal text `{{code}}`, and it
-will not be obvious in the preview.
+**Confirm signup carries a code, and that is not a mistake.** GoTrue's
+`SendMagicLink` sends the **Confirm signup** template, not the Magic Link one,
+when the address has no account yet -- one call, two templates, chosen by
+whether the user already exists. The app calls `signInWith(OTP)` with
+`createUser = true` and then shows a six-digit field, so *the first email any
+new guardian ever receives is this one*. If it held a link they would be looking
+at a button while the app waited for six digits, with the deep-link handler not
+yet wired: stuck on the first screen, on the first try. `verifyOtp` accepts the
+signup confirmation token exactly as it accepts a magic-link token, so
+`verifyEmailOtp` in the app needs no change.
 
-The body templates are fragments, not whole documents — they are designed to sit
-inside `layout.html`. For the dashboard, paste `layout.html` and replace its
-`{{{content}}}` line with the body file's contents, then replace `{{emblem}}`
-with a hosted image URL (see the note below) and `{{accent}}` with `#6FD3CC`.
+Nothing has to be edited after pasting. Do **not** hand-edit the files either:
+they are generated, and an edit is lost the next time anybody runs
+
+```bash
+python tools/gen_email_templates.py
+```
+
+Edit `functions/_shared/email/layout.html` and the body file, then regenerate.
+
+**Why this is generated rather than described.** The two placeholder syntaxes
+look alike and behave completely differently. The source templates use
+`{{code}}`, handled by `render.ts`; Supabase uses Go templates, `{{ .Token }}`.
+A file pasted with the wrong one does not merely look odd -- Go reads
+`{{code}}` as a call to a function it does not have and refuses to render the
+template at all, and the dashboard preview does not make that obvious. The
+generator resolves every placeholder and then **greps its own output for any
+`{{` that is not a `{{ .X }}` form**, exiting non-zero rather than writing a
+file that would send braces to a real person. It also strips the source files'
+HTML comments, which discuss `{{code}}` in prose and would otherwise trip the
+same trap.
+
+**There is no invite template here, on purpose.** `invite.html` needs
+`inviter_name`, `circle_name`, `role_label`, `role_description` and
+`expires_at_label`, and Supabase Auth has no variable for any of them -- they
+would only exist via `.Data` on an `inviteUserByEmail` call, which nothing in
+SafeShade makes. Circle invitations go out through the `send-invite` edge
+function and Resend, which renders `invite.html` with real values.
 
 ### The emblem does not render in Gmail
 
@@ -236,10 +281,19 @@ verified, sign-in emails only reach the Resend account owner.
 Stated plainly, because a half-built thing that looks finished is how this
 project has lost time before:
 
-- **Nothing here has been executed.** No project exists, so the SQL has never
-  been applied, the functions have never been deployed, and no email has ever
-  been sent. Syntax and logic were reviewed by reading; that is not the same as
-  a green run.
+- **No email has ever been sent.** `RESEND_API_KEY` is not set on the project,
+  so `sendEmail` returns `failed` with "RESEND_API_KEY is not set on this
+  project" and writes that to `alert_deliveries` — correct behaviour, and also
+  proof of nothing. Until a key is set and one message lands in an inbox, the
+  whole email path is unverified.
+- **No authenticated call has been made.** No user account exists on the
+  project. Both functions have been booted (an anon JWT gets `send-alert-email`
+  to its 404 and `send-invite` to its 401, which are their own authorisation
+  checks answering correctly), but nothing has ever run as a real member of a
+  real Circle, so the RLS-driven paths through them are unexercised.
+- **Realtime has never delivered a row.** `alerts` and `messages` are in the
+  publication and `CloudClient.changes` is implemented, but no subscription has
+  ever been opened against the live project.
 - **The app does not upload anything yet.** `SyncEngine` has `NoPayloadSource`
   installed, so the outbox queues records and the drain finds no bodies to send.
   Wiring the repositories in is Phase 2. A null payload is a *skip*, not a

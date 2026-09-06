@@ -1,11 +1,18 @@
 package com.safeshade.cloud
 
 import android.content.Intent
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.map
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -71,6 +78,17 @@ class FakeCloudClient(
 
     /** Every edge-function call made, in order, for assertions. */
     val invocations: MutableList<Pair<String, JsonObject>> = mutableListOf()
+
+    /** Every [rpc] call made, in order, for assertions. */
+    val rpcCalls: MutableList<Pair<String, JsonObject>> = mutableListOf()
+
+    /**
+     * What [rpc] should answer, per function name.
+     *
+     * Set `rpcResults["accept_invite"] = JsonPrimitive("<uuid>")` to make the
+     * join path succeed, or leave it empty and get [JsonNull].
+     */
+    val rpcResults: MutableMap<String, JsonElement> = mutableMapOf()
 
     /** The last OTP "emailed", so a test can verify it without a mailbox. */
     var lastOtpCode: String? = null
@@ -217,6 +235,58 @@ class FakeCloudClient(
             invocations += function to body
             buildJsonObject { put("ok", true) }
         }
+
+    /**
+     * Records the call and answers from [rpcResults].
+     *
+     * The default answer is [JsonNull], which is what a `returns void` function
+     * genuinely gives back — so a test that forgets to stub a result gets the
+     * same shape the real client would produce for `accept_invite`, not a
+     * convenient empty object that only exists here.
+     */
+    override suspend fun rpc(function: String, args: JsonObject): CloudResult<JsonElement> =
+        guarded {
+            rpcCalls += function to args
+            rpcResults[function] ?: JsonNull
+        }
+
+    // ============================================
+    // REALTIME
+    // ============================================
+
+    /**
+     * Whatever [pushChange] has been given since the collector attached.
+     *
+     * A [MutableSharedFlow] with no replay, on purpose: a Realtime subscription
+     * does not hand you the rows that arrived before you subscribed, and a fake
+     * that did would let a test pass while the real thing missed the row. The
+     * cost is that a test must have its collector running before it pushes —
+     * `yield()` after `launch` — which is the same ordering the real one needs.
+     *
+     * The circle filter matches the real server's `circle_id=eq.<id>`; a row
+     * with no `circle_id` at all is delivered to everyone, matching [select]'s
+     * note that this fake does not pretend to enforce row-level security.
+     */
+    override fun changes(table: String, circleId: String): Flow<JsonObject> {
+        if (disabled) return emptyFlow()
+        return _changes
+            .filter { it.table == table && it.row.visibleTo(circleId) }
+            .map { it.row }
+    }
+
+    /** Delivers [row] to every live [changes] collector of [table]. */
+    suspend fun pushChange(table: String, row: JsonObject) {
+        _changes.emit(Change(table, row))
+    }
+
+    private data class Change(val table: String, val row: JsonObject)
+
+    private val _changes = MutableSharedFlow<Change>(extraBufferCapacity = 64)
+
+    private fun JsonObject.visibleTo(circleId: String): Boolean {
+        val rowCircle = (this["circle_id"] as? kotlinx.serialization.json.JsonPrimitive)?.content
+        return rowCircle == null || rowCircle == circleId
+    }
 
     // ============================================
     // STORAGE

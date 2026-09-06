@@ -1,8 +1,10 @@
 package com.safeshade.cloud
 
 import android.content.Intent
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.serialization.KSerializer
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import java.time.Instant
 
@@ -159,6 +161,79 @@ interface CloudClient {
      * which is precisely the class of lie this app has already shipped once.
      */
     suspend fun invoke(function: String, body: JsonObject): CloudResult<JsonObject>
+
+    /**
+     * Calls a Postgres function through PostgREST and returns whatever it
+     * returned, as JSON.
+     *
+     * Two callers, and they are the reason this exists rather than each screen
+     * reaching for `postgrest.rpc` the way `deleteAccount()` does:
+     *
+     *  - `accept_invite(token)` — the **only** way anybody joins a Circle.
+     *    Membership is owner-write on purpose (circle ids travel in invite links
+     *    and in every synced row, so "you need an id nobody publishes" is not
+     *    access control), and this `security definer` function gated on a
+     *    server-minted token is the one door.
+     *  - `heatmap_in(bbox)` — the k≥5 aggregated cells, which are only reachable
+     *    through a function because the materialized view itself is not exposed.
+     *
+     * The return type is [JsonElement], not [JsonObject]: `accept_invite`
+     * returns a bare uuid and `heatmap_in` returns an array. Narrowing it to an
+     * object here would force both callers to wrap their own SQL in a
+     * `json_build_object` to satisfy Kotlin, which is a type system leaking into
+     * a schema.
+     *
+     * A function returning `void` answers with an empty body; that arrives as
+     * `JsonNull` rather than as a failure. "It ran and had nothing to say" is a
+     * success.
+     */
+    suspend fun rpc(
+        function: String,
+        args: JsonObject = JsonObject(emptyMap())
+    ): CloudResult<JsonElement>
+
+    // ============================================
+    // REALTIME
+    // ============================================
+
+    /**
+     * Rows arriving in [table] for one circle, live.
+     *
+     * Emits the **new** row for INSERT and UPDATE and nothing else. A DELETE
+     * carries only the old record's primary key, and this app does not hard
+     * delete anyway — a removal travels as a row with `deleted_at` set, which
+     * arrives here as an ordinary UPDATE.
+     *
+     * ### Why this returns a bare Flow and not a [CloudResult]
+     *
+     * Because a subscription is not a call with an outcome. Every other method
+     * on this interface answers a question once; this one is a tap that is
+     * either running or not. Wrapping each row in `Ok` would suggest the absence
+     * of rows was itself an answer, and it is not — a quiet Circle and a dropped
+     * socket look identical from here, which is exactly why the *displayed*
+     * freshness of the Circle tab must keep coming from
+     * [com.safeshade.cloud.sync.SyncState] and the pull, never from this.
+     *
+     * ### Failure and retry, and who owns them
+     *
+     * Nothing thrown reaches the collector: a transport failure completes the
+     * flow quietly. It does **not** retry itself. `SyncEngine` already owns
+     * backoff and the foreground/network triggers, and a flow with its own
+     * private retry loop would be a second, invisible, uncancellable schedule
+     * fighting the first — the classic way a phone in a lift ends up holding a
+     * socket open at 2 Hz until the battery goes. The engine re-subscribes.
+     *
+     * Applies only to `alerts` and `messages` (handoff7 §6 item 5); those are
+     * the two tables `0004_realtime_publication.sql` puts in the
+     * `supabase_realtime` publication. A subscription to any other table is
+     * accepted by the server and then silently delivers nothing, so do not add
+     * one without adding the table to that migration first.
+     *
+     * @param circleId filtered server-side as `circle_id=eq.<id>`. Row-level
+     *   security still applies on top; this filter is about bandwidth, not
+     *   about access.
+     */
+    fun changes(table: String, circleId: String): Flow<JsonObject>
 
     // ============================================
     // STORAGE

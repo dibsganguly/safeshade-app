@@ -1,5 +1,6 @@
 import { EMBLEM_DATA_URI } from "./emblem.ts";
 import { renderEmail, toPlainText, type Vars } from "./render.ts";
+import { BODY_TEMPLATES, LAYOUT_HTML, type BodyTemplateName } from "./templates.ts";
 
 /**
  * The Resend transport, and the one rule it exists to enforce.
@@ -167,48 +168,34 @@ function errorMessage(e: unknown): string {
 }
 
 /**
- * Loads the layout and one body template and renders them together.
+ * Renders one body template into the shared layout.
  *
- * ### The template files have to be deployed alongside the function
+ * ### The templates are compiled in, not read from disk
  *
- * `Deno.readTextFile` against `import.meta.url` only works if the `.html` files
- * are actually uploaded, which the Supabase CLI does for everything under the
- * functions directory. If a deployment ever drops them, this falls back to a
- * plain but complete message rather than failing the send: an alert email that
- * looks unstyled is vastly better than an alert email that does not arrive, and
- * this is the one product where that trade is not close.
+ * This used to call `Deno.readTextFile` against `import.meta.url` and fall back
+ * to unbranded HTML when the read failed. Whether the `.html` files survive a
+ * deploy was never proven - the MCP deploy path uploads only the files it is
+ * handed, and the CLI path needs a `config.toml` entry this repo deliberately
+ * does not commit. So a missing template was a silent downgrade: the mail still
+ * went, and only a `template load failed` line in the logs said why it looked
+ * wrong.
+ *
+ * `templates.ts` is generated from the same `.html` files by
+ * `tools/gen_email_templates.py` and imported like any other module. A missing
+ * template is now a build failure, which is a failure somebody sees. There is
+ * no fallback here any more because there is nothing left to fall back from,
+ * and a dead fallback path reads in review as a live safety net.
+ *
+ * Still `async` because both callers `await` it and because the signature
+ * should not have to change again if a template ever needs fetching.
  */
+// deno-lint-ignore require-await
 export async function composeEmail(
-  bodyTemplate: "otp" | "magic-link" | "invite" | "alert" | "digest",
+  bodyTemplate: BodyTemplateName,
   vars: Vars,
 ): Promise<string> {
-  try {
-    const layout = await readTemplate("layout.html");
-    const body = await readTemplate(`${bodyTemplate}.html`);
-    return renderEmail(layout, body, { emblem: EMBLEM_DATA_URI, ...vars });
-  } catch (e) {
-    console.error(`template load failed (${bodyTemplate}): ${errorMessage(e)}`);
-    return fallbackHtml(vars);
-  }
-}
-
-async function readTemplate(name: string): Promise<string> {
-  return await Deno.readTextFile(new URL(`./${name}`, import.meta.url));
-}
-
-/** Unstyled, complete, and legible. See {@link composeEmail}. */
-function fallbackHtml(vars: Vars): string {
-  const heading = String(vars.headline ?? vars.title ?? "SafeShade");
-  const line = String(vars.preheader ?? "");
-  const url = vars.map_url ?? vars.action_url;
-  const link = url ? `<p><a href="${String(url)}">${String(url)}</a></p>` : "";
-  return `<!doctype html><html><body style="font-family:Arial,sans-serif;color:#22282E;">
-<h1 style="font-size:22px;">${escapeMinimal(heading)}</h1>
-<p>${escapeMinimal(line)}</p>${link}
-<p style="color:#6A7078;font-size:12px;">SafeShade</p>
-</body></html>`;
-}
-
-function escapeMinimal(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return renderEmail(LAYOUT_HTML, BODY_TEMPLATES[bodyTemplate], {
+    emblem: EMBLEM_DATA_URI,
+    ...vars,
+  });
 }

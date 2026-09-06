@@ -20,7 +20,12 @@ import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.query.Columns
+import io.github.jan.supabase.postgrest.query.filter.FilterOperator
+import io.github.jan.supabase.realtime.PostgresAction
 import io.github.jan.supabase.realtime.Realtime
+import io.github.jan.supabase.realtime.channel
+import io.github.jan.supabase.realtime.postgresChangeFlow
+import io.github.jan.supabase.realtime.realtime
 import io.github.jan.supabase.serializer.KotlinXSerializer
 import io.github.jan.supabase.storage.Storage
 import io.github.jan.supabase.storage.storage
@@ -28,15 +33,24 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.isSuccess
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import java.time.Instant
+import java.util.UUID
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -291,6 +305,85 @@ class SupabaseCloudClient(
             runCatching { json.parseToJsonElement(text) as JsonObject }
                 .getOrDefault(JsonObject(emptyMap()))
         }
+
+    override suspend fun rpc(
+        function: String,
+        args: JsonObject
+    ): CloudResult<JsonElement> = runOrFail {
+        // The (name, JsonObject) overload, not the builder one: the arguments
+        // are already a JsonObject by the time they reach here, and the builder
+        // overload would need them re-encoded through a serializer for nothing.
+        parseRpcData(client.postgrest.rpc(function, args).data)
+    }
+
+    // ============================================
+    // REALTIME
+    // ============================================
+
+    /**
+     * See [CloudClient.changes] for the contract. Three decisions live here.
+     *
+     * **The flow is built and collected before `subscribe()`.** `postgresChangeFlow`
+     * registers a binding on the channel, and the bindings are sent to the
+     * server inside the join message. Subscribing first produces a channel that
+     * reports SUBSCRIBED and then delivers nothing, forever, with no error
+     * anywhere — the single most expensive way to get this wrong.
+     *
+     * **The topic carries a UUID.** `Realtime.subscriptions` is keyed by topic,
+     * so two collectors of `changes("alerts", c)` sharing one topic would share
+     * one channel, and whichever finished first would tear the other one down.
+     * The Circle tab and a background pull can both be live at once, so they get
+     * a channel each.
+     *
+     * **Teardown is `NonCancellable`.** `removeChannel` suspends, and the usual
+     * reason this flow ends is that its scope was cancelled — in which case a
+     * plain suspend call in `finally` would itself be cancelled immediately and
+     * leave the channel joined on the server.
+     */
+    override fun changes(table: String, circleId: String): Flow<JsonObject> = channelFlow {
+        val channel = client.channel("safeshade:$table:$circleId:${UUID.randomUUID()}")
+
+        // PostgresAction (the interface) as the reified type means event "*":
+        // every change on the table, filtered below to the two this app has a
+        // use for.
+        val actions = channel.postgresChangeFlow<PostgresAction>(schema = "public") {
+            this.table = table
+            filter("circle_id", FilterOperator.EQ, circleId)
+        }
+
+        val pump = launch {
+            actions.collect { action ->
+                val row = when (action) {
+                    is PostgresAction.Insert -> action.record
+                    is PostgresAction.Update -> action.record
+                    // Delete carries only the old key, and this app never hard
+                    // deletes; Select only occurs under selectAsFlow, which is
+                    // not used here.
+                    else -> null
+                }
+                if (row != null) send(row)
+            }
+        }
+
+        try {
+            // Inside the try, not before it. `client.channel(...)` has already
+            // registered this topic in `Realtime.subscriptions`, so a subscribe
+            // that throws — no connection, auth refused — would otherwise skip
+            // the finally and leave the channel joined with nothing collecting
+            // it, which is the exact leak the teardown below exists to prevent.
+            channel.subscribe(blockUntilSubscribed = true)
+            awaitCancellation()
+        } finally {
+            pump.cancel()
+            withContext(NonCancellable) {
+                runCatching { client.realtime.removeChannel(channel) }
+            }
+        }
+    }.catch {
+        // Nothing thrown reaches the collector; the flow simply ends. See the
+        // KDoc on CloudClient.changes for why re-subscription is SyncEngine's
+        // job and not this flow's.
+    }
 
     // ============================================
     // STORAGE
