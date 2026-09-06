@@ -80,6 +80,9 @@ fun OnboardingNavGraph(
      * field nearly every Guardian-role string in the app reads.
      */
     var wearerName by rememberSaveable { mutableStateOf(state.deviceSettings.wearerName) }
+    var wearerAvatar by rememberSaveable {
+        mutableStateOf(state.deviceSettings.wearerAvatarId.ifBlank { com.safeshade.ui.board.AvatarSpec.PRESETS.first().encode() })
+    }
 
     // Only the three fields `MedicalStartScreen` edits. Kept local and written
     // once at the end, so a half-typed blood type never reaches DataStore.
@@ -123,8 +126,17 @@ fun OnboardingNavGraph(
                 role = pickedRole ?: state.role,
                 wearerName = wearerName,
                 onWearerNameChange = { wearerName = it },
+                avatarId = wearerAvatar,
+                onAvatarChange = { wearerAvatar = it },
                 onContinue = {
                     viewModel.setWearerName(wearerName)
+                    viewModel.setWearerAvatar(wearerAvatar)
+                    // A Companion is their own wearer, so "Me" on the Profile
+                    // page is the same person; a Guardian names themselves
+                    // there later.
+                    if ((pickedRole ?: state.role) == UserRole.COMPANION) {
+                        viewModel.setOwner(wearerName, wearerAvatar)
+                    }
                     navController.navigate(Routes.ONBOARDING_PERMISSIONS)
                 }
             )
@@ -191,6 +203,7 @@ fun OnboardingNavGraph(
                     // and forward again, say. The write is idempotent, and the
                     // name being wrong is visible on every screen afterwards.
                     viewModel.setWearerName(wearerName)
+                    viewModel.setWearerAvatar(wearerAvatar)
                     // Last, and only here. Flipping this is what tears the
                     // whole graph down, so anything that still needs writing
                     // must already have been written.

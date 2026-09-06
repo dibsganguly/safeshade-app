@@ -481,6 +481,14 @@ What is still Material is what the set genuinely has no answer for: the eight mo
 
 Two mechanical rules live in the generator rather than in anyone's head. A slug whose name starts with a digit has the numeric run moved to the end, because a Kotlin identifier cannot start with one. And an **optical scale table** corrects a glyph whose artwork fills more of its 24-unit viewBox than its neighbours: a declared size is not a perceived size, and one glyph spanning 20 units among peers spanning 18 is visibly the largest thing in a column at an identical `size()`. The correction is a scaled group in the generated Kotlin, never an edit to the source SVG, so redropping the file cannot silently undo it.
 
+### Avatar
+
+A person's face, at any size, from one string id: blank draws the initial on the person's accent disc; `a:…` is a procedural face from `AvatarSpec` (face shape, skin, hair including a headscarf, a turban and a cap, hair colour, brows, eyes, mouth, glasses, one accessory, a backdrop from the twelve accents), drawn in the character's flat two-tone voice so it sits beside Shady without a clash; `photo:<file>` is a photo copied app-private. Twenty-four presets ride in a strip with the chosen one ringed in brass; the customiser shows every option as the whole face with only that attribute changed, so a person sees what they are choosing rather than reading a label for it. Apple's Memoji was the reference; this is the same idea in our own hand.
+
+### First run
+
+Six steps, each the same shape: a scene at the top in which the character does the thing the step is about (walks on and lights the board; stands beside a cane or a phone; peeks at the face being chosen; watches a small board light up as grants land; searches with its antenna until the wearable's own nub answers; holds up the card), a rail of bus ticks for progress, a headline, at most one line of body copy, the controls, and the actions pinned at the foot, rising with the keyboard. The scene runs under the status bar. Feature statements on the welcome step are rows with an icon in its accent and no bus tick or lamp, because they are not circuits.
+
 ### Chips
 
 **`ChipRow`** is for a field whose answer set is open but whose common answers are five or six words nobody should have to type — a relationship, a blood group. It is **not a picker**: it sets a text field that stays fully editable beside it, so an answer the app never thought of is still sayable, and a value matching no chip lights none of them, which is a correct state and not an error. Tapping the lit chip clears it. Square-shouldered and hairlined, never a Material pill, and selection is carried by border weight, fill and ink together rather than by colour alone.

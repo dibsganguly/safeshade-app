@@ -128,6 +128,11 @@ class ProfileRepository(
         mutate { it.copy(role = role) }
     }
 
+    /** The account holder's own name and face. */
+    suspend fun setOwner(name: String, avatarId: String) {
+        mutate { it.copy(ownerName = name.trim(), ownerAvatarId = avatarId) }
+    }
+
     /**
      * Records the active mode locally.
      *

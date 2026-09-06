@@ -1677,6 +1677,7 @@ fun MainNavGraph(
                 onSelectScenario = {},
                 onUseRealLink = {},
                 onOpenKitGallery = { navController.navigate(Routes.SETTINGS_KIT) },
+                onReplayOnboarding = { viewModel.setOnboardingSeen(false) },
                 onBack = { navController.popBackStack() }
             )
         }

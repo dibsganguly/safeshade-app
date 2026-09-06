@@ -81,6 +81,7 @@ fun DeveloperScreen(
     onSelectScenario: (String) -> Unit,
     onUseRealLink: () -> Unit,
     onOpenKitGallery: () -> Unit,
+    onReplayOnboarding: () -> Unit = {},
     onBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(0.dp)
@@ -168,6 +169,19 @@ fun DeveloperScreen(
         }
 
         // ---------- Kit ----------
+        item("first-run-heading") { SectionPlate(title = "First run") }
+        item("first-run") {
+            BoardPlate(modifier = Modifier.fillMaxWidth()) {
+                Way(
+                    name = "Replay onboarding",
+                    detail = "Shows the first-run flow again from the welcome step. Nothing already set is cleared.",
+                    state = LampState.OFF,
+                    stateLabel = "Open",
+                    onClick = onReplayOnboarding
+                )
+            }
+        }
+
         item("kit-heading") { SectionPlate(title = "Component kit") }
 
         item("kit") {

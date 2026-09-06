@@ -107,6 +107,8 @@ data class DeviceSettings(
     val iconType: DeviceIconType = DeviceIconType.BACKPACK,
     /** Who wears it. Used throughout Guardian copy, e.g. "Baba's cane". */
     val wearerName: String = "",
+    /** The wearer's face: an avatar id as `ui/board/Avatar.kt` defines them, or blank. */
+    val wearerAvatarId: String = "",
     val isPrimary: Boolean = true
 )
 

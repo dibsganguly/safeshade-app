@@ -110,6 +110,7 @@ data class DeviceSettingsDto(
     val name: String? = null,
     val iconType: String? = null,
     val wearerName: String? = null,
+    val wearerAvatarId: String? = null,
     val isPrimary: Boolean? = null
 ) {
     fun toDomain(): DeviceSettings = DeviceSettings(
@@ -117,12 +118,13 @@ data class DeviceSettingsDto(
         name = name ?: "SafeShade S1",
         iconType = enumOrDefault(iconType, DeviceIconType.BACKPACK),
         wearerName = wearerName.orEmpty(),
+        wearerAvatarId = wearerAvatarId.orEmpty(),
         isPrimary = isPrimary ?: true
     )
 }
 
 fun DeviceSettings.toDto(): DeviceSettingsDto =
-    DeviceSettingsDto(id, name, iconType.name, wearerName, isPrimary)
+    DeviceSettingsDto(id, name, iconType.name, wearerName, wearerAvatarId, isPrimary)
 
 /**
  * The paired-device list.
@@ -472,13 +474,17 @@ data class ProfileDto(
     val medicalId: MedicalIdDto? = null,
     val deviceSettings: DeviceSettingsDto? = null,
     val role: String? = null,
-    val activeMode: String? = null
+    val activeMode: String? = null,
+    val ownerName: String? = null,
+    val ownerAvatarId: String? = null
 ) {
     fun toDomain(): ProfileSnapshot = ProfileSnapshot(
         medicalId = (medicalId ?: MedicalIdDto()).toDomain(),
         deviceSettings = (deviceSettings ?: DeviceSettingsDto()).toDomain(),
         role = enumOrDefault(role, UserRole.GUARDIAN),
-        activeMode = PersonaMode.fromWire(activeMode.orEmpty())
+        activeMode = PersonaMode.fromWire(activeMode.orEmpty()),
+        ownerName = ownerName.orEmpty(),
+        ownerAvatarId = ownerAvatarId.orEmpty()
     )
 }
 
@@ -487,12 +493,22 @@ data class ProfileSnapshot(
     val medicalId: MedicalId = MedicalId(),
     val deviceSettings: DeviceSettings = DeviceSettings(),
     val role: UserRole = UserRole.GUARDIAN,
-    val activeMode: PersonaMode = PersonaMode.BACKPACK
+    val activeMode: PersonaMode = PersonaMode.BACKPACK,
+    /**
+     * The person holding the phone — "Me" on the Profile page. For a
+     * Companion this is also the wearer; for a Guardian it is the guardian.
+     * Phase 2's account and wearer model builds on these two fields rather
+     * than replacing them.
+     */
+    val ownerName: String = "",
+    val ownerAvatarId: String = ""
 )
 
 fun ProfileSnapshot.toDto(): ProfileDto = ProfileDto(
     medicalId = medicalId.toDto(),
     deviceSettings = deviceSettings.toDto(),
     role = role.name,
-    activeMode = activeMode.wireName
+    activeMode = activeMode.wireName,
+    ownerName = ownerName,
+    ownerAvatarId = ownerAvatarId
 )

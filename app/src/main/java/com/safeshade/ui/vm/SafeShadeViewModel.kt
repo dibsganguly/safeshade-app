@@ -478,6 +478,15 @@ class SafeShadeViewModel(
         container.profileRepository.setDeviceSettings(current.copy(wearerName = name.trim()))
     }
 
+    fun setWearerAvatar(avatarId: String) = launchIo {
+        val current = appState.value.readyOrNull?.deviceSettings ?: return@launchIo
+        container.profileRepository.setDeviceSettings(current.copy(wearerAvatarId = avatarId))
+    }
+
+    fun setOwner(name: String, avatarId: String) = launchIo {
+        container.profileRepository.setOwner(name, avatarId)
+    }
+
     fun setQuietHours(startHour: Int?, endHour: Int?) =
         launchIo { container.deviceRepository.setQuietHours(startHour, endHour) }
 

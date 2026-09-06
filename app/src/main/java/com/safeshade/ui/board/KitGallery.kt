@@ -203,14 +203,34 @@ fun KitGallery(modifier: Modifier = Modifier) {
             }
         }
 
-        item { SectionPlate("Shady") }
+        item { SectionPlate("Avatars") }
         item {
             BoardPlate {
-                Row(
+                androidx.compose.foundation.layout.FlowRow(
                     Modifier
                         .fillMaxWidth()
                         .padding(Spacing.md),
-                    horizontalArrangement = Arrangement.SpaceEvenly
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.sm)
+                ) {
+                    AvatarSpec.PRESETS.forEach { spec ->
+                        Avatar(avatarId = spec.encode(), name = "", size = 48.dp)
+                    }
+                    Avatar(avatarId = "", name = "Baba", size = 48.dp)
+                    Avatar(avatarId = "", name = "Priya", size = 48.dp)
+                }
+            }
+        }
+
+        item { SectionPlate("Shady") }
+        item {
+            BoardPlate {
+                androidx.compose.foundation.layout.FlowRow(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(Spacing.md),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+                    maxItemsInEachRow = 4
                 ) {
                     ShadyMood.entries.forEach { mood ->
                         Column(
