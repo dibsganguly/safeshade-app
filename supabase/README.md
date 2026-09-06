@@ -81,11 +81,51 @@ owner-write: the policy deliberately does *not* let a person insert their own
 synced row, so "you need an id nobody publishes" is not an access control.
 Joining goes through `accept_invite(<token>)`, a `security definer` function
 gated on the server-minted invite token. `CloudClient.rpc(function, args)` is
-the way in — it exists and is implemented on both clients, but **no screen calls
-it yet**; wiring the invite-acceptance path is Phase 2.
+the way in, and `CircleActions.acceptInvite(token)` is the caller.
 
 Related: reads use `is_circle_member`, writes use `is_circle_actor`, which
 excludes `viewer`. That is what makes the viewer role mean anything.
+
+### Every account owns exactly one Circle — `0005_bootstrap_circle.sql`
+
+`0001`'s `handle_new_user()` trigger creates a `profiles` row and nothing else.
+That is not enough to sync anything: `circle_id` is `not null` on every
+circle-scoped table, so a freshly signed-in guardian with no circle fails its
+first push on a foreign key, for every table, forever — and the app reports that
+to them as "this did not reach SafeShade Cloud", which is true and completely
+unactionable.
+
+`0005` fixes it in three pieces sharing one body:
+
+- **`bootstrap_circle_for(uid)`** — finds the user's live owned circle, or
+  creates the `circles` row and the `owner` `circle_members` row together.
+  Idempotent: called twice, the second call returns the first call's circle.
+  Executable by no API role at all.
+- **`handle_new_user()`**, re-created to call it, so a new sign-up gets its
+  circle inside the transaction that creates the auth user. The circle half is
+  exception-guarded on purpose — a person who cannot create an account is a
+  worse outcome than a person whose circle is created a second later.
+- **`ensure_own_circle()`** — the rpc the app calls. `authenticated` only
+  (revoked from `public` first, then granted — see `0003`). It reads
+  `auth.uid()` itself, so the worst a stolen session can do is create the circle
+  it already has.
+
+**What it does for an account that already existed:** the file ends with an
+idempotent backfill over `auth.users`, so every account created before `0005`
+has its circle the moment the migration is applied, without waiting for that
+person to open the app. If one is somehow still missing, the app's first
+`ensure_own_circle()` on sign-in creates it.
+
+The app caches the returned circle id in its own DataStore file
+(`safeshade_cloud`, key `circle_id_v1`) and clears it on sign-out along with
+every pull cursor — a second account on the same phone must not inherit the
+first one's family.
+
+**Advisor:** this adds a **seventh** "signed-in users can execute a SECURITY
+DEFINER function" line, for `ensure_own_circle`, alongside the six listed in
+`0003`. It is intentional for the same reason they are. The only other line
+`get_advisors` reports is *Leaked Password Protection Disabled*, which is a
+dashboard toggle (Authentication → Providers → Email), not a schema fault.
 
 ## 3. Point the app at it
 

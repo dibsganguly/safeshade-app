@@ -287,6 +287,24 @@ class SupabaseCloudClient(
         }.decodeList<JsonObject>()
     }
 
+    override suspend fun selectOwn(
+        table: String,
+        userId: String,
+        since: Instant?
+    ): CloudResult<List<JsonObject>> = runOrFail {
+        // `profiles` keys the account on its own primary key; every other
+        // user-scoped table uses `user_id`. Getting this wrong is a 400 naming
+        // a column that does not exist, so it is decided here once rather than
+        // by each caller.
+        val column = if (table == com.safeshade.cloud.dto.CloudTables.PROFILES) "id" else "user_id"
+        client.from(table).select(Columns.ALL) {
+            filter {
+                eq(column, userId)
+                if (since != null) gt("updated_at", since.toString())
+            }
+        }.decodeList<JsonObject>()
+    }
+
     override suspend fun invoke(function: String, body: JsonObject): CloudResult<JsonObject> =
         runOrFail {
             val response = client.functions.invoke(function = function, body = body)

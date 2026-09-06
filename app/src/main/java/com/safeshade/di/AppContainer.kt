@@ -10,6 +10,7 @@ import com.safeshade.repo.DeviceRepository
 import com.safeshade.repo.JourneyRepository
 import com.safeshade.repo.MessagingRepository
 import com.safeshade.repo.ProfileRepository
+import com.safeshade.repo.LateBoundSyncHooks
 import com.safeshade.repo.SafetyRepository
 import com.safeshade.repo.ZoneRepository
 import com.safeshade.sendSmsText
@@ -63,6 +64,21 @@ class AppContainer(
      */
     val link: DeviceLink = LinkFactory.create(appContext, scope)
 
+    /**
+     * What the repositories tell the cloud when they write.
+     *
+     * Late-bound because `CloudContainer` is the **last** field of this class,
+     * and that position is the enforcement of cloud being strictly additive
+     * (handoff7 section 2): local DataStore stays the source of truth, and
+     * nothing can quietly make the cloud a dependency of a repository by
+     * reordering a constructor. So the repositories are handed this now, and it
+     * is pointed at the real implementation in `init`.
+     *
+     * Until then it does nothing, which is the correct behaviour for the
+     * handful of writes that can happen during `Application.onCreate`.
+     */
+    private val syncHooks = LateBoundSyncHooks()
+
     val deviceRepository = DeviceRepository(
         link = link,
         prefs = preferences,
@@ -70,9 +86,9 @@ class AppContainer(
         mtuProvider = LinkFactory.mtuProvider(link)
     )
 
-    val profileRepository = ProfileRepository(preferences, link, scope)
+    val profileRepository = ProfileRepository(preferences, link, scope, syncHooks)
 
-    val safetyRepository = SafetyRepository(preferences, link, scope)
+    val safetyRepository = SafetyRepository(preferences, link, scope, syncHooks)
 
     val messagingRepository = MessagingRepository(
         prefs = preferences,
@@ -80,10 +96,12 @@ class AppContainer(
         scope = scope,
         // The SMS transport is injected as a lambda so MessagingRepository holds
         // no Context and stays unit-testable without Robolectric.
-        sendSms = { phone, body -> sendSmsText(appContext, phone, body) }
+        sendSms = { phone, body -> sendSmsText(appContext, phone, body) },
+        hooks = syncHooks
     )
 
-    val zoneRepository = ZoneRepository(preferences, link, geofenceManager, scope)
+    val zoneRepository =
+        ZoneRepository(preferences, link, geofenceManager, scope, syncHooks)
 
     val journeyRepository = JourneyRepository(preferences, safetyRepository, scope)
 
@@ -107,9 +125,22 @@ class AppContainer(
      * Putting it earlier would suggest something below it needs it, and nothing
      * does.
      */
-    val cloud = com.safeshade.cloud.CloudContainer(appContext, scope)
+    val cloud = com.safeshade.cloud.CloudContainer(
+        appContext = appContext,
+        scope = scope,
+        repositories = com.safeshade.cloud.CloudContainer.Repositories(
+            profiles = profileRepository,
+            safety = safetyRepository,
+            messaging = messagingRepository,
+            zones = zoneRepository
+        )
+    )
 
     init {
+        // The last wire in the graph, and it has to be here: the repositories
+        // were built before the cloud existed. See [syncHooks].
+        syncHooks.bind(cloud.syncHooks)
+
         /*
          * Migration runs here, once, on the application scope — never inside a
          * Flow operator.

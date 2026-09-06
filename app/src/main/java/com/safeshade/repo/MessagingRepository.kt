@@ -1,9 +1,11 @@
 package com.safeshade.repo
 
 import com.safeshade.SmsMessageEventBus
+import com.safeshade.cloud.dto.CloudTables
 import com.safeshade.data.MessageChannel
 import com.safeshade.data.QuickMessage
 import com.safeshade.data.SafeShadePreferences
+import com.safeshade.data.resolveWearerForDevice
 import com.safeshade.device.ConnectionState
 import com.safeshade.device.DeviceLink
 import com.safeshade.device.DeviceProtocol
@@ -51,7 +53,9 @@ class MessagingRepository(
     private val link: DeviceLink,
     private val scope: CoroutineScope,
     /** Injected rather than calling `SmsManager` here, so this stays testable. */
-    private val sendSms: (phone: String, body: String) -> Unit
+    private val sendSms: (phone: String, body: String) -> Unit,
+    /** See [SyncHooks]. Nothing is queued for the cloud without one. */
+    private val hooks: SyncHooks = SyncHooks.None
 ) {
 
     /** Null until the first DataStore read completes. See [ProfileRepository]. */
@@ -109,7 +113,9 @@ class MessagingRepository(
         val clean = text.trim()
         if (clean.isEmpty()) return
 
-        listLock.withLock {
+        val wearerId = currentWearerId()
+
+        val recorded = listLock.withLock {
             val current = prefs.messages.first()
             val now = System.currentTimeMillis()
 
@@ -119,13 +125,14 @@ class MessagingRepository(
                     existing.channel != channel &&
                     now - existing.timestamp <= DEDUPE_WINDOW_MS
             }
-            if (duplicate) return@withLock
+            if (duplicate) return@withLock null
 
             val message = QuickMessage(
                 text = clean,
                 fromGuardian = false,
                 timestamp = now,
-                channel = channel
+                channel = channel,
+                wearerId = wearerId
             )
             // Mark the most recent unanswered guardian message as replied, so
             // the thread reads as a conversation rather than two lists.
@@ -136,7 +143,10 @@ class MessagingRepository(
                     updated[pendingIndex].copy(replied = true, replyText = clean)
             }
             prefs.setMessages(updated + message)
-        }
+            message.id
+        } ?: return
+
+        hooks.onUpsert(CloudTables.MESSAGES, recorded)
     }
 
     // ============================================
@@ -190,23 +200,65 @@ class MessagingRepository(
         }
 
         if (result is SendResult.Sent) {
+            val message = QuickMessage(
+                text = clean,
+                fromGuardian = fromGuardian,
+                channel = result.channel,
+                wearerId = currentWearerId()
+            )
             listLock.withLock {
                 val current = prefs.messages.first()
-                prefs.setMessages(
-                    current + QuickMessage(
-                        text = clean,
-                        fromGuardian = fromGuardian,
-                        channel = result.channel
-                    )
-                )
+                prefs.setMessages(current + message)
             }
+            // After the transport took it and after it is in history, never
+            // before: a message queued for the cloud that the radio then
+            // refused would be a record of something that did not happen.
+            hooks.onUpsert(CloudTables.MESSAGES, message.id)
         }
         return result
     }
 
     suspend fun clearMessages() {
-        listLock.withLock { prefs.setMessages(emptyList()) }
+        val removed = listLock.withLock {
+            val current = prefs.messages.first()
+            prefs.setMessages(emptyList())
+            current
+        }
+        // One tombstone each. There is no "the list is empty" message in the
+        // protocol, and a phone that has been offline would otherwise never
+        // learn that these are gone.
+        removed.forEach { hooks.onDelete(CloudTables.MESSAGES, it.id) }
     }
+
+    /**
+     * Messages arriving from another phone in the circle.
+     *
+     * Under the same [listLock] as every local write, and deliberately without
+     * calling [hooks]: a pulled row that queued its own push would be echoed
+     * back to the server, whose `updated_at` trigger would make it look like a
+     * change, which would pull it again. That loop has no exit.
+     */
+    suspend fun applyRemoteMessages(transform: (List<QuickMessage>) -> List<QuickMessage>) {
+        listLock.withLock {
+            val current = prefs.messages.first()
+            val updated = transform(current)
+            if (updated != current) prefs.setMessages(updated)
+        }
+    }
+
+    /**
+     * The wearer a new message belongs to: the wearer of the connected device,
+     * falling back to the selected one.
+     *
+     * The connected wearer is not the selected wearer - handoff7 section 6
+     * item 2 - and a reply that arrived over this device's BLE link came from
+     * the person wearing this device, whoever happens to be selected on screen.
+     */
+    private suspend fun currentWearerId(): String? = resolveWearerForDevice(
+        wearers = prefs.wearers.first(),
+        address = link.deviceAddress.value,
+        selectedWearerId = prefs.selectedWearerId.first()
+    )?.id
 
     private companion object {
         const val DEDUPE_WINDOW_MS = 8_000L

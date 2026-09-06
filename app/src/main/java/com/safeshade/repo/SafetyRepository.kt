@@ -1,5 +1,6 @@
 package com.safeshade.repo
 
+import com.safeshade.cloud.dto.CloudTables
 import com.safeshade.data.CheckInRequest
 import com.safeshade.data.EmergencyContact
 import com.safeshade.data.FallAlertEvent
@@ -7,10 +8,12 @@ import com.safeshade.data.SafeShadePreferences
 import com.safeshade.data.SafetySettings
 import com.safeshade.data.TripKind
 import com.safeshade.data.TripOutcome
+import com.safeshade.data.resolveWearerForDevice
 import com.safeshade.device.ConnectionState
 import com.safeshade.device.DeviceAlert
 import com.safeshade.device.DeviceLink
 import com.safeshade.device.DeviceProtocol
+import com.safeshade.platform.PhoneNumbers
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -38,7 +41,9 @@ import kotlinx.coroutines.sync.withLock
 class SafetyRepository(
     private val prefs: SafeShadePreferences,
     private val link: DeviceLink,
-    private val scope: CoroutineScope
+    private val scope: CoroutineScope,
+    /** See [SyncHooks]. Nothing is queued for the cloud without one. */
+    private val hooks: SyncHooks = SyncHooks.None
 ) {
 
     /** Null until the first DataStore read completes. See [ProfileRepository]. */
@@ -156,13 +161,35 @@ class SafetyRepository(
      * has no record anywhere. Writing first means the worst case is an alarm
      * that has to be re-surfaced from history, not one that never happened.
      */
-    suspend fun record(event: FallAlertEvent) {
+    /**
+     * @param sync false to record the event without queueing it for the cloud.
+     *   Exactly one caller passes false - SafeShadeViewModel.firePhoneSos,
+     *   which queues the alert itself *after* the SOS outcome is known
+     *   (handoff7 section 6 item 5). The order matters because the outcome is
+     *   what the person staring at the screen is waiting for, and nothing on
+     *   the way to it may be a write this phone could have deferred.
+     */
+    suspend fun record(event: FallAlertEvent, sync: Boolean = true) {
+        // A fall raised by the device belongs to whoever is wearing that
+        // device, which is not necessarily the person selected on screen.
+        val stamped =
+            if (event.wearerId == null) event.copy(wearerId = currentWearerId()) else event
         historyLock.withLock {
             val current = prefs.fallHistory.first()
-            prefs.setFallHistory(current + event)
+            prefs.setFallHistory(current + stamped)
         }
-        _activeAlert.value = event
+        _activeAlert.value = stamped
+        if (sync) hooks.onUpsert(CloudTables.ALERTS, stamped.id)
     }
+
+    /**
+     * Queues an already-recorded alert for the cloud.
+     *
+     * The other half of record(event, sync = false). Public so the SOS path can
+     * decide when the queueing happens without also taking on the job of
+     * knowing which table an alert belongs in.
+     */
+    suspend fun syncAlert(eventId: String) = hooks.onUpsert(CloudTables.ALERTS, eventId)
 
     /** Convenience for the SOS button on this phone. */
     suspend fun recordSos(note: String? = null) =
@@ -189,6 +216,10 @@ class SafetyRepository(
             )
         }
         if (_activeAlert.value?.id == eventId) _activeAlert.value = null
+        // An outcome is the most valuable thing in the table: it is what stops
+        // another guardian's phone reopening a fall somebody has already dealt
+        // with. See MergeRules.alerts.
+        hooks.onUpsert(CloudTables.ALERTS, eventId)
     }
 
     /** Dismisses the alarm UI without changing the recorded outcome. */
@@ -197,8 +228,68 @@ class SafetyRepository(
     }
 
     suspend fun clearHistory() {
-        historyLock.withLock { prefs.setFallHistory(emptyList()) }
+        val removed = historyLock.withLock {
+            val current = prefs.fallHistory.first()
+            prefs.setFallHistory(emptyList())
+            current
+        }
+        // One tombstone each. There is no "the list is empty" message in the
+        // protocol, and a phone that has been offline would otherwise never
+        // learn that these are gone.
+        removed.forEach { hooks.onDelete(CloudTables.ALERTS, it.id) }
     }
+
+    /**
+     * Alerts arriving from another phone in the circle.
+     *
+     * Under [historyLock], and deliberately without calling [hooks]: a pulled
+     * row that queued its own push would be echoed back to the server, whose
+     * updated_at trigger would make it look like a change, which would pull it
+     * again. That loop has no exit.
+     *
+     * It deliberately does not touch [activeAlert] either. A pull happens on
+     * every foreground and every reconnect and returns whatever changed, so
+     * raising the full-screen alarm from a pulled row would pop the fall dialog
+     * at a guardian every time they opened the app after somebody else had
+     * resolved something. The live alarm belongs to the device link that is in
+     * the room.
+     */
+    suspend fun applyRemoteHistory(transform: (List<FallAlertEvent>) -> List<FallAlertEvent>) {
+        historyLock.withLock {
+            val current = prefs.fallHistory.first()
+            val updated = transform(current)
+            if (updated != current) prefs.setFallHistory(updated)
+        }
+    }
+
+    /**
+     * Safety settings arriving from another phone.
+     *
+     * Under [settingsLock] and through writeSettings, so a pulled change to the
+     * fall sensitivity reaches the wearable exactly the way a local one does.
+     * Nothing is queued back.
+     */
+    suspend fun applyRemoteSettings(transform: (SafetySettings) -> SafetySettings) {
+        settingsLock.withLock {
+            val current = prefs.safetySettings.first()
+            val updated = transform(current)
+            if (updated != current) writeSettings(updated)
+        }
+    }
+
+    /**
+     * The person a new record belongs to: the wearer of the connected device,
+     * falling back to the selected one.
+     *
+     * The connected wearer is not the selected wearer - handoff7 section 6
+     * item 2 - and for anything the device raised, the device is the better
+     * answer.
+     */
+    private suspend fun currentWearerId(): String? = resolveWearerForDevice(
+        wearers = prefs.wearers.first(),
+        address = link.deviceAddress.value,
+        selectedWearerId = prefs.selectedWearerId.first()
+    )?.id
 
     // ============================================
     // Settings
@@ -212,7 +303,12 @@ class SafetyRepository(
      * "Connected", where SETTINGS_CHAR is still null.
      */
     suspend fun setSettings(settings: SafetySettings) {
-        settingsLock.withLock { writeSettings(settings) }
+        val before = settingsLock.withLock {
+            val current = prefs.safetySettings.first()
+            writeSettings(settings)
+            current
+        }
+        syncContactDiff(before.emergencyContacts, settings.emergencyContacts)
     }
 
     suspend fun setContacts(contacts: List<EmergencyContact>) =
@@ -243,8 +339,55 @@ class SafetyRepository(
      * but every field the other caller touched.
      */
     private suspend fun mutateSettings(transform: (SafetySettings) -> SafetySettings) {
-        settingsLock.withLock { writeSettings(transform(prefs.safetySettings.first())) }
+        val (before, after) = settingsLock.withLock {
+            val current = prefs.safetySettings.first()
+            val updated = transform(current)
+            writeSettings(updated)
+            current to updated
+        }
+        syncContactDiff(before.emergencyContacts, after.emergencyContacts)
     }
+
+    /**
+     * Queues one row per contact that changed, and a tombstone per contact that
+     * went away.
+     *
+     * The list is stored here as one blob and on the server as rows, so the
+     * diff has to happen somewhere; this is the only place that sees both
+     * sides. Keyed on the digits of the phone number, because that is the
+     * identity the server row is derived from and the identity the merge rule
+     * unions on - a contact renamed is an update, a contact given a second
+     * number is a second row, and both of those are right.
+     *
+     * Only the contacts have a table. parentalPin and the rest of
+     * SafetySettings never leave the phone.
+     */
+    private suspend fun syncContactDiff(
+        before: List<EmergencyContact>,
+        after: List<EmergencyContact>
+    ) {
+        val beforeByPhone = before.associateBy { digitsOf(it.phone) }
+        val afterByPhone = after.associateBy { digitsOf(it.phone) }
+
+        for ((digits, contact) in afterByPhone) {
+            if (digits.isBlank()) continue
+            if (beforeByPhone[digits] != contact) {
+                hooks.onUpsert(
+                    CloudTables.EMERGENCY_CONTACTS,
+                    SyncKeys.contact(wearerId = null, phone = contact.phone)
+                )
+            }
+        }
+        for ((digits, contact) in beforeByPhone) {
+            if (digits.isBlank() || digits in afterByPhone) continue
+            hooks.onDelete(
+                CloudTables.EMERGENCY_CONTACTS,
+                SyncKeys.contact(wearerId = null, phone = contact.phone)
+            )
+        }
+    }
+
+    private fun digitsOf(raw: String): String = PhoneNumbers.digitsOf(raw)
 
     /** Must be called with [settingsLock] held. A Kotlin `Mutex` is not reentrant. */
     private suspend fun writeSettings(settings: SafetySettings) {

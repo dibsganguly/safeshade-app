@@ -222,6 +222,22 @@ class FakeCloudClient(
         }.toList()
     }
 
+    /**
+     * The user-scoped read. Mirrors the real client's column choice so a test
+     * that seeds a `profiles` row keyed by `id` behaves the way the server does.
+     */
+    override suspend fun selectOwn(
+        table: String,
+        userId: String,
+        since: Instant?
+    ): CloudResult<List<JsonObject>> = guarded {
+        val column = if (table == com.safeshade.cloud.dto.CloudTables.PROFILES) "id" else "user_id"
+        tables[table].orEmpty().values.filter { row ->
+            val owner = (row[column] as? kotlinx.serialization.json.JsonPrimitive)?.content
+            (owner == null || owner == userId) && newerThan(row, since)
+        }.toList()
+    }
+
     private fun newerThan(row: JsonObject, since: Instant?): Boolean {
         if (since == null) return true
         val raw = (row["updated_at"] as? kotlinx.serialization.json.JsonPrimitive)?.content

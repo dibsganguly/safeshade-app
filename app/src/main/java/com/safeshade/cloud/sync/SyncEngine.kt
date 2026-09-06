@@ -5,6 +5,7 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
 import com.safeshade.cloud.CloudClient
 import com.safeshade.cloud.CloudResult
+import com.safeshade.cloud.parseServerInstant
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -39,12 +40,18 @@ interface PayloadSource {
      * [OutboxPolicy.MAX_ATTEMPTS] and paint the UI with "this did not reach
      * SafeShade Cloud" failures that never happened.
      */
-    suspend fun payloadFor(table: String, recordId: String): JsonElement?
+    suspend fun payloadFor(table: String, recordId: String, op: OutboxOp): JsonElement?
 }
 
-/** The Phase 1 source: resolves nothing, so nothing is ever sent. */
+/**
+ * The no-op source: resolves nothing, so nothing is ever sent.
+ *
+ * Still installed on a build with no cloud configured, and still the reason a
+ * null must never count as an attempt.
+ */
 object NoPayloadSource : PayloadSource {
-    override suspend fun payloadFor(table: String, recordId: String): JsonElement? = null
+    override suspend fun payloadFor(table: String, recordId: String, op: OutboxOp): JsonElement? =
+        null
 }
 
 /**
@@ -58,17 +65,31 @@ object NoPayloadSource : PayloadSource {
  * would be guessing.
  */
 interface PullSource {
-    /** Which tables to pull, in order. Empty disables the pull entirely. */
+    /** Which circle-scoped tables to pull, in order. Empty disables the pull. */
     val tables: List<String>
+
+    /**
+     * Tables scoped to the signed-in user rather than to a circle.
+     *
+     * `profiles` and `subscriptions` have no `circle_id` column at all - a
+     * profile belongs to an account and a subscription follows the person who
+     * paid, across every circle they are in - so filtering them by circle is a
+     * 400 from PostgREST, not an empty result. They go through
+     * [CloudClient.selectOwn] instead.
+     */
+    val userTables: List<String> get() = emptyList()
 
     /** The circle to pull for, or null when the user is not in one yet. */
     suspend fun circleId(): String?
+
+    /** The signed-in user id, or null. Only needed for [userTables]. */
+    suspend fun userId(): String? = null
 
     /** Called with each table's changed rows. */
     suspend fun onRowsPulled(table: String, rows: List<JsonObject>)
 }
 
-/** The Phase 1 pull source: pulls nothing. */
+/** The no-op pull source: pulls nothing. */
 object NoPullSource : PullSource {
     override val tables: List<String> = emptyList()
     override suspend fun circleId(): String? = null
@@ -213,7 +234,7 @@ class SyncEngine(
      * stops existing is invisible to every other phone in the circle.
      */
     private suspend fun bodyFor(entry: OutboxEntry): JsonObject? {
-        val element = payloadSource.payloadFor(entry.table, entry.recordId) ?: return null
+        val element = payloadSource.payloadFor(entry.table, entry.recordId, entry.op) ?: return null
         val row = element as? JsonObject ?: return null
         if (entry.op == OutboxOp.UPSERT) return row
         return buildJsonObject {
@@ -227,13 +248,12 @@ class SyncEngine(
     // ============================================
 
     private suspend fun pull() {
+        pullUserTables()
         if (pullSource.tables.isEmpty()) return
         val circleId = pullSource.circleId() ?: return
 
         for (table in pullSource.tables) {
-            val since = outbox.lastPulledAt(table)?.let { raw ->
-                runCatching { Instant.parse(raw) }.getOrNull()
-            }
+            val since = parseServerInstant(outbox.lastPulledAt(table))
             when (val result = client.select(table, circleId, since)) {
                 is CloudResult.Ok -> {
                     pullSource.onRowsPulled(table, result.value)
@@ -248,6 +268,31 @@ class SyncEngine(
 
                 // A failed or disabled pull leaves the cursor where it was, so
                 // the same window is asked for again next time.
+                else -> Unit
+            }
+        }
+    }
+
+    /**
+     * The tables keyed by account rather than by circle.
+     *
+     * Same cursor discipline as the circle pass, and the same rule about the
+     * cursor advancing only after the rows have been accepted.
+     */
+    private suspend fun pullUserTables() {
+        if (pullSource.userTables.isEmpty()) return
+        val userId = pullSource.userId() ?: return
+
+        for (table in pullSource.userTables) {
+            val since = parseServerInstant(outbox.lastPulledAt(table))
+            when (val result = client.selectOwn(table, userId, since)) {
+                is CloudResult.Ok -> {
+                    pullSource.onRowsPulled(table, result.value)
+                    newestUpdatedAt(result.value)?.let {
+                        outbox.setLastPulledAt(table, it)
+                    }
+                }
+
                 else -> Unit
             }
         }

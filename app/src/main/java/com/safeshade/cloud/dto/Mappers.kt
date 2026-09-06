@@ -1,5 +1,6 @@
 package com.safeshade.cloud.dto
 
+import com.safeshade.cloud.parseServerInstant
 import com.safeshade.data.FallAlertEvent
 import com.safeshade.data.GeofenceZone
 import com.safeshade.data.MedicalId
@@ -67,11 +68,7 @@ internal fun Long.toIsoOrNull(): String? =
  */
 internal fun String?.isoToEpochMillis(fallback: Long): Long {
     if (this.isNullOrBlank()) return fallback
-    return try {
-        Instant.parse(this).toEpochMilli()
-    } catch (_: DateTimeParseException) {
-        fallback
-    }
+    return parseServerInstant(this)?.toEpochMilli() ?: fallback
 }
 
 // ============================================

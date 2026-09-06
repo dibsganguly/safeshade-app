@@ -2,8 +2,10 @@ package com.safeshade.repo
 
 import com.safeshade.GeofenceEventBus
 import com.safeshade.GeofenceManager
+import com.safeshade.cloud.dto.CloudTables
 import com.safeshade.data.GeofenceZone
 import com.safeshade.data.SafeShadePreferences
+import com.safeshade.data.resolveWearerForDevice
 import com.safeshade.device.ConnectionState
 import com.safeshade.device.DeviceLink
 import com.safeshade.device.DeviceProtocol
@@ -36,7 +38,9 @@ class ZoneRepository(
     private val prefs: SafeShadePreferences,
     private val link: DeviceLink,
     private val geofenceManager: GeofenceManager,
-    private val scope: CoroutineScope
+    private val scope: CoroutineScope,
+    /** See [SyncHooks]. Nothing is queued for the cloud without one. */
+    private val hooks: SyncHooks = SyncHooks.None
 ) {
 
     /** Null until the first DataStore read completes. See [ProfileRepository]. */
@@ -127,11 +131,17 @@ class ZoneRepository(
     private val listLock = Mutex()
 
     suspend fun addZone(zone: GeofenceZone) {
-        listLock.withLock {
+        // A zone drawn while one person is selected belongs to that person. The
+        // field is nullable and a null one is a zone for the whole circle, so
+        // an existing stamp is never overwritten.
+        val stamped = if (zone.wearerId == null) zone.copy(wearerId = currentWearerId()) else zone
+        val added = listLock.withLock {
             val current = prefs.zones.first()
-            if (current.any { it.id == zone.id }) return@withLock
-            prefs.setZones(current + zone)
+            if (current.any { it.id == stamped.id }) return@withLock false
+            prefs.setZones(current + stamped)
+            true
         }
+        if (added) hooks.onUpsert(CloudTables.ZONES, stamped.id)
     }
 
     suspend fun updateZone(zone: GeofenceZone) {
@@ -139,6 +149,7 @@ class ZoneRepository(
             val current = prefs.zones.first()
             prefs.setZones(current.map { if (it.id == zone.id) zone else it })
         }
+        hooks.onUpsert(CloudTables.ZONES, zone.id)
     }
 
     suspend fun removeZone(zoneId: String) {
@@ -147,13 +158,52 @@ class ZoneRepository(
             prefs.setZones(current.filterNot { it.id == zoneId })
         }
         pendingLock.withLock { pending.remove(zoneId) }
+        hooks.onDelete(CloudTables.ZONES, zoneId)
     }
 
     suspend fun clearZones() {
-        listLock.withLock { prefs.setZones(emptyList()) }
+        val removed = listLock.withLock {
+            val current = prefs.zones.first()
+            prefs.setZones(emptyList())
+            current
+        }
         geofenceManager.clearZones()
         pendingLock.withLock { pending.clear() }
+        // One tombstone each, not one "the list is empty" message. There is no
+        // such message in the protocol, and a phone that has been offline would
+        // otherwise never learn that these zones are gone.
+        removed.forEach { hooks.onDelete(CloudTables.ZONES, it.id) }
     }
+
+    /**
+     * Zones arriving from another phone in the circle.
+     *
+     * Takes the same [listLock] as every local write, and deliberately does
+     * **not** call [hooks]: a pulled row that queued its own push would be
+     * echoed straight back to the server, whose `updated_at` trigger would make
+     * it look like a change, which would pull it again. That loop has no exit.
+     */
+    suspend fun applyRemoteZones(transform: (List<GeofenceZone>) -> List<GeofenceZone>) {
+        listLock.withLock {
+            val current = prefs.zones.first()
+            val updated = transform(current)
+            if (updated != current) prefs.setZones(updated)
+        }
+    }
+
+    /**
+     * The person a new record belongs to: the wearer of the connected device,
+     * or the selected one.
+     *
+     * The connected wearer is not the selected wearer - handoff7 section 6
+     * item 2 - and for anything raised by a device, the device is the better
+     * answer.
+     */
+    private suspend fun currentWearerId(): String? = resolveWearerForDevice(
+        wearers = prefs.wearers.first(),
+        address = link.deviceAddress.value,
+        selectedWearerId = prefs.selectedWearerId.first()
+    )?.id
 
     private companion object {
         const val TAG_GEOFENCE = "GEOFENCE"

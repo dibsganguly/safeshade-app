@@ -2,12 +2,23 @@ package com.safeshade.cloud
 
 import android.content.Context
 import com.safeshade.BuildConfig
+import com.safeshade.cloud.repo.CloudSyncHooks
+import com.safeshade.cloud.repo.RepositoryPayloadSource
+import com.safeshade.cloud.repo.RepositoryPullSource
 import com.safeshade.cloud.sync.Connectivity
 import com.safeshade.cloud.sync.NoPayloadSource
 import com.safeshade.cloud.sync.NoPullSource
 import com.safeshade.cloud.sync.Outbox
+import com.safeshade.cloud.sync.PayloadSource
+import com.safeshade.cloud.sync.PullSource
 import com.safeshade.cloud.sync.SyncEngine
+import com.safeshade.repo.MessagingRepository
+import com.safeshade.repo.ProfileRepository
+import com.safeshade.repo.SafetyRepository
+import com.safeshade.repo.SyncHooks
+import com.safeshade.repo.ZoneRepository
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
 /**
@@ -41,8 +52,32 @@ import kotlinx.coroutines.launch
  */
 class CloudContainer(
     appContext: Context,
-    private val scope: CoroutineScope
+    private val scope: CoroutineScope,
+    /**
+     * The repositories the push reads from and the pull writes back into.
+     *
+     * Nullable because `CloudContainer` is constructed in one place that has no
+     * repositories at all - a preview or a test that only wants the account
+     * surface. With them absent the engine keeps its no-op sources: the queue
+     * still fills, the triggers still fire, and nothing is sent, which is
+     * exactly the Phase 1 behaviour.
+     */
+    private val repositories: Repositories? = null
 ) {
+
+    /**
+     * What the sync engine needs from the rest of the app.
+     *
+     * Grouped into one parameter rather than four so that adding a fifth
+     * repository to the sync does not change `AppContainer`'s call, and so that
+     * "the cloud reads these and writes these" is one thing to read.
+     */
+    class Repositories(
+        val profiles: ProfileRepository,
+        val safety: SafetyRepository,
+        val messaging: MessagingRepository,
+        val zones: ZoneRepository
+    )
 
     private val context: Context = appContext.applicationContext
 
@@ -89,22 +124,89 @@ class CloudContainer(
      * failed, and the app would be telling users their data did not reach a
      * cloud it never tried to send to.
      */
+    /**
+     * The Circle: which one this account owns, who is in it, what has been
+     * invited, and what tier is paid for.
+     *
+     * Constructed before the engine because the payload source has to be able
+     * to ask it for the circle id, and every circle-scoped row is unsendable
+     * without one.
+     */
+    val circle = CircleManager(
+        appContext = context,
+        client = client,
+        outbox = outbox,
+        scope = scope
+    )
+
+    /** What the Circle and Plan screens read. See [CloudState]. */
+    val cloudState: StateFlow<CloudState> get() = circle.state
+
+    /** Invite, accept an invitation, set the developer tier, read the heat map. */
+    val circleActions: CircleManager.CircleActions get() = circle.actions
+
+    private val pullSource: PullSource = repositories?.let { repos ->
+        RepositoryPullSource(
+            profiles = repos.profiles,
+            safety = repos.safety,
+            messaging = repos.messaging,
+            zones = repos.zones,
+            outbox = outbox,
+            session = client.session,
+            circleIdProvider = { circle.cachedCircleId() },
+            sideTables = { table, rows -> circle.onSideRows(table, rows) }
+        )
+    } ?: NoPullSource
+
+    private val payloadSource: PayloadSource = repositories?.let { repos ->
+        RepositoryPayloadSource(
+            profiles = repos.profiles,
+            safety = repos.safety,
+            messaging = repos.messaging,
+            zones = repos.zones,
+            session = client.session,
+            circleId = { circle.cachedCircleId() }
+        )
+    } ?: NoPayloadSource
+
     val syncEngine = SyncEngine(
         client = client,
         outbox = outbox,
         connectivity = connectivity,
         scope = scope,
-        payloadSource = NoPayloadSource,
-        pullSource = NoPullSource
+        payloadSource = payloadSource,
+        pullSource = pullSource
+    )
+
+    /**
+     * What the repositories call when they write.
+     *
+     * `AppContainer` binds this into the `LateBoundSyncHooks` it handed the
+     * repositories, after this container exists. The alternative - constructing
+     * the cloud before the repositories - would put `CloudContainer` anywhere
+     * but last in `AppContainer`, and that position is the enforcement of cloud
+     * being strictly additive (handoff7 section 2).
+     */
+    val syncHooks: SyncHooks = CloudSyncHooks(
+        outbox = outbox,
+        syncEngine = syncEngine,
+        session = { client.session.value }
     )
 
     init {
+        // A row arriving on the Realtime socket takes the same path as a row
+        // arriving in a pull. Two paths would mean two merge rules.
+        circle.onRealtimeRow = { table, rows -> pullSource.onRowsPulled(table, rows) }
+
         scope.launch {
             outbox.load()
             // Only when there is somewhere to sync to. Registering a network
             // callback and a lifecycle observer on a build with no project
             // would cost battery to accomplish nothing.
-            if (isConfigured) syncEngine.start()
+            if (isConfigured) {
+                syncEngine.start()
+                circle.start(syncEngine)
+            }
         }
     }
 }

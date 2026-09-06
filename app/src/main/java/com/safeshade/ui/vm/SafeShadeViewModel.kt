@@ -413,9 +413,12 @@ class SafeShadeViewModel(
             return@launchIo
         }
 
-        container.safetyRepository.record(
-            FallAlertEvent(kind = TripKind.PHONE_SOS, note = "Raised from the phone")
-        )
+        // Recorded now, queued for the cloud later. `sync = false` is the whole
+        // of it: enqueueing is a DataStore write, and nothing between the tap
+        // and the outcome the person is staring at may be a write this phone
+        // could have deferred. handoff7 section 6 item 5.
+        val alert = FallAlertEvent(kind = TripKind.PHONE_SOS, note = "Raised from the phone")
+        container.safetyRepository.record(alert, sync = false)
 
         val fix = LastKnownLocation.state.value?.takeIf { it.isValid }
             ?: _location.value.takeIf { it.isValid }
@@ -441,6 +444,9 @@ class SafeShadeViewModel(
             onDevice = onDevice,
             hasLocation = fix != null
         )
+
+        // After the outcome, never before.
+        container.safetyRepository.syncAlert(alert.id)
     }
 
     // ============================================

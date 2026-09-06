@@ -2,8 +2,6 @@ package com.safeshade.cloud.sync
 
 import android.content.Context
 import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -60,19 +58,6 @@ import java.lang.reflect.Type
  * [OutboxPolicy], which has no Android in it and is unit-tested. This class is
  * the shell: read, apply a pure function, write.
  */
-private val Context.cloudDataStore by preferencesDataStore(name = "safeshade_cloud")
-
-private object OutboxKeys {
-    /**
-     * Versioned in the key name, so a breaking change to the entry shape is a
-     * new key rather than a silent misparse of the old one. Same convention as
-     * `PrefsKeys`.
-     */
-    val OUTBOX = stringPreferencesKey("outbox_json_v1")
-
-    /** `{"zones":"2026-09-07T10:00:00Z", ...}`. See [Outbox.lastPulledAt]. */
-    val PULL_CURSORS = stringPreferencesKey("pull_cursors_json_v1")
-}
 
 /** The on-disk shape of [OutboxEntry]. Every field nullable. See the file KDoc. */
 private data class OutboxEntryDto(
@@ -164,7 +149,7 @@ class Outbox(
     }
 
     private suspend fun readEntries(): List<OutboxEntry> {
-        val json = appContext.cloudDataStore.data.map { it[OutboxKeys.OUTBOX] }.first()
+        val json = appContext.cloudDataStore.data.map { it[CloudKeys.OUTBOX] }.first()
         if (json.isNullOrBlank()) return emptyList()
         return runCatching {
             gson.fromJson<List<OutboxEntryDto?>>(json, listType)
@@ -179,7 +164,7 @@ class Outbox(
 
     private suspend fun writeEntries(list: List<OutboxEntry>) {
         appContext.cloudDataStore.edit { prefs ->
-            prefs[OutboxKeys.OUTBOX] = gson.toJson(list.map { it.toDto() })
+            prefs[CloudKeys.OUTBOX] = gson.toJson(list.map { it.toDto() })
         }
         _entries.value = list
     }
@@ -268,13 +253,28 @@ class Outbox(
         lock.withLock {
             val updated = readCursors() + (table to isoTimestamp)
             appContext.cloudDataStore.edit { prefs ->
-                prefs[OutboxKeys.PULL_CURSORS] = gson.toJson(updated)
+                prefs[CloudKeys.PULL_CURSORS] = gson.toJson(updated)
             }
         }
     }
 
+    /**
+     * Forgets every pull cursor, so the next pull asks for the whole table.
+     *
+     * Called when the circle changes - on sign-out, and after accepting an
+     * invite into somebody else's circle. Without it, a phone that joins a
+     * circle whose rows are older than its own cursor would ask for "changed
+     * since yesterday" against a circle it has never read, and would never see
+     * anything written before it joined.
+     */
+    suspend fun clearPullCursors() {
+        lock.withLock {
+            appContext.cloudDataStore.edit { prefs -> prefs.remove(CloudKeys.PULL_CURSORS) }
+        }
+    }
+
     private suspend fun readCursors(): Map<String, String> {
-        val json = appContext.cloudDataStore.data.map { it[OutboxKeys.PULL_CURSORS] }.first()
+        val json = appContext.cloudDataStore.data.map { it[CloudKeys.PULL_CURSORS] }.first()
         if (json.isNullOrBlank()) return emptyMap()
         val type: Type = object : TypeToken<Map<String, String>>() {}.type
         return runCatching {

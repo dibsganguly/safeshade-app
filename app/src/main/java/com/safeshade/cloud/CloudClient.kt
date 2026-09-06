@@ -153,6 +153,35 @@ interface CloudClient {
     ): CloudResult<List<JsonObject>>
 
     /**
+     * Reads rows of [table] belonging to one **user** rather than to a circle.
+     *
+     * `profiles` and `subscriptions` are the two tables that need it, and they
+     * need it for opposite reasons: a profile is an account, and a subscription
+     * deliberately follows the person who paid rather than the circle they
+     * happen to be in, so that a guardian who leaves one household and joins
+     * another keeps the tier they are paying for.
+     *
+     * Neither table has a `circle_id` column, so [select] against them is not
+     * an empty answer - it is a 400 from PostgREST naming a column that does
+     * not exist. This is a separate method rather than a nullable `circleId`
+     * parameter on [select] for exactly that reason: the two filters are not
+     * interchangeable and a caller must not be able to pick the wrong one by
+     * passing null.
+     *
+     * Row-level security still decides what comes back. On both of these tables
+     * the policy is `auth.uid() = <the user column>`, so this filter narrows a
+     * result that was already narrowed; it does not widen anything.
+     *
+     * @param userId the column value to filter on: `id` for `profiles`, which
+     *   is the account's own primary key, and `user_id` for everything else.
+     */
+    suspend fun selectOwn(
+        table: String,
+        userId: String,
+        since: Instant? = null
+    ): CloudResult<List<JsonObject>>
+
+    /**
      * Calls an edge function and returns its JSON body.
      *
      * A non-2xx response is a [CloudResult.Failed], not an [CloudResult.Ok]

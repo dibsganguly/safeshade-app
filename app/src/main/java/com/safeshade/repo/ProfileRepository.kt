@@ -1,5 +1,6 @@
 package com.safeshade.repo
 
+import com.safeshade.cloud.dto.CloudTables
 import com.safeshade.data.DarkModePreference
 import com.safeshade.data.DeviceSettings
 import com.safeshade.data.MedicalId
@@ -76,7 +77,9 @@ data class AppearanceSnapshot(
 class ProfileRepository(
     private val prefs: SafeShadePreferences,
     private val link: DeviceLink,
-    private val scope: CoroutineScope
+    private val scope: CoroutineScope,
+    /** See [SyncHooks]. Nothing is queued for the cloud without one. */
+    private val hooks: SyncHooks = SyncHooks.None
 ) {
 
     /** Null until the first DataStore read completes. */
@@ -167,6 +170,10 @@ class ProfileRepository(
     suspend fun setMedicalId(medicalId: MedicalId) {
         mutate { it.copy(medicalId = medicalId) }
         pushHealthIfReady()
+        // The legacy profile fields are mirrored onto wearer #1 by
+        // WearerStore.writeProfile, so this write really is that person's
+        // medical record and is queued as one.
+        primaryWearerId()?.let { hooks.onUpsert(CloudTables.MEDICAL_IDS, SyncKeys.medical(it)) }
     }
 
     /**
@@ -201,6 +208,8 @@ class ProfileRepository(
 
     suspend fun setDeviceSettings(settings: DeviceSettings) {
         mutate { it.copy(deviceSettings = settings) }
+        // wearerName, wearerAvatarId and iconType are mirrored onto wearer #1.
+        primaryWearerId()?.let { hooks.onUpsert(CloudTables.WEARERS, it) }
     }
 
     /**
@@ -225,16 +234,22 @@ class ProfileRepository(
      * self, and stay on the list.
      */
     suspend fun setRole(role: UserRole) {
-        profileLock.withLock {
+        val forked = profileLock.withLock {
             val updated = prefs.profile.first().copy(role = role)
             val forked = applyRoleFork(prefs.wearers.first(), role, updated.ownerName)
             prefs.setProfileAndWearers(updated, forked)
+            forked
         }
+        hooks.onUpsert(CloudTables.PROFILES, SyncKeys.PROFILE_SELF)
+        // The fork changes which wearer is `isSelf`, and that is the column
+        // linking a wearer row to an account.
+        forked.forEach { hooks.onUpsert(CloudTables.WEARERS, it.id) }
     }
 
     /** The account holder's own name and face. */
     suspend fun setOwner(name: String, avatarId: String) {
         mutate { it.copy(ownerName = name.trim(), ownerAvatarId = avatarId) }
+        hooks.onUpsert(CloudTables.PROFILES, SyncKeys.PROFILE_SELF)
     }
 
     // ============================================
@@ -293,7 +308,7 @@ class ProfileRepository(
 
             else -> WearerResult.Ok(current + wearer.copy(isSelf = false))
         }
-    }
+    }.also { if (it is WearerResult.Ok) syncWearer(wearer) }
 
     /**
      * Edits one wearer in place. An unknown id is refused, never silently added.
@@ -320,7 +335,10 @@ class ProfileRepository(
                 )
             }
         }
-        if (result is WearerResult.Ok) pushHealthIfReady()
+        if (result is WearerResult.Ok) {
+            pushHealthIfReady()
+            syncWearer(wearer)
+        }
         return result
     }
 
@@ -346,6 +364,11 @@ class ProfileRepository(
             )
 
             else -> WearerResult.Ok(current.filterNot { it.id == id })
+        }
+    }.also {
+        if (it is WearerResult.Ok) {
+            hooks.onDelete(CloudTables.WEARERS, id)
+            hooks.onDelete(CloudTables.MEDICAL_IDS, SyncKeys.medical(id))
         }
     }
 
@@ -399,7 +422,13 @@ class ProfileRepository(
         // so the card is re-sent immediately. Saying "this is Ma's cane" and
         // leaving Baba's blood type on its screen until the next reconnect is
         // the failure this whole binding exists to prevent.
-        if (result is WearerResult.Ok) pushHealthIfReady()
+        if (result is WearerResult.Ok) {
+            pushHealthIfReady()
+            // The binding lives on the device row as `wearer_id`, so it is the
+            // device that changed, not only the wearer.
+            hooks.onUpsert(CloudTables.DEVICES, SyncKeys.device(address))
+            hooks.onUpsert(CloudTables.WEARERS, wearerId)
+        }
         return result
     }
 
@@ -414,7 +443,7 @@ class ProfileRepository(
                 )
             }
         )
-    }
+    }.also { if (it is WearerResult.Ok) hooks.onUpsert(CloudTables.DEVICES, SyncKeys.device(address)) }
 
     /**
      * Records the active mode locally.
@@ -449,7 +478,10 @@ class ProfileRepository(
     }
 
     fun upsertPairedDevice(device: PairedDevice) {
-        scope.launch { prefs.upsertPairedDevice(device) }
+        scope.launch {
+            prefs.upsertPairedDevice(device)
+            hooks.onUpsert(CloudTables.DEVICES, SyncKeys.device(device.address))
+        }
     }
 
     init {
@@ -489,6 +521,68 @@ class ProfileRepository(
     }
 
     fun removePairedDevice(address: String) {
-        scope.launch { prefs.removePairedDevice(address) }
+        scope.launch {
+            prefs.removePairedDevice(address)
+            hooks.onDelete(CloudTables.DEVICES, SyncKeys.device(address))
+        }
     }
+
+    // ============================================
+    // WRITES FROM THE CLOUD
+    // ============================================
+
+    /**
+     * The wearer list as another phone in the circle has it.
+     *
+     * Takes [profileLock] like every local write, and deliberately does **not**
+     * call [hooks]: a pulled row that queued its own push would be echoed back
+     * to the server, whose updated_at trigger would make it look like a change,
+     * which would pull it again. That loop has no exit.
+     */
+    suspend fun applyRemoteWearers(transform: (List<Wearer>) -> List<Wearer>) {
+        profileLock.withLock {
+            val current = prefs.wearers.first()
+            val updated = transform(current)
+            if (updated != current) prefs.setWearers(updated)
+        }
+    }
+
+    /** The account holder's own profile, as the server has it. Nothing queued back. */
+    suspend fun applyRemoteProfile(transform: (ProfileSnapshot) -> ProfileSnapshot) {
+        profileLock.withLock {
+            val current = prefs.profile.first()
+            val updated = transform(current)
+            if (updated != current) prefs.setProfile(updated)
+        }
+    }
+
+    /**
+     * Everything one wearer owns: the person, their medical record, and the
+     * contacts that are theirs rather than the circle's.
+     *
+     * Three tables for one save, because that is what the schema is. Doing it
+     * here rather than at each call site is what stops a new editor screen from
+     * remembering the wearer and forgetting the medical ID.
+     */
+    private suspend fun syncWearer(wearer: Wearer) {
+        hooks.onUpsert(CloudTables.WEARERS, wearer.id)
+        hooks.onUpsert(CloudTables.MEDICAL_IDS, SyncKeys.medical(wearer.id))
+        wearer.contacts.forEach {
+            hooks.onUpsert(
+                CloudTables.EMERGENCY_CONTACTS,
+                SyncKeys.contact(wearer.id, it.phone)
+            )
+        }
+    }
+
+    /**
+     * Wearer #1, whom the legacy profile fields are mirrored onto.
+     *
+     * `WearerStore.writeProfile` keeps `deviceSettings.wearerName`, the avatar
+     * and the medical ID in step with the first wearer, so a write through the
+     * old profile-shaped API is a write to that person and has to be queued as
+     * one. Null only when there is no wearer at all, which the store makes
+     * nearly impossible - it synthesises one from the profile.
+     */
+    private suspend fun primaryWearerId(): String? = prefs.wearers.first().firstOrNull()?.id
 }
