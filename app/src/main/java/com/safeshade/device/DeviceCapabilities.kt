@@ -22,7 +22,27 @@ enum class SyncCapability {
     SYNCED,
 
     /** Exists only in the wearable's own menu. No BLE path in this firmware. */
-    DEVICE_ONLY
+    DEVICE_ONLY,
+
+    /**
+     * The wire format is designed and unit-tested on this side; the firmware
+     * does not answer it yet.
+     *
+     * A third bucket rather than a boolean on [DeviceSetting], because the
+     * difference matters at the call site: a [DEVICE_ONLY] row can be changed
+     * by walking to the wearable and pressing buttons, and an
+     * [AWAITING_FIRMWARE] row cannot be changed by anybody at all. Screens
+     * render no control for these — the app must never draw an affordance whose
+     * write has nowhere to go.
+     *
+     * The reason this ledger has to be static is itself a firmware fact: every
+     * `EXT` write is acknowledged, *including unknown tags*, and the firmware
+     * version is not exposed over BLE. So there is no probe that could
+     * distinguish a tag the device honours from one it silently drops, and an
+     * app that tried to discover this at runtime would conclude that every
+     * feature works.
+     */
+    AWAITING_FIRMWARE
 }
 
 data class DeviceSetting(
@@ -78,6 +98,66 @@ object DeviceCapabilities {
         DeviceSetting(
             "dndEnabled", "Do Not Disturb", SyncCapability.DEVICE_ONLY, "Settings › Notifications",
             wire = "the on/off toggle is device-only; only its hours ride on EXT QUIET"
+        )
+    )
+
+    /**
+     * What the app has designed and the wearable does not yet answer.
+     *
+     * Each entry names the wire form this side will speak the moment the other
+     * side can hear it, so the format is settled and testable now rather than
+     * invented under pressure during a firmware pass. [DeviceSetting.wire] is
+     * documentation, not dispatch: nothing in the app sends any of these.
+     *
+     * Not part of [all], and that omission is deliberate — any screen that
+     * iterates `all` would otherwise grow a control for a tag the firmware
+     * ignores, which is the exact failure the whole file exists to prevent.
+     */
+    val awaitingFirmware = listOf(
+        DeviceSetting(
+            "sosRelay", "Relay an SOS raised on the phone",
+            SyncCapability.AWAITING_FIRMWARE,
+            wire = "EXT SOSRELAY:<lat>,<lon>,<text> with ACK:SOSRELAY"
+        ),
+        DeviceSetting(
+            "emergencyServices", "Nearest emergency services, cached on the device",
+            SyncCapability.AWAITING_FIRMWARE,
+            wire = "EXT ERS:<name>,<number>,<distanceMetres> per service"
+        ),
+        DeviceSetting(
+            "firmwareVersion", "Firmware version over the link",
+            SyncCapability.AWAITING_FIRMWARE,
+            wire = "EXT VER query, answered ACK:VER:<semver>, and a negative ack for unknown tags"
+        ),
+        DeviceSetting(
+            "voiceChunks", "Push-to-talk to and from the wearable",
+            SyncCapability.AWAITING_FIRMWARE,
+            wire = "VOICE:<seq>/<total>,<base64 ADPCM 8 kHz> chunks with per-chunk ack"
+        ),
+        DeviceSetting(
+            "otaChunks", "Firmware update over the link",
+            SyncCapability.AWAITING_FIRMWARE,
+            wire = "OTA:<seq>/<total>,<crc32>,<base64> chunks; no OTA partition exists yet"
+        ),
+        DeviceSetting(
+            "vitals", "Heart rate, blood oxygen and skin temperature",
+            SyncCapability.AWAITING_FIRMWARE,
+            wire = "TELEMETRY fields 7-9; no sensor is fitted"
+        ),
+        DeviceSetting(
+            "mesh", "Finding another SafeShade nearby",
+            SyncCapability.AWAITING_FIRMWARE,
+            wire = "MESH advertisement payload: <deviceId>,<role>,<batteryPercent>,<lastFixAge>"
+        ),
+        DeviceSetting(
+            "batteryReading", "A measured battery level",
+            SyncCapability.AWAITING_FIRMWARE,
+            wire = "TELEMETRY field 6; the firmware reports a counted-down number, not a reading"
+        ),
+        DeviceSetting(
+            "lowBatteryAlert", "Telling a guardian the battery is low",
+            SyncCapability.AWAITING_FIRMWARE,
+            wire = "ALERT_CHAR notify LOW_BATTERY:<percent>; the firmware never notifies it"
         )
     )
 

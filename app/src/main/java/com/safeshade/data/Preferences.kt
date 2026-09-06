@@ -40,6 +40,7 @@ package com.safeshade.data
 
 import android.content.Context
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
@@ -59,6 +60,7 @@ import com.safeshade.data.local.QuickMessageDto
 import com.safeshade.data.local.ReminderDto
 import com.safeshade.data.local.SafetySettingsDto
 import com.safeshade.data.local.TelemetryPointDto
+import com.safeshade.data.local.WearerDto
 import com.safeshade.data.local.toDto
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -69,7 +71,13 @@ private val Context.dataStore by preferencesDataStore(name = "safeshade_prefs")
 
 enum class DarkModePreference { SYSTEM, LIGHT, DARK }
 
-private object PrefsKeys {
+/**
+ * Internal rather than private so the top-level migration steps below — and
+ * the unit tests that drive them with `mutablePreferencesOf()` — can name the
+ * same keys the class writes. A migration tested against a second, hand-copied
+ * list of key names is a migration that passes while the app breaks.
+ */
+internal object PrefsKeys {
     // --- v1 keys. Format frozen; still read and still written. ---
     val DARK_MODE = stringPreferencesKey("dark_mode")
     val ONBOARDING_SEEN = booleanPreferencesKey("onboarding_seen")
@@ -91,6 +99,10 @@ private object PrefsKeys {
     val LAST_DEVICE_LOCATION = stringPreferencesKey("last_device_location_json_v1")
     val CHECKINS = stringPreferencesKey("checkins_json_v1")
     val SCHEMA_VERSION = intPreferencesKey("prefs_schema_version")
+
+    // --- v3 keys. The multi-wearer model. ---
+    val WEARERS = stringPreferencesKey("wearers_json_v1")
+    val SELECTED_WEARER = stringPreferencesKey("selected_wearer_id")
 }
 
 /**
@@ -109,8 +121,18 @@ object PrefsLimits {
     const val TELEMETRY_HISTORY = 48
     const val CHECKINS = 20
 
+    /**
+     * How many people one phone may look after.
+     *
+     * Not a licensing limit — it is the point past which a `wearers_json_v1`
+     * blob starts to dominate a file that DataStore rewrites in full on every
+     * unrelated write. A guardian with more than a dozen wearers is running an
+     * institution, and that is a different product.
+     */
+    const val WEARERS = 12
+
     /** Bumped whenever [SafeShadePreferences.migrateIfNeeded] gains a step. */
-    const val CURRENT_SCHEMA_VERSION = 2
+    const val CURRENT_SCHEMA_VERSION = 3
 }
 
 class SafeShadePreferences(private val context: Context) {
@@ -253,11 +275,8 @@ class SafeShadePreferences(private val context: Context) {
 
     suspend fun setProfile(snapshot: ProfileSnapshot) {
         context.dataStore.edit { prefs ->
-            prefs[PrefsKeys.PROFILE] = gson.toJson(snapshot.toDto())
-            // Mirrored into the v1 key so a downgraded build still opens in the
-            // right mode. Cheap, and the alternative is an install that appears
-            // to have reset itself.
-            prefs[PrefsKeys.ACTIVE_MODE] = snapshot.activeMode.wireName
+            writeProfile(prefs, gson, snapshot)
+            mirrorProfileIntoPrimaryWearer(prefs, gson, snapshot)
         }
     }
 
@@ -388,6 +407,78 @@ class SafeShadePreferences(private val context: Context) {
         }
     }
 
+    // ============================================
+    // v3 KEYS - the people this phone looks after
+    // ============================================
+
+    /**
+     * Everyone this phone looks after. **Never empty.**
+     *
+     * When `wearers_json_v1` is absent — every install that predates this
+     * schema, and every fresh one until something writes a wearer — this
+     * synthesises wearer #1 from the profile and the safety settings held in
+     * the *same* [Preferences] snapshot. Doing it here rather than only in the
+     * migration is what makes the emptiness impossible to observe: a screen
+     * that renders between process start and the migration's `edit` landing
+     * still sees exactly one person, with the same id it will have afterwards,
+     * rather than a blank Circle that fills in a frame later.
+     *
+     * The synthesis reads one snapshot rather than combining three flows, so
+     * there is no window in which the profile has been read and the safety
+     * settings have not.
+     */
+    val wearers: Flow<List<Wearer>> = read { prefs -> decodeWearers(prefs, gson) }
+
+    /**
+     * Which wearer the UI is currently showing, or null for "the first one".
+     *
+     * Null rather than an eagerly-written id: writing a selection nobody made
+     * would mean a guardian's first launch had silently picked a favourite,
+     * and the fallback in [resolveWearerForDevice] is the first entry anyway.
+     */
+    val selectedWearerId: Flow<String?> = read { prefs ->
+        prefs[PrefsKeys.SELECTED_WEARER]?.takeIf { it.isNotBlank() }
+    }
+
+    /**
+     * Replaces the wearer list, mirroring wearer #1 back into the legacy
+     * profile fields in the same edit.
+     *
+     * The mirror is the reason roughly twenty screens that read
+     * `DeviceSettings.wearerName` keep working untouched. Both directions are
+     * implemented ([setProfile] mirrors the other way) so neither key can go
+     * stale, and both happen inside one `edit` block on the one
+     * [MutablePreferences] the platform hands us — two `edit` calls would be
+     * two file rewrites with a window between them in which the two keys
+     * disagree.
+     */
+    suspend fun setWearers(wearers: List<Wearer>) {
+        context.dataStore.edit { prefs -> writeWearers(prefs, gson, wearers) }
+    }
+
+    /**
+     * Writes the profile and the wearer list together, in one edit.
+     *
+     * Needed by any change that touches both — the role fork above all, which
+     * moves `role` in the profile and `isSelf` in the list and would otherwise
+     * be two edits with a visibly inconsistent state between them. The wearer
+     * list wins on the fields the two share, because it is the newer and more
+     * specific record.
+     */
+    suspend fun setProfileAndWearers(snapshot: ProfileSnapshot, wearers: List<Wearer>) {
+        context.dataStore.edit { prefs ->
+            writeProfile(prefs, gson, snapshot)
+            writeWearers(prefs, gson, wearers)
+        }
+    }
+
+    suspend fun setSelectedWearerId(id: String?) {
+        context.dataStore.edit { prefs ->
+            if (id.isNullOrBlank()) prefs.remove(PrefsKeys.SELECTED_WEARER)
+            else prefs[PrefsKeys.SELECTED_WEARER] = id
+        }
+    }
+
     val schemaVersion: Flow<Int> = read { it[PrefsKeys.SCHEMA_VERSION] ?: 0 }
 
     // ============================================
@@ -402,26 +493,28 @@ class SafeShadePreferences(private val context: Context) {
      * `dataStore.data` re-triggers that very read, and the resulting write ->
      * emit -> write cycle spins until something crashes.
      *
-     * The only real step is seeding [ProfileDto] from the v1
-     * `active_persona_mode` string. That string is untrusted: it may name a
-     * mode a later build removed, so it goes through [PersonaMode.fromWire],
-     * which mirrors the firmware's own fallback to BACKPACK rather than
-     * throwing out of `valueOf`.
+     * Two steps today. v1 to v2 seeds [ProfileDto] from the v1
+     * `active_persona_mode` string; v2 to v3 writes the first [Wearer]. Both
+     * are pure functions over the [MutablePreferences] handed to the `edit`
+     * block, so a unit test drives them with `mutablePreferencesOf()` instead
+     * of an Android DataStore.
      *
      * No legacy key is deleted. The migration is a copy, not a move, so a
-     * user who downgrades finds their v1 install exactly as they left it.
+     * user who downgrades finds their v1 install exactly as they left it -
+     * and the mirror in `writeWearers` keeps the copies agreeing afterwards.
      */
     suspend fun migrateIfNeeded() {
         val current = schemaVersion.first()
         if (current >= PrefsLimits.CURRENT_SCHEMA_VERSION) return
 
         context.dataStore.edit { prefs ->
-            if (prefs[PrefsKeys.PROFILE] == null) {
-                val legacyMode = PersonaMode.fromWire(prefs[PrefsKeys.ACTIVE_MODE].orEmpty())
-                prefs[PrefsKeys.PROFILE] = gson.toJson(
-                    ProfileSnapshot(activeMode = legacyMode).toDto()
-                )
-            }
+            // Step-wise, and every step is skipped by version rather than by
+            // "does the key look empty". The previous shape set the version
+            // unconditionally at the end of a single block, which is correct
+            // for exactly one step and silently skips the second the moment a
+            // second one exists.
+            if (current < 2) migrateV1ToV2(prefs, gson)
+            if (current < 3) migrateV2ToV3(prefs, gson)
             prefs[PrefsKeys.SCHEMA_VERSION] = PrefsLimits.CURRENT_SCHEMA_VERSION
         }
     }

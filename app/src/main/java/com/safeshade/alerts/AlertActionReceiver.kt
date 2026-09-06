@@ -12,6 +12,8 @@ import com.safeshade.data.EmergencyContact
 import com.safeshade.data.FallAlertEvent
 import com.safeshade.data.SafetySettings
 import com.safeshade.data.TripOutcome
+import com.safeshade.data.contactsFor
+import com.safeshade.data.resolveWearerForDevice
 import com.safeshade.emergencyAlertText
 import com.safeshade.placeEmergencyCall
 import com.safeshade.platform.PhoneNumbers
@@ -83,6 +85,48 @@ class AlertActionReceiver : BroadcastReceiver() {
     }
 
     // ============================================
+    // Who this alert is about, and who it reaches
+    // ============================================
+
+    /**
+     * Everyone this alert should reach.
+     *
+     * The global emergency contacts, unioned with anything recorded against the
+     * wearer this alert is about. The wearer is resolved from the **connected
+     * BLE address**, because a receiver woken by a fall is being woken by a
+     * particular wearable: in a two-wearable household the person who fell is
+     * whoever is wearing the device that reported it, not whoever's page
+     * happened to be on screen. Resolution falls back to the selected wearer
+     * and then to the first, so a single-wearer install is unaffected.
+     *
+     * Every read goes to `container.preferences`, never to a repository's
+     * `StateFlow.value` - see the class comment. In a process woken cold by
+     * this very broadcast those flows are still null.
+     */
+    private suspend fun contactsForThisAlert(
+        app: SafeShadeApplication,
+        settings: SafetySettings
+    ): List<EmergencyContact> {
+        val prefs = app.container.preferences
+        val wearer = resolveWearerForDevice(
+            wearers = prefs.wearers.first(),
+            address = app.container.link.deviceAddress.value,
+            selectedWearerId = prefs.selectedWearerId.first()
+        )
+        return settings.contactsFor(wearer)
+    }
+
+    /**
+     * The one number to dial from a merged list.
+     *
+     * `SafetySettings.primaryContact` cannot be used once per-wearer contacts
+     * exist: it reads the global list only, so a wearer whose own contact is
+     * flagged primary would still have the global list's first entry called.
+     */
+    private fun primaryOf(contacts: List<EmergencyContact>): EmergencyContact? =
+        contacts.firstOrNull { it.isPrimary } ?: contacts.firstOrNull()
+
+    // ============================================
     // Actions
     // ============================================
 
@@ -101,7 +145,7 @@ class AlertActionReceiver : BroadcastReceiver() {
         dismissNotification(app)
 
         val settings = app.container.preferences.safetySettings.first()
-        val contact = settings.primaryContact
+        val contact = primaryOf(contactsForThisAlert(app, settings))
 
         if (eventId != AlertNotifier.TEST_ALERT_ID) {
             app.container.safetyRepository.resolveAlert(
@@ -147,7 +191,8 @@ class AlertActionReceiver : BroadcastReceiver() {
         if (event.outcome != TripOutcome.PENDING) return
 
         val settings = app.container.preferences.safetySettings.first()
-        val contact = settings.primaryContact
+        val contacts = contactsForThisAlert(app, settings)
+        val contact = primaryOf(contacts)
 
         if (!settings.autoCallEmergency || contact == null) {
             // Auto-call off, or nobody to call. Keep the alert on screen —
@@ -166,14 +211,22 @@ class AlertActionReceiver : BroadcastReceiver() {
 
         // SMS before the call: dialling hands the foreground to the dialer, and
         // an SMS is the message that survives a call going unanswered.
-        if (settings.smsFallbackEnabled) notifyContactsBySms(app, settings, event)
+        if (settings.smsFallbackEnabled) notifyContactsBySms(app, contacts, event)
 
         placeEmergencyCall(app, contact)
     }
 
+    /**
+     * Texts everyone on the merged list.
+     *
+     * Takes the already-merged contacts rather than the settings blob so that
+     * the people texted are exactly the people the dial decision was made from
+     * - resolving the wearer twice would let the two disagree if the link
+     * dropped between them.
+     */
     private suspend fun notifyContactsBySms(
         app: SafeShadeApplication,
-        settings: SafetySettings,
+        contacts: List<EmergencyContact>,
         event: FallAlertEvent
     ) {
         val wearer = app.container.preferences.profile.first().deviceSettings.wearerName
@@ -184,7 +237,7 @@ class AlertActionReceiver : BroadcastReceiver() {
             lat = fix?.lat,
             lon = fix?.lon
         )
-        settings.emergencyContacts.forEach { contact: EmergencyContact ->
+        contacts.forEach { contact: EmergencyContact ->
             val result = sendEmergencySms(app, contact, body)
             if (!result.succeeded) Log.w(TAG, "SMS to ${contact.name} failed: $result")
         }

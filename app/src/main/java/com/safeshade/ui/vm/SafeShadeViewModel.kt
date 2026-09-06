@@ -29,6 +29,9 @@ import com.safeshade.data.TripKind
 import com.safeshade.data.TripOutcome
 import com.safeshade.data.UserRole
 import com.safeshade.data.WeatherUiState
+import com.safeshade.data.Wearer
+import com.safeshade.data.WearerResult
+import com.safeshade.data.contactsFor
 import com.safeshade.device.ConnectionState
 import com.safeshade.device.DeviceProtocol
 import com.safeshade.di.AppContainer
@@ -343,10 +346,26 @@ class SafeShadeViewModel(
 
     fun clearSosOutcome() { _sosOutcome.value = null }
 
+    /**
+     * Everyone a phone SOS would reach right now.
+     *
+     * The global emergency contacts plus anything extra recorded against the
+     * wearer whose page is on screen, unioned on the normalised number so a
+     * contact saved in both places is texted once. The selected wearer rather
+     * than the connected one, because a phone SOS is raised *about the person
+     * the guardian is looking at* - the wearable may be in a drawer, or may be
+     * a second person's.
+     *
+     * One function feeding all three of the synchronous SOS checks, so the
+     * control can never arm against one list and send against another.
+     */
+    private fun sosContacts(ready: AppState.Ready) =
+        ready.safetySettings.contactsFor(ready.selectedWearer)
+
     /** True when the SOS control can be armed. Checked at press, never at completion. */
     fun canFireSos(): Boolean {
         val ready = appState.value.readyOrNull ?: return false
-        return ready.safetySettings.emergencyContacts.isNotEmpty() &&
+        return sosContacts(ready).isNotEmpty() &&
             hasSmsPermission() &&
             ready.activeAlert == null
     }
@@ -356,7 +375,7 @@ class SafeShadeViewModel(
         val ready = appState.value.readyOrNull ?: return SosBlocker.NOT_READY
         return when {
             ready.activeAlert != null -> SosBlocker.ALERT_ALREADY_LIVE
-            ready.safetySettings.emergencyContacts.isEmpty() -> SosBlocker.NO_CONTACT
+            sosContacts(ready).isEmpty() -> SosBlocker.NO_CONTACT
             !hasSmsPermission() -> SosBlocker.NO_SMS_PERMISSION
             else -> null
         }
@@ -388,7 +407,7 @@ class SafeShadeViewModel(
      */
     fun firePhoneSos() = launchIo {
         val ready = appState.value.readyOrNull ?: return@launchIo
-        val contacts = ready.safetySettings.emergencyContacts
+        val contacts = sosContacts(ready)
         if (contacts.isEmpty()) {
             _sosOutcome.value = SosOutcome.NoContact
             return@launchIo
@@ -401,7 +420,11 @@ class SafeShadeViewModel(
         val fix = LastKnownLocation.state.value?.takeIf { it.isValid }
             ?: _location.value.takeIf { it.isValid }
         val body = emergencyAlertText(
-            wearerName = ready.deviceSettings.wearerName,
+            // The selected wearer's name, falling back to the mirrored legacy
+            // field so a store written before wearers existed still names
+            // somebody rather than saying "the wearer".
+            wearerName = ready.selectedWearer?.name?.takeIf { it.isNotBlank() }
+                ?: ready.deviceSettings.wearerName,
             what = "SOS raised from the phone",
             lat = fix?.lat,
             lon = fix?.lon
@@ -500,6 +523,51 @@ class SafeShadeViewModel(
     fun setOwner(name: String, avatarId: String) = launchIo {
         container.profileRepository.setOwner(name, avatarId)
     }
+
+    // ============================================
+    // The people this phone looks after
+    // ============================================
+
+    /*
+     * Every one of these returns a Deferred<WearerResult> rather than firing
+     * and forgetting. A refusal - the last person on the list, a companion
+     * phone trying to add a second wearer - carries the sentence the UI has to
+     * show, and a caller that could not see it would draw a tick for a change
+     * that never happened. That is the outcome rule this app is built around.
+     *
+     * The coroutine belongs to the view model, not to the caller, so a screen
+     * navigated away from mid-write still completes the write; awaiting the
+     * Deferred can be cancelled freely.
+     */
+
+    fun addWearer(wearer: Wearer): Deferred<WearerResult> =
+        viewModelScope.async { container.profileRepository.addWearer(wearer) }
+
+    fun updateWearer(wearer: Wearer): Deferred<WearerResult> =
+        viewModelScope.async { container.profileRepository.updateWearer(wearer) }
+
+    fun removeWearer(id: String): Deferred<WearerResult> =
+        viewModelScope.async { container.profileRepository.removeWearer(id) }
+
+    fun selectWearer(id: String): Deferred<WearerResult> =
+        viewModelScope.async { container.profileRepository.selectWearer(id) }
+
+    /**
+     * Binds a wearable to a person by its BLE address.
+     *
+     * The address, never `DeviceSettings.id`: that id is a UUID this app minted
+     * for itself and says nothing about the hardware on the other end of the
+     * link. Defaults to the address currently connected, which is what a
+     * "this device is Baba's" control on a live link means.
+     */
+    fun bindDeviceToWearer(
+        wearerId: String,
+        address: String = connectedAddress.value
+    ): Deferred<WearerResult> =
+        viewModelScope.async { container.profileRepository.bindDevice(wearerId, address) }
+
+    fun unbindDeviceFromWearers(address: String): Deferred<WearerResult> =
+        viewModelScope.async { container.profileRepository.unbindDevice(address) }
 
     fun setQuietHours(startHour: Int?, endHour: Int?) =
         launchIo { container.deviceRepository.setQuietHours(startHour, endHour) }

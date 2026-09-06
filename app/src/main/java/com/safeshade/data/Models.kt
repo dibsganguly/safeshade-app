@@ -130,6 +130,59 @@ data class PairedDevice(
 )
 
 // ============================================
+// WEARERS - the people this phone looks after
+// ============================================
+
+/**
+ * One person who is looked after, with everything that belongs to *them*
+ * rather than to the phone.
+ *
+ * A GUARDIAN phone may hold any number of these; a COMPANION phone holds
+ * exactly one, marked [isSelf], because the person holding the phone and the
+ * person wearing the device are the same. That asymmetry is the whole reason
+ * this type exists: until now the single wearer lived in
+ * `DeviceSettings.wearerName` inside the profile blob, which cannot express
+ * "Baba and Ma and the dog" at all.
+ *
+ * ### Binding is by BLE address, never by device id
+ *
+ * [deviceAddresses] holds the MAC-style addresses of the wearables this person
+ * wears. `DeviceSettings.id` is a UUID this app minted for itself and is the
+ * same value on every install of the same profile, so it identifies nothing
+ * about the hardware on the other end of the link. The address is what the
+ * link actually reports, and it is therefore the only key that can answer
+ * "whose device just connected" — which is a different question from "whose
+ * page is on screen".
+ *
+ * ### What is deliberately absent
+ *
+ * No PIN, no SMS allowlist, no device SIM number. `parentalPin` guards this
+ * phone, the allowlist and the SIM number belong to the hardware; none of the
+ * three is a fact about a person, and putting any of them here would put a
+ * secret into a per-person record that is meant to be shareable.
+ *
+ * [contacts] supplements the global [SafetySettings.emergencyContacts] rather
+ * than replacing it — see [contactsFor]. The global list stays the SOS source
+ * so that adding a second wearer can never quietly shorten the list of people
+ * an emergency reaches.
+ */
+data class Wearer(
+    val id: String = UUID.randomUUID().toString(),
+    val name: String = "",
+    /** An avatar id as `ui/board/Avatar.kt` defines them, or blank. */
+    val avatarId: String = "",
+    val medicalId: MedicalId = MedicalId(),
+    val activeMode: PersonaMode = PersonaMode.BACKPACK,
+    val iconType: DeviceIconType = DeviceIconType.BACKPACK,
+    /** BLE addresses of the wearables this person wears. */
+    val deviceAddresses: List<String> = emptyList(),
+    /** Extra contacts for this person only. Never the whole SOS list. */
+    val contacts: List<EmergencyContact> = emptyList(),
+    /** True when this wearer is the person holding the phone. */
+    val isSelf: Boolean = false
+)
+
+// ============================================
 // ADAPTIVE MODES - 8, matching the firmware
 // ============================================
 
@@ -272,7 +325,17 @@ data class FallAlertEvent(
     /** The guardian phone location when logged — not a device GPS fix. */
     val location: String? = null,
     /** A real telemetry snapshot at trip time, when the link was live. */
-    val note: String? = null
+    val note: String? = null,
+    /**
+     * Which [Wearer] this belongs to, or null.
+     *
+     * Null is the honest value for every record written before the app knew
+     * about more than one person, and for any record whose owner cannot be
+     * resolved. A reader must treat null as "the primary wearer" rather than
+     * as "nobody"; it is nullable rather than defaulted to a real id precisely
+     * so that a guess never masquerades as a fact.
+     */
+    val wearerId: String? = null
 )
 
 enum class TripKind(val label: String) {
@@ -320,7 +383,17 @@ data class QuickMessage(
     val replied: Boolean = false,
     val replyText: String? = null,
     /** How it travelled. Shown so a guardian knows an SMS may cost money. */
-    val channel: MessageChannel = MessageChannel.BLE
+    val channel: MessageChannel = MessageChannel.BLE,
+    /**
+     * Which [Wearer] this belongs to, or null.
+     *
+     * Null is the honest value for every record written before the app knew
+     * about more than one person, and for any record whose owner cannot be
+     * resolved. A reader must treat null as "the primary wearer" rather than
+     * as "nobody"; it is nullable rather than defaulted to a real id precisely
+     * so that a guess never masquerades as a fact.
+     */
+    val wearerId: String? = null
 )
 
 enum class MessageChannel { BLE, SMS }
@@ -361,7 +434,17 @@ data class GeofenceZone(
     val lon: Double,
     val radiusMeters: Float = 200f,
     val alertOnExit: Boolean = true,
-    val alertOnEnter: Boolean = false
+    val alertOnEnter: Boolean = false,
+    /**
+     * Which [Wearer] this belongs to, or null.
+     *
+     * Null is the honest value for every record written before the app knew
+     * about more than one person, and for any record whose owner cannot be
+     * resolved. A reader must treat null as "the primary wearer" rather than
+     * as "nobody"; it is nullable rather than defaulted to a real id precisely
+     * so that a guess never masquerades as a fact.
+     */
+    val wearerId: String? = null
 )
 
 // ============================================
@@ -393,7 +476,17 @@ data class Reminder(
     /** For CHECK_IN, the interval instead of a wall-clock time. */
     val intervalMinutes: Int = 0,
     val enabled: Boolean = true,
-    val label: String = ""
+    val label: String = "",
+    /**
+     * Which [Wearer] this belongs to, or null.
+     *
+     * Null is the honest value for every record written before the app knew
+     * about more than one person, and for any record whose owner cannot be
+     * resolved. A reader must treat null as "the primary wearer" rather than
+     * as "nobody"; it is nullable rather than defaulted to a real id precisely
+     * so that a guess never masquerades as a fact.
+     */
+    val wearerId: String? = null
 ) {
     val requestCode: Int get() = id.hashCode()
 }
@@ -404,7 +497,17 @@ data class CheckInRequest(
     val sentAt: Long = System.currentTimeMillis(),
     val deadlineAt: Long,
     val answeredAt: Long? = null,
-    val escalated: Boolean = false
+    val escalated: Boolean = false,
+    /**
+     * Which [Wearer] this belongs to, or null.
+     *
+     * Null is the honest value for every record written before the app knew
+     * about more than one person, and for any record whose owner cannot be
+     * resolved. A reader must treat null as "the primary wearer" rather than
+     * as "nobody"; it is nullable rather than defaulted to a real id precisely
+     * so that a guess never masquerades as a fact.
+     */
+    val wearerId: String? = null
 ) {
     val isOpen: Boolean get() = answeredAt == null && !escalated
 }
@@ -418,7 +521,17 @@ data class Journey(
     val graceSeconds: Int = 60,
     val destinationLat: Double? = null,
     val destinationLon: Double? = null,
-    val state: JourneyState = JourneyState.ACTIVE
+    val state: JourneyState = JourneyState.ACTIVE,
+    /**
+     * Which [Wearer] this belongs to, or null.
+     *
+     * Null is the honest value for every record written before the app knew
+     * about more than one person, and for any record whose owner cannot be
+     * resolved. A reader must treat null as "the primary wearer" rather than
+     * as "nobody"; it is nullable rather than defaulted to a real id precisely
+     * so that a guess never masquerades as a fact.
+     */
+    val wearerId: String? = null
 )
 
 enum class JourneyState { ACTIVE, ARRIVED, ESCALATED, CANCELLED }

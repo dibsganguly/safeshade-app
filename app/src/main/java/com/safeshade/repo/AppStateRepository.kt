@@ -14,6 +14,7 @@ import com.safeshade.data.QuickMessage
 import com.safeshade.data.SafetySettings
 import com.safeshade.data.TelemetryPoint
 import com.safeshade.data.UserRole
+import com.safeshade.data.Wearer
 import com.safeshade.data.DeviceSettings
 import com.safeshade.device.ConnectionState
 import kotlinx.coroutines.CoroutineScope
@@ -142,9 +143,14 @@ class AppStateRepository(
         identity,
         safetyBundle,
         activityBundle,
-        deviceLive
-    ) { identity, safety, activity, live ->
-        if (identity == null || safety == null || activity == null) {
+        deviceLive,
+        // A fifth flow rather than a sixth member of `identity`: the typed
+        // `combine` overloads stop at five, and pushing `identity` past that
+        // would force the `Array<Any?>` vararg and turn every null-check in the
+        // Loading gate into an unchecked cast.
+        profileRepo.wearersState
+    ) { identity, safety, activity, live, wearers ->
+        if (identity == null || safety == null || activity == null || wearers == null) {
             AppState.Loading
         } else {
             AppState.Ready(
@@ -173,7 +179,9 @@ class AppStateRepository(
                 isRinging = live.core.isRinging,
                 syncStatus = live.core.syncStatus,
                 telemetryHistory = live.history,
-                lastKnownDeviceLocation = live.lastKnownDeviceLocation
+                lastKnownDeviceLocation = live.lastKnownDeviceLocation,
+                wearers = wearers.wearers,
+                selectedWearerId = wearers.selectedId
             )
         }
     }.stateIn(scope, SharingStarted.Eagerly, AppState.Loading)
@@ -269,10 +277,34 @@ sealed interface AppState {
         val isRinging: Boolean,
         val syncStatus: SyncStatus,
         val telemetryHistory: List<TelemetryPoint>,
-        val lastKnownDeviceLocation: LocationState?
+        val lastKnownDeviceLocation: LocationState?,
+
+        // People
+        /**
+         * Everyone this phone looks after. Never empty: the preferences layer
+         * synthesises the first wearer from the legacy profile fields when no
+         * wearer has been written yet, so no screen ever has to render "nobody".
+         *
+         * Defaulted so that a preview or a test constructing a `Ready` by hand
+         * keeps compiling; the real construction above always passes a list.
+         */
+        val wearers: List<Wearer> = emptyList(),
+
+        /** Which wearer's page is on screen. Null means the first one. */
+        val selectedWearerId: String? = null
     ) : AppState {
 
         /** The only state in which a write to the wearable reaches it. */
         val canWriteToDevice: Boolean get() = connection is ConnectionState.Ready
+
+        /**
+         * The wearer the UI is on.
+         *
+         * Not the wearer whose device is connected - those are different
+         * questions, and the push paths use `resolveWearerForDevice` for the
+         * other one. Null only if the list is somehow empty.
+         */
+        val selectedWearer: Wearer?
+            get() = wearers.firstOrNull { it.id == selectedWearerId } ?: wearers.firstOrNull()
     }
 }

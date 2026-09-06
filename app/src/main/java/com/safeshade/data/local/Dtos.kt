@@ -22,6 +22,7 @@ import com.safeshade.data.TelemetryPoint
 import com.safeshade.data.TripKind
 import com.safeshade.data.TripOutcome
 import com.safeshade.data.UserRole
+import com.safeshade.data.Wearer
 import java.util.UUID
 
 /**
@@ -236,7 +237,15 @@ data class FallAlertEventDto(
     val outcome: String? = null,
     val wasEmergencyContacted: Boolean? = null,
     val location: String? = null,
-    val note: String? = null
+    val note: String? = null,
+    /**
+     * Which wearer this trip belongs to. Null on every record written before
+     * the app knew about more than one person, and read as "the primary
+     * wearer" — see `resolveWearerForDevice`. Never defaulted to a real id
+     * here: guessing an owner for a fall alert is exactly the kind of
+     * plausible fiction a guardian would later act on.
+     */
+    val wearerId: String? = null
 ) {
     fun toDomain(): FallAlertEvent = FallAlertEvent(
         id = id ?: UUID.randomUUID().toString(),
@@ -245,12 +254,13 @@ data class FallAlertEventDto(
         outcome = enumOrDefault(outcome, TripOutcome.PENDING),
         wasEmergencyContacted = wasEmergencyContacted ?: false,
         location = location,
-        note = note
+        note = note,
+        wearerId = wearerId
     )
 }
 
 fun FallAlertEvent.toDto(): FallAlertEventDto = FallAlertEventDto(
-    id, timestamp, kind.name, outcome.name, wasEmergencyContacted, location, note
+    id, timestamp, kind.name, outcome.name, wasEmergencyContacted, location, note, wearerId
 )
 
 data class CheckInRequestDto(
@@ -258,7 +268,9 @@ data class CheckInRequestDto(
     val sentAt: Long? = null,
     val deadlineAt: Long? = null,
     val answeredAt: Long? = null,
-    val escalated: Boolean? = null
+    val escalated: Boolean? = null,
+    /** Which wearer was asked. Null means the primary one. */
+    val wearerId: String? = null
 ) {
     fun toDomain(): CheckInRequest {
         val sent = sentAt ?: 0L
@@ -271,13 +283,14 @@ data class CheckInRequestDto(
             // already-escalated (therefore closed) request instead.
             deadlineAt = deadlineAt ?: sent,
             escalated = escalated ?: (deadlineAt == null),
-            answeredAt = answeredAt
+            answeredAt = answeredAt,
+            wearerId = wearerId
         )
     }
 }
 
 fun CheckInRequest.toDto(): CheckInRequestDto =
-    CheckInRequestDto(id, sentAt, deadlineAt, answeredAt, escalated)
+    CheckInRequestDto(id, sentAt, deadlineAt, answeredAt, escalated, wearerId)
 
 // ============================================
 // GEOFENCING
@@ -290,7 +303,9 @@ data class GeofenceZoneDto(
     val lon: Double? = null,
     val radiusMeters: Float? = null,
     val alertOnExit: Boolean? = null,
-    val alertOnEnter: Boolean? = null
+    val alertOnEnter: Boolean? = null,
+    /** Whose safe zone this is. Null means it applies to the primary wearer. */
+    val wearerId: String? = null
 ) {
     fun toDomain(): GeofenceZone = GeofenceZone(
         id = id ?: UUID.randomUUID().toString(),
@@ -302,12 +317,13 @@ data class GeofenceZoneDto(
         // registration batch rather than just this zone.
         radiusMeters = radiusMeters?.takeIf { it > 0f } ?: 200f,
         alertOnExit = alertOnExit ?: true,
-        alertOnEnter = alertOnEnter ?: false
+        alertOnEnter = alertOnEnter ?: false,
+        wearerId = wearerId
     )
 }
 
 fun GeofenceZone.toDto(): GeofenceZoneDto =
-    GeofenceZoneDto(id, name, lat, lon, radiusMeters, alertOnExit, alertOnEnter)
+    GeofenceZoneDto(id, name, lat, lon, radiusMeters, alertOnExit, alertOnEnter, wearerId)
 
 // ============================================
 // MESSAGING
@@ -320,7 +336,9 @@ data class QuickMessageDto(
     val timestamp: Long? = null,
     val replied: Boolean? = null,
     val replyText: String? = null,
-    val channel: String? = null
+    val channel: String? = null,
+    /** Which wearer the thread belongs to. Null means the primary one. */
+    val wearerId: String? = null
 ) {
     fun toDomain(): QuickMessage = QuickMessage(
         id = id ?: UUID.randomUUID().toString(),
@@ -329,12 +347,13 @@ data class QuickMessageDto(
         timestamp = timestamp ?: 0L,
         replied = replied ?: false,
         replyText = replyText,
-        channel = enumOrDefault(channel, MessageChannel.BLE)
+        channel = enumOrDefault(channel, MessageChannel.BLE),
+        wearerId = wearerId
     )
 }
 
 fun QuickMessage.toDto(): QuickMessageDto =
-    QuickMessageDto(id, text, fromGuardian, timestamp, replied, replyText, channel.name)
+    QuickMessageDto(id, text, fromGuardian, timestamp, replied, replyText, channel.name, wearerId)
 
 // ============================================
 // REMINDERS
@@ -347,7 +366,16 @@ data class ReminderDto(
     val minute: Int? = null,
     val intervalMinutes: Int? = null,
     val enabled: Boolean? = null,
-    val label: String? = null
+    val label: String? = null,
+    /**
+     * Whose reminder this is. Null means the primary wearer.
+     *
+     * Reminders are per-person rather than per-phone because a medication time
+     * is a fact about a body: two people in one Circle take different pills at
+     * different hours, and a single global list would fire both alarms for
+     * whoever happened to be selected.
+     */
+    val wearerId: String? = null
 ) {
     fun toDomain(): Reminder = Reminder(
         id = id ?: UUID.randomUUID().toString(),
@@ -359,12 +387,13 @@ data class ReminderDto(
         minute = (minute ?: 0).coerceIn(0, 59),
         intervalMinutes = (intervalMinutes ?: 0).coerceAtLeast(0),
         enabled = enabled ?: true,
-        label = label.orEmpty()
+        label = label.orEmpty(),
+        wearerId = wearerId
     )
 }
 
 fun Reminder.toDto(): ReminderDto =
-    ReminderDto(id, kind.name, hour, minute, intervalMinutes, enabled, label)
+    ReminderDto(id, kind.name, hour, minute, intervalMinutes, enabled, label, wearerId)
 
 // ============================================
 // JOURNEY
@@ -378,7 +407,9 @@ data class JourneyDto(
     val graceSeconds: Int? = null,
     val destinationLat: Double? = null,
     val destinationLon: Double? = null,
-    val state: String? = null
+    val state: String? = null,
+    /** Who is walking. Null means the primary wearer. */
+    val wearerId: String? = null
 ) {
     fun toDomain(): Journey {
         val started = startedAt ?: 0L
@@ -397,13 +428,15 @@ data class JourneyDto(
             state = enumOrDefault(
                 state,
                 if (etaAt == null) JourneyState.CANCELLED else JourneyState.ACTIVE
-            )
+            ),
+            wearerId = wearerId
         )
     }
 }
 
 fun Journey.toDto(): JourneyDto = JourneyDto(
-    id, label, startedAt, etaAt, graceSeconds, destinationLat, destinationLon, state.name
+    id, label, startedAt, etaAt, graceSeconds, destinationLat, destinationLon, state.name,
+    wearerId
 )
 
 // ============================================
@@ -511,4 +544,65 @@ fun ProfileSnapshot.toDto(): ProfileDto = ProfileDto(
     activeMode = activeMode.wireName,
     ownerName = ownerName,
     ownerAvatarId = ownerAvatarId
+)
+
+// ============================================
+// WEARERS
+// ============================================
+
+/**
+ * The on-disk shape of a [com.safeshade.data.Wearer].
+ *
+ * Note what is *not* here, and that the absence is enforced by this file
+ * having no field for it: no PIN, no SMS allowlist, no device SIM number.
+ * `parentalPin` is the secret that stops a child from turning off their own
+ * protection, the allowlist and the SIM number are facts about hardware, and a
+ * wearer record is the thing this app is most likely to hand to somebody else
+ * — a second guardian, a server row, an exported card. A secret that rides
+ * along inside a record designed to be shared has already leaked.
+ *
+ * [deviceAddresses] is stored as written; matching is case-insensitive at the
+ * point of use rather than by normalising here, because normalising on write
+ * would silently rewrite an address a user could otherwise recognise.
+ */
+data class WearerDto(
+    val id: String? = null,
+    val name: String? = null,
+    val avatarId: String? = null,
+    val medicalId: MedicalIdDto? = null,
+    val activeMode: String? = null,
+    val iconType: String? = null,
+    val deviceAddresses: List<String?>? = null,
+    val contacts: List<EmergencyContactDto?>? = null,
+    val isSelf: Boolean? = null
+) {
+    fun toDomain(): Wearer = Wearer(
+        // A wearer with no stored id is unaddressable: nothing could select
+        // it, bind a device to it or remove it. A fresh id is the only
+        // recoverable answer, and it is stable from the next write onwards.
+        id = id?.takeIf { it.isNotBlank() } ?: UUID.randomUUID().toString(),
+        name = name.orEmpty(),
+        avatarId = avatarId.orEmpty(),
+        medicalId = (medicalId ?: MedicalIdDto()).toDomain(),
+        // Through fromWire, not enumOrDefault: a stored mode name that a later
+        // build removed must fall back the way the firmware's own
+        // modeFromName() does.
+        activeMode = PersonaMode.fromWire(activeMode.orEmpty()),
+        iconType = enumOrDefault(iconType, DeviceIconType.BACKPACK),
+        deviceAddresses = deviceAddresses.orEmpty().filterNotNull().filter { it.isNotBlank() },
+        contacts = contacts.orEmpty().filterNotNull().map { it.toDomain() },
+        isSelf = isSelf ?: false
+    )
+}
+
+fun Wearer.toDto(): WearerDto = WearerDto(
+    id = id,
+    name = name,
+    avatarId = avatarId,
+    medicalId = medicalId.toDto(),
+    activeMode = activeMode.wireName,
+    iconType = iconType.name,
+    deviceAddresses = deviceAddresses,
+    contacts = contacts.map { it.toDto() },
+    isSelf = isSelf
 )

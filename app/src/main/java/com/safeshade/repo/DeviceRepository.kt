@@ -7,6 +7,7 @@ import com.safeshade.data.PersonaMode
 import com.safeshade.data.Reminder
 import com.safeshade.data.ReminderKind
 import com.safeshade.data.SafeShadePreferences
+import com.safeshade.data.resolveWearerForDevice
 import com.safeshade.data.TelemetryPoint
 import com.safeshade.device.ConnectionState
 import com.safeshade.device.DeviceLink
@@ -332,6 +333,29 @@ class DeviceRepository(
         val reminders = prefs.reminders.first()
 
         /*
+         * Whose medical card goes over this link.
+         *
+         * Resolved from the connected BLE address, not from the wearer whose
+         * page is on screen and not from the profile blob. In a household with
+         * two wearables the connected device is frequently not the selected
+         * person's, and pushing the profile's card on every Ready edge would
+         * put one person's blood type and allergies on another person's screen
+         * for a responder to read. Falls back to the selected wearer and then
+         * to the first, so a single-wearer install sends exactly what it
+         * always did.
+         *
+         * The adaptive mode below is deliberately still read from the profile:
+         * every path that sets a mode today writes the profile, so resolving it
+         * per wearer would push a stale mode to a second device instead of a
+         * current one.
+         */
+        val healthCard = resolveWearerForDevice(
+            wearers = prefs.wearers.first(),
+            address = link.deviceAddress.value,
+            selectedWearerId = prefs.selectedWearerId.first()
+        )?.medicalId ?: profile.medicalId
+
+        /*
          * "No stored value" means SKIP the stage, never send the clearing
          * payload.
          *
@@ -355,7 +379,7 @@ class DeviceRepository(
         val checkIn = reminders.firstOrNull { it.kind == ReminderKind.CHECK_IN }
 
         val stages: List<Pair<String, (() -> Unit)?>> = listOf(
-            TAG_HEALTH to { link.writeHealth(DeviceProtocol.health(profile.medicalId, currentMtu())) },
+            TAG_HEALTH to { link.writeHealth(DeviceProtocol.health(healthCard, currentMtu())) },
             TAG_SETTINGS to { link.writeSettings(DeviceProtocol.settings(safety)) },
             TAG_SMS_ALLOW to { link.writeExt(TAG_SMS_ALLOW, DeviceProtocol.smsAllowlist(allowlist)) },
             TAG_MODE to { link.writeExt(TAG_MODE, DeviceProtocol.mode(profile.activeMode)) },
