@@ -67,7 +67,18 @@ data class ProfileUiState(
     /** How many reliability checks are failing; every one is a way for a fall alert to silently not arrive. */
     val reliabilityIssueCount: Int = 0,
     val versionName: String = "",
-    val showDeveloperOptions: Boolean = BuildConfig.DEBUG
+    val showDeveloperOptions: Boolean = BuildConfig.DEBUG,
+    /** The account way: lamp, word and line come from the cloud session, never from a guess. */
+    val account: AccountWay = AccountWay()
+)
+
+/** How the Profile page reports SafeShade Cloud in one row. */
+data class AccountWay(
+    val state: LampState = LampState.OFF,
+    val label: String = "Off",
+    val detail: String = "Saved on this phone only",
+    /** False when this build has no project; the row then draws with no chevron and no tap. */
+    val tappable: Boolean = false
 )
 
 /**
@@ -142,6 +153,15 @@ fun ProfileScreen(
 
         item("app") {
             BoardPlate(modifier = Modifier.fillMaxWidth()) {
+                Way(
+                    name = "SafeShade Cloud",
+                    state = state.account.state,
+                    stateLabel = state.account.label,
+                    detail = state.account.detail,
+                    icon = SafeShadeIcons.NavbarCircle,
+                    onClick = if (state.account.tappable) { { onOpenWay(Routes.SETTINGS_ACCOUNT) } } else null
+                )
+                Hairline()
                 Way(
                     name = "Your role",
                     state = LampState.LIVE,

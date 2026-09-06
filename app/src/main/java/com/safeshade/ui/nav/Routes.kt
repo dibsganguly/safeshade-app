@@ -89,6 +89,11 @@ object Routes {
     const val SETTINGS_ABOUT = "settings/about"
     const val SETTINGS_DEVELOPER = "settings/developer"
 
+    /** SafeShade Cloud: who is signed in, the sync plate, sign out, delete. */
+    const val SETTINGS_ACCOUNT = "settings/account"
+    /** The four ways into an account. Pops itself when the session flips to signed in. */
+    const val SETTINGS_SIGN_IN = "settings/account/signin"
+
     /**
      * The component kit, reachable only from the developer screen.
      *

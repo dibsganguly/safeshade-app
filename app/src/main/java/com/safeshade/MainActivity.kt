@@ -1,6 +1,7 @@
 package com.safeshade
 
 import android.Manifest
+import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -57,6 +58,12 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
 
+        // An OAuth redirect (safeshade://login-callback) arrives as the
+        // launching intent on a cold start and as onNewIntent when the app is
+        // already up. Both go to the cloud client; with no project configured
+        // the fake ignores it, so there is no null check and no cast here.
+        (application as SafeShadeApplication).container.cloud.auth.handleDeepLink(intent)
+
         setContent {
             val state by viewModel.appState.collectAsStateWithLifecycle()
             val preference = (state as? AppState.Ready)?.darkMode ?: DarkModePreference.SYSTEM
@@ -69,6 +76,12 @@ class MainActivity : ComponentActivity() {
                 SafeShadeApp(viewModel = viewModel)
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        (application as SafeShadeApplication).container.cloud.auth.handleDeepLink(intent)
     }
 
     override fun onResume() {

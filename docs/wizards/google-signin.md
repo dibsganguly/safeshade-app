@@ -175,22 +175,25 @@ Again: this is the **Web** client ID, in an Android app. See the box at the top.
 
 ---
 
-## What still has to be built (Phase 2)
+## What the app does with it
 
-This page sets up the accounts and the configuration. The app side is not
-wired yet:
+This page sets up the accounts and the configuration. On the app side:
 
-- The Credential Manager call that actually asks Google for an ID token
-  (`androidx.credentials` plus `googleid`) is **not a dependency of this build**
-  and no screen requests one.
+- The Credential Manager call that asks Google for an ID token lives in
+  `platform/GoogleSignIn.kt` (`androidx.credentials` 1.5.0 plus `googleid`
+  1.1.1, added in v2.6.0); the Sign in screen offers the button only when
+  `GOOGLE_WEB_CLIENT_ID` is non-blank.
 - `CloudClient.signInWithIdToken(IdProvider.GOOGLE, idToken, nonce)` exists and
   is implemented against supabase-kt, so once a token is obtained the exchange
   is one call.
-- **The nonce matters.** Credential Manager takes a raw nonce; Google returns it
-  hashed inside the token and Supabase compares the two. Pass the *same raw*
-  nonce to `signInWithIdToken`. Omitting it when one was used fails the exchange
-  with a message about the token being invalid, which sends people looking at
-  their client IDs instead.
+- **The nonce matters, and it is hashed on one side only.** Supabase's Android
+  guide is explicit: generate a raw nonce, SHA-256 it to lowercase hex, give the
+  **hashed** value to `GetGoogleIdOption.setNonce`, and give the **raw** value to
+  `signInWithIdToken`. Google returns the hash inside the token and Supabase
+  hashes the raw one itself and compares. Passing the raw nonce to Google, or
+  the hashed one to Supabase, fails the exchange with a message about the
+  token being invalid, which sends people looking at their client IDs instead.
+  `platform/GoogleSignIn.kt` does this; do not simplify it.
 
 ## When it does not work
 

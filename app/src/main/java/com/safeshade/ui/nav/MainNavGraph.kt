@@ -39,6 +39,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.safeshade.cloud.CloudSession
+import com.safeshade.ui.screens.profile.AccountScreen
+import com.safeshade.ui.screens.profile.AccountWay
+import com.safeshade.ui.screens.profile.SignInActions
+import com.safeshade.ui.screens.profile.SignInScreen
+import com.safeshade.ui.vm.CloudViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -1606,6 +1613,8 @@ fun MainNavGraph(
 
         composable(Routes.SETTINGS) {
             val state = liveState.value
+            val cloudVm: CloudViewModel = viewModel(factory = CloudViewModel.Factory)
+            val session by cloudVm.session.collectAsStateWithLifecycle()
             ProfileScreen(
                 state = ProfileUiState(
                     ownerName = state.ownerName,
@@ -1617,7 +1626,8 @@ fun MainNavGraph(
                     darkMode = state.darkMode,
                     reliabilityIssueCount = reliabilityStatuses(context)
                         .count { it.value == CheckStatus.FAILING },
-                    versionName = BuildConfig.VERSION_NAME
+                    versionName = BuildConfig.VERSION_NAME,
+                    account = accountWay(session)
                 ),
                 onEditOwner = { navController.navigate(Routes.profileEdit(ProfileTarget.OWNER)) },
                 onEditWearer = { navController.navigate(Routes.profileEdit(ProfileTarget.WEARER)) },
@@ -1654,6 +1664,38 @@ fun MainNavGraph(
             )
         }
 
+
+        composable(Routes.SETTINGS_ACCOUNT) {
+            val cloudVm: CloudViewModel = viewModel(factory = CloudViewModel.Factory)
+            val session by cloudVm.session.collectAsStateWithLifecycle()
+            val sync by cloudVm.syncSummary.collectAsStateWithLifecycle()
+            AccountScreen(
+                session = session,
+                sync = sync,
+                onSyncNow = { cloudVm.syncNow() },
+                onSignOut = { cloudVm.signOut() },
+                onDeleteAccount = { cloudVm.deleteAccount() },
+                onOpenSignIn = { navController.navigate(Routes.SETTINGS_SIGN_IN) },
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Routes.SETTINGS_SIGN_IN) {
+            val cloudVm: CloudViewModel = viewModel(factory = CloudViewModel.Factory)
+            val session by cloudVm.session.collectAsStateWithLifecycle()
+            SignInScreen(
+                actions = SignInActions(
+                    requestCode = { cloudVm.requestEmailCode(it) },
+                    verifyCode = { email, code -> cloudVm.verifyEmailCode(email, code) },
+                    signInWithPassword = { email, pw -> cloudVm.signInWithPassword(email, pw) },
+                    signUpWithPassword = { email, pw -> cloudVm.signUpWithPassword(email, pw) },
+                    signInWithGoogle = if (cloudVm.googleAvailable) { ctx -> cloudVm.signInWithGoogle(ctx) } else null
+                ),
+                signedIn = session is CloudSession.SignedIn,
+                onSignedIn = { navController.popBackStack() },
+                onBack = { navController.popBackStack() }
+            )
+        }
 
         composable(Routes.SETTINGS_ROLE) {
             val state = liveState.value
@@ -2235,3 +2277,35 @@ private fun ComingSoonPlate(modifier: Modifier = Modifier) {
  * single tap on a map.
  */
 private fun coordinate(value: Double): String = "%.6f".format(value).trimEnd('0').trimEnd('.')
+
+/**
+ * The Profile page's cloud row, from the session and nothing else. "Saved on
+ * this phone only" is what a guest sees, because it is true, and it is not
+ * an error.
+ */
+private fun accountWay(session: CloudSession): AccountWay = when (session) {
+    is CloudSession.SignedIn -> AccountWay(
+        state = LampState.LIVE,
+        label = "Signed in",
+        detail = session.email ?: "Signed in",
+        tappable = true
+    )
+    CloudSession.Guest -> AccountWay(
+        state = LampState.OFF,
+        label = "Off",
+        detail = "Saved on this phone only. Tap to sign in.",
+        tappable = true
+    )
+    CloudSession.Loading -> AccountWay(
+        state = LampState.UNKNOWN,
+        label = "\u2026",
+        detail = "Reading the saved session",
+        tappable = false
+    )
+    CloudSession.Disabled -> AccountWay(
+        state = LampState.OFF,
+        label = "Off",
+        detail = "This build has no SafeShade Cloud project",
+        tappable = false
+    )
+}
