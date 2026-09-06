@@ -48,7 +48,8 @@ the hardware lands the only thing left is plugging it in. It was planned as
 three phases, each ending green and committed, each writing this file.
 
 - **Phase 1 (this) — done.** `versionCode 8`, `versionName 2.5.0`. Nine
-  commits from `0b963f1` to `210de5e` on `master`, **not pushed** (the user
+  commits from `0b963f1` to `a3e54cb` on `master` (this file's own commit
+  included), **not pushed** (the user
   authorises every push explicitly). `assembleDebug` green, **74 unit tests**
   pass (28 before, 46 new in `cloud/`). About 46,000 lines of Kotlin.
 - **Phase 2 — next.** Accounts, wearers, Circle as a family dashboard, sync,
@@ -483,6 +484,9 @@ was off on the phone for most of it).
   the phone SOS end to end — all carried from handoff6 §8.
 - The Silent SOS and About screens after the label removal were not
   re-photographed.
+- **Tapping a feature row on the mode detail** into its linked screen
+  (medication reminders, navigation, virtual leash): the rows draw, the
+  routes exist, the tap was never driven.
 
 ---
 
