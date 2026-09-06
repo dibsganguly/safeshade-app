@@ -49,6 +49,9 @@ import com.safeshade.ui.screens.circle.WearerCard
 import com.safeshade.ui.screens.circle.PersonListRow
 import com.safeshade.ui.screens.circle.WearerEditorScreen
 import com.safeshade.ui.screens.circle.WearerEditorUiState
+import com.safeshade.platform.OverpassClient
+import com.safeshade.ui.screens.safety.NearbyUiState
+import okhttp3.OkHttpClient
 import com.safeshade.data.Wearer
 import com.safeshade.data.LocationState
 import com.safeshade.ActionResult
@@ -1180,9 +1183,28 @@ fun MainNavGraph(
         }
 
         composable(Routes.SAFETY_SERVICES) {
+            val state = liveState.value
+            val location = liveLocation.value
+            // The search point: the phone's fix, else the first safe zone
+            // (home, for most households), else nothing - and "nothing" is
+            // said on the screen rather than searched around 0,0.
+            val fix = location.takeIf { it.isValid }
+            val zone = state.zones.firstOrNull()
+            val point = fix?.let { Triple(it.lat, it.lon, it.locationName.ifBlank { it.locality }.ifBlank { "your location" }) }
+                ?: zone?.let { Triple(it.lat, it.lon, it.name.ifBlank { "your safe zone" }) }
+            val overpass = remember { OverpassClient(OkHttpClient(), context.cacheDir) }
+            var nearby by remember { mutableStateOf(NearbyUiState(noPoint = point == null)) }
+            var refreshToken by remember { mutableStateOf(0) }
+            LaunchedEffect(point?.first, point?.second, refreshToken) {
+                if (point == null) { nearby = NearbyUiState(noPoint = true); return@LaunchedEffect }
+                nearby = nearby.copy(loading = true, aroundLabel = point.third, noPoint = false)
+                val result = overpass.nearby(point.first, point.second)
+                nearby = NearbyUiState(result = result, loading = false, aroundLabel = point.third)
+            }
             ServicesScreen(
-                state = ServicesUiState(),
-                onBack = { navController.popBackStack() }
+                state = ServicesUiState(nearby = nearby),
+                onBack = { navController.popBackStack() },
+                onRefreshNearby = { refreshToken++ }
             )
         }
 

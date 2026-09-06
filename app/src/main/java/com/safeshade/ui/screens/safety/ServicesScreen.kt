@@ -8,6 +8,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.MaterialTheme
+import android.content.ActivityNotFoundException
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import com.safeshade.platform.NearbyService
+import com.safeshade.platform.OverpassResult
+import com.safeshade.platform.ServiceKind
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -34,8 +43,26 @@ import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.board
 
+/**
+ * What the phone knows about the nearest hospitals, police stations, fire
+ * stations and pharmacies.
+ *
+ * `result` is the Overpass answer or the cached one with its age; null while
+ * the first fetch is out. `aroundLabel` says which point the search ran
+ * from - the phone's current fix, or the first safe zone when there is no
+ * fix - because "nearest" is meaningless without saying nearest to what.
+ */
+data class NearbyUiState(
+    val result: OverpassResult? = null,
+    val loading: Boolean = false,
+    val aroundLabel: String? = null,
+    /** True when there was nothing to search around; the section then says so. */
+    val noPoint: Boolean = false
+)
+
 /** Everything the services directory draws. */
 data class ServicesUiState(
+    val nearby: NearbyUiState = NearbyUiState(),
     /**
      * Defaults to the built-in Indian list. Parameterised rather than read
      * from the constant inside the composable so a preview, a test, or a
@@ -61,6 +88,7 @@ data class ServicesUiState(
 fun ServicesScreen(
     state: ServicesUiState,
     onBack: () -> Unit,
+    onRefreshNearby: () -> Unit = {},
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(0.dp)
 ) {
@@ -144,6 +172,38 @@ fun ServicesScreen(
             item("failure") { FailureNote(text = failure.orEmpty()) }
         }
 
+        // ---- Nearest, from OpenStreetMap. Below the public numbers on
+        // purpose: 112 works in a basement and this section needs a network.
+        item("nearby-heading") {
+            SectionPlate(
+                title = "Nearest to you",
+                trailing = {
+                    TextButton(onClick = onRefreshNearby, enabled = !state.nearby.loading) {
+                        Text(
+                            if (state.nearby.loading) "Looking…" else "Refresh",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = colors.inkAttention
+                        )
+                    }
+                }
+            )
+        }
+        item("nearby") {
+            NearbyPlate(
+                nearby = state.nearby,
+                onCall = { dial(it) },
+                onDirections = { service ->
+                    val uri = Uri.parse("geo:${service.lat},${service.lon}?q=${service.lat},${service.lon}(${Uri.encode(service.name)})")
+                    val intent = Intent(Intent.ACTION_VIEW, uri)
+                    failure = try {
+                        context.startActivity(intent); null
+                    } catch (e: ActivityNotFoundException) {
+                        "No map app on this phone can open directions"
+                    }
+                }
+            )
+        }
+
         item("rest-heading") { SectionPlate(title = "If you know which one you need") }
 
         item("rest") {
@@ -167,6 +227,99 @@ fun ServicesScreen(
                 }
             }
         }
+    }
+}
+
+/**
+ * The nearest services, grouped by kind, each a way with its distance as the
+ * state word and Call / Directions on tap. Offline shows the cached list with
+ * its age in the line above it; a failure with no cache shows the reason and
+ * nothing else. The first fetch shows a line, not a spinner: the public
+ * numbers above are already usable and the eye should stay on them.
+ */
+@Composable
+private fun NearbyPlate(
+    nearby: NearbyUiState,
+    onCall: (String) -> Unit,
+    onDirections: (NearbyService) -> Unit
+) {
+    val colors = MaterialTheme.board
+    val result = nearby.result
+    val list: OverpassResult.Ok? = when (result) {
+        is OverpassResult.Ok -> result
+        is OverpassResult.Failed -> result.cached
+        null -> null
+    }
+    val statusLine = when {
+        nearby.noPoint -> "No location yet. Turn on location or add a safe zone, and the nearest services appear here."
+        result == null && nearby.loading -> "Looking around ${nearby.aroundLabel ?: "your location"}…"
+        result is OverpassResult.Failed && list == null -> result.reason
+        result is OverpassResult.Failed -> "${result.reason}. Showing the list from ${agoLabel(list!!.fetchedAt)}."
+        list != null && list.fromCache -> "Around ${nearby.aroundLabel ?: "your location"}, as of ${agoLabel(list.fetchedAt)}. From OpenStreetMap."
+        list != null -> "Around ${nearby.aroundLabel ?: "your location"}. From OpenStreetMap."
+        else -> null
+    }
+
+    BoardPlate(modifier = Modifier.fillMaxWidth()) {
+        if (statusLine != null) {
+            Text(
+                text = statusLine,
+                style = MaterialTheme.typography.bodySmall,
+                color = if (result is OverpassResult.Failed) colors.inkAttention else colors.inkMuted,
+                modifier = Modifier.padding(Spacing.lg)
+            )
+        }
+        if (list != null) {
+            var first = statusLine == null
+            ServiceKind.entries.forEach { kind ->
+                val ofKind = list.services.filter { it.kind == kind }.take(3)
+                ofKind.forEach { service ->
+                    if (!first) Hairline()
+                    first = false
+                    Way(
+                        name = service.name,
+                        state = LampState.OFF,
+                        stateLabel = distanceLabel(service.distanceM),
+                        detail = listOfNotNull(kind.label, service.address, service.phone).joinToString(" · "),
+                        icon = when (kind) {
+                            ServiceKind.HOSPITAL -> SafeShadeIcons.Cross
+                            ServiceKind.PHARMACY -> SafeShadeIcons.Cross
+                            ServiceKind.POLICE -> SafeShadeIcons.SafeZone
+                            ServiceKind.FIRE -> SafeShadeIcons.Alert02
+                        },
+                        onClick = { if (service.phone != null) onCall(service.phone) else onDirections(service) }
+                    )
+                }
+            }
+            if (list.services.isEmpty()) {
+                Text(
+                    text = "OpenStreetMap lists nothing of these kinds within 5 km.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.inkMuted,
+                    modifier = Modifier.padding(Spacing.lg)
+                )
+            } else {
+                Text(
+                    text = "A row with a number dials it; one without opens directions.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.inkFaint,
+                    modifier = Modifier.padding(start = Spacing.lg, end = Spacing.lg, bottom = Spacing.lg, top = Spacing.sm)
+                )
+            }
+        }
+    }
+}
+
+private fun distanceLabel(m: Int): String =
+    if (m < 1000) "$m m" else String.format(java.util.Locale.US, "%.1f km", m / 1000.0)
+
+private fun agoLabel(at: Long, now: Long = System.currentTimeMillis()): String {
+    val minutes = ((now - at) / 60_000L).coerceAtLeast(0L)
+    return when {
+        minutes < 1 -> "just now"
+        minutes < 60 -> "$minutes min ago"
+        minutes < 48 * 60 -> "${minutes / 60} h ago"
+        else -> "${minutes / (60 * 24)} d ago"
     }
 }
 
