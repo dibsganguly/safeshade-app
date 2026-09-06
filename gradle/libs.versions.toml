@@ -18,6 +18,39 @@ zxing = "3.5.4"
 osmdroid = "6.1.20"
 coroutines = "1.9.0"
 
+# --- Cloud (Phase 1) ---
+# supabase-kt is published as a BOM; every module below is versionless and takes
+# its version from it, which is the only way to keep auth/postgrest/storage/
+# realtime/functions on one internally-consistent set.
+#
+# NOTE ON KOTLIN METADATA - this pin is not free to move.
+#
+# 3.8.0 was tried first and does not build here. Its modules are compiled by
+# Kotlin 2.4.0 (it drags in kotlin-reflect 2.4.0), and a 2.2.10 compiler reads
+# at most N+1 metadata, so every one of the six modules fails with
+# "Module was compiled with an incompatible version of Kotlin". It is a hard
+# stop, not a warning: `:app:compileDebugKotlin` failed on the classpath scan
+# before a single line of cloud code existed.
+#
+# 3.2.6 was the instructed fallback and it compiles. Nothing between 3.2.6 and
+# 3.8.0 was tried, so this is not known to be the newest version that works -
+# only that it works.
+#
+# Do NOT "fix" this by raising `kotlin`: the Compose compiler plugin takes its
+# version from that same ref, and Compose BOM 2026.06.01 is itself pinned to
+# what compiles against compileSdk 36 (see docs/handoff6.md section 4.4).
+# And do NOT reach for `-Xskip-metadata-version-check`; it suppresses the error
+# and then fails at runtime on whichever inline function actually differs.
+supabase = "3.2.6"
+# Ktor is supabase-kt's HTTP layer. It must match the Ktor major/minor the BOM
+# was built against or the engine fails to resolve at runtime, not at compile.
+ktor = "3.4.3"
+# Pinned explicitly rather than left to Ktor's own transitive choice, because
+# the app already ships OkHttp through Retrofit and two OkHttp majors on one
+# classpath is a `NoSuchMethodError` at first request.
+okhttp = "4.12.0"
+kotlinxSerialization = "1.9.0"
+
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-core-splashscreen = { group = "androidx.core", name = "core-splashscreen", version.ref = "coreSplashscreen" }
@@ -52,7 +85,21 @@ play-services-location = { group = "com.google.android.gms", name = "play-servic
 zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxing" }
 osmdroid-android = { group = "org.osmdroid", name = "osmdroid-android", version.ref = "osmdroid" }
 
+# --- Cloud (Phase 1) ---
+supabase-bom = { group = "io.github.jan-tennert.supabase", name = "bom", version.ref = "supabase" }
+supabase-auth = { group = "io.github.jan-tennert.supabase", name = "auth-kt" }
+supabase-postgrest = { group = "io.github.jan-tennert.supabase", name = "postgrest-kt" }
+supabase-storage = { group = "io.github.jan-tennert.supabase", name = "storage-kt" }
+supabase-realtime = { group = "io.github.jan-tennert.supabase", name = "realtime-kt" }
+supabase-functions = { group = "io.github.jan-tennert.supabase", name = "functions-kt" }
+ktor-client-okhttp = { group = "io.ktor", name = "ktor-client-okhttp", version.ref = "ktor" }
+okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
+kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
+
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+# Bundled with the Kotlin distribution, so it takes `kotlin`'s version ref and
+# can never drift from the compiler that runs it.
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }

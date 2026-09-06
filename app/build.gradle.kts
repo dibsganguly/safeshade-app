@@ -1,8 +1,35 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.serialization)
 }
+
+/**
+ * Reads a key out of `local.properties`, or falls back to an environment
+ * variable, or to [default].
+ *
+ * Why this exists rather than hard-coding the Supabase URL and anon key: the
+ * anon key is not a secret in the "must never leak" sense (it is shipped in
+ * every client and is only useful alongside row-level security), but the URL
+ * and key together identify one person's project. Checking them into the repo
+ * would point every clone of SafeShade at the same database.
+ *
+ * A blank value is a first-class state, not an error: `CloudContainer` reads
+ * `BuildConfig.SUPABASE_URL` and, when it is blank, builds a disabled fake
+ * client so the whole app still compiles, runs and is testable on a machine
+ * that has never seen a Supabase project. `local.properties` is git-ignored and
+ * is NOT created by this build.
+ */
+val localProps = Properties().apply {
+    val f = rootProject.file("local.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+}
+
+fun prop(name: String, default: String = ""): String =
+    (localProps.getProperty(name) ?: System.getenv(name) ?: default).trim()
 
 android {
     namespace = "com.safeshade"
@@ -18,6 +45,14 @@ android {
         versionName = "2.5.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // Cloud configuration. Blank => cloud disabled, and the app runs
+        // entirely on-device exactly as it did before Phase 1. See prop() above.
+        buildConfigField("String", "SUPABASE_URL", "\"${prop("SUPABASE_URL")}\"")
+        buildConfigField("String", "SUPABASE_ANON_KEY", "\"${prop("SUPABASE_ANON_KEY")}\"")
+        // Google sign-in. The WEB client id, not the Android one - see
+        // docs/wizards/google-signin.md for why that is not a typo.
+        buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"${prop("GOOGLE_WEB_CLIENT_ID")}\"")
     }
 
     buildTypes {
@@ -83,6 +118,22 @@ dependencies {
     // replaces fetched Leaflet from a CDN at runtime and silently lost its tap
     // handler whenever that fetch failed.
     implementation(libs.osmdroid.android)
+
+    // Cloud (Phase 1). Every supabase-kt module is versionless and takes its
+    // version from the BOM; see the note in libs.versions.toml about the
+    // Kotlin metadata ceiling.
+    implementation(platform(libs.supabase.bom))
+    implementation(libs.supabase.auth)
+    implementation(libs.supabase.postgrest)
+    implementation(libs.supabase.storage)
+    implementation(libs.supabase.realtime)
+    implementation(libs.supabase.functions)
+    // supabase-kt ships no HTTP engine of its own; without one, every call
+    // fails at runtime with "no engine found" and nothing fails at compile.
+    implementation(libs.ktor.client.okhttp)
+    // Pinned so Ktor's engine and Retrofit share one OkHttp.
+    implementation(libs.okhttp)
+    implementation(libs.kotlinx.serialization.json)
 
     // Test
     testImplementation(libs.junit)

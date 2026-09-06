@@ -1,0 +1,51 @@
+<!--
+  Circle invitation. Sent by send-invite.
+
+  Accent: amber. This asks somebody to do something, but nothing is wrong.
+
+  A note on the words: the app calls this group a Circle, and so does this
+  email. The vocabulary a user sees and the vocabulary the tables use are the
+  same on purpose - a "circle" can be a family, a care team, or one person
+  alone, and none of those is well described by "account" or "family".
+-->
+<h1 class="ss-h1" style="margin:0 0 12px; font-family:Archivo, 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size:26px; line-height:32px; font-weight:800; color:#22282E;">
+  {{inviter_name}} added you to {{circle_name}}
+</h1>
+
+<p style="margin:0 0 20px; font-size:15px; line-height:23px; color:#4A5058;">
+  SafeShade is a safety wearable for {{wearer_name}}. Joining this Circle as
+  <strong style="color:#22282E;">{{role_label}}</strong> means you will be told
+  if there is a fall, an SOS, or a missed check-in.
+</p>
+
+<!-- What the role actually permits, in plain words. A permission model nobody
+     can read is a permission model nobody checks. -->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 24px; background:#F2EFE9; border-radius:10px;">
+  <tr>
+    <td style="padding:16px 18px; font-size:14px; line-height:21px; color:#4A5058;">
+      <strong style="color:#22282E;">As {{role_label}} you can:</strong><br>
+      {{role_description}}
+    </td>
+  </tr>
+</table>
+
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 22px;">
+  <tr>
+    <td align="center" style="background:#22282E; border-radius:10px;">
+      <a href="{{action_url}}"
+         style="display:inline-block; padding:14px 30px; font-family:Archivo, 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size:15px; font-weight:700; color:#FBF9F5; text-decoration:none;">
+        Join {{circle_name}}
+      </a>
+    </td>
+  </tr>
+</table>
+
+<p style="margin:0 0 18px; font-size:13px; line-height:20px; color:#6A7078;">
+  If the button does not work, copy this address into your browser:<br>
+  <span style="word-break:break-all; color:#4A5058;">{{action_url}}</span>
+</p>
+
+<p style="margin:0; font-size:14px; line-height:21px; color:#4A5058;">
+  This invitation expires on {{expires_at_label}}. If you were not expecting it,
+  ignore this email - nothing happens until you accept.
+</p>

@@ -1,0 +1,54 @@
+<!--
+  Magic-link sign-in.
+
+  The secondary flow. The app offers the six-digit code first, because the
+  common case is a guardian signing in on the phone while reading the email on
+  that same phone, and a link that opens a browser and bounces back through a
+  deep link has four more ways to fail than typing six digits does. This one is
+  for reading mail on a laptop.
+
+  Paste into Dashboard -> Authentication -> Email Templates and swap
+  {{action_url}} for Supabase's {{ .ConfirmationURL }}.
+
+  Accent: teal.
+-->
+<h1 class="ss-h1" style="margin:0 0 12px; font-family:Archivo, 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size:26px; line-height:32px; font-weight:800; color:#22282E;">
+  Sign in to SafeShade
+</h1>
+
+<p style="margin:0 0 24px; font-size:15px; line-height:23px; color:#4A5058;">
+  Tap the button below to sign in. The link works once and expires in one hour.
+</p>
+
+<!--
+  Bulletproof button: a table cell with a background and a full-cell anchor.
+  A styled <a> alone loses its background in Outlook and becomes blue underlined
+  text on white, which on a teal-accented email reads as a broken message.
+
+  Charcoal fill with bone ink, not teal with white: brand teal on a bone panel
+  measures about 1.9:1, and DESIGN.md's rule is that a hued fill takes charcoal
+  ink. Here the fill is the charcoal itself, which is the only combination that
+  measures in every client's rendering, inverted or not.
+-->
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 22px;">
+  <tr>
+    <td align="center" style="background:#22282E; border-radius:10px;">
+      <a href="{{action_url}}"
+         style="display:inline-block; padding:14px 30px; font-family:Archivo, 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size:15px; font-weight:700; color:#FBF9F5; text-decoration:none;">
+        Sign in to SafeShade
+      </a>
+    </td>
+  </tr>
+</table>
+
+<!-- Every mail client that blocks images or mangles buttons still shows this,
+     and some corporate gateways rewrite links so the visible URL is the only
+     way to see where it goes. -->
+<p style="margin:0 0 18px; font-size:13px; line-height:20px; color:#6A7078;">
+  If the button does not work, copy this address into your browser:<br>
+  <span style="word-break:break-all; color:#4A5058;">{{action_url}}</span>
+</p>
+
+<p style="margin:0; font-size:14px; line-height:21px; color:#4A5058;">
+  If you did not ask to sign in, you can ignore this email.
+</p>

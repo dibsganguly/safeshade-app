@@ -32,6 +32,10 @@
     <uses-permission android:name="android.permission.RECEIVE_SMS" />
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Lets the cloud sync engine arm a default-network callback, so a queued
+         record is pushed the moment connectivity returns rather than at the
+         next foreground. See cloud/sync/Connectivity.kt. -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <!-- Fall, geofence, check-in and reminder notifications (Android 13+) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
@@ -98,6 +102,24 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!--
+                Where Supabase Auth sends the browser back after an OAuth or
+                magic-link sign-in. The scheme and host must match the
+                install(Auth) { scheme; host } block in SupabaseCloudClient
+                exactly - a mismatch produces no error anywhere, the browser
+                simply never returns, and the sign-in appears to hang.
+
+                launchMode is already singleTop above, so the redirect lands in
+                onNewIntent on the existing Activity rather than stacking a
+                second copy of the app behind the first.
+            -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="safeshade" android:host="login-callback" />
             </intent-filter>
         </activity>
 

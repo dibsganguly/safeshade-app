@@ -97,6 +97,18 @@ class AppContainer(
         scope = scope
     )
 
+    /**
+     * The cloud graph: client, auth, outbox, sync engine.
+     *
+     * Last, and after [appStateRepository], for the same reason that one is
+     * last: it is the newest and most peripheral thing in the graph, nothing
+     * above depends on it, and on a build with no Supabase project configured
+     * it is inert by construction (see [com.safeshade.cloud.CloudContainer]).
+     * Putting it earlier would suggest something below it needs it, and nothing
+     * does.
+     */
+    val cloud = com.safeshade.cloud.CloudContainer(appContext, scope)
+
     init {
         /*
          * Migration runs here, once, on the application scope — never inside a
