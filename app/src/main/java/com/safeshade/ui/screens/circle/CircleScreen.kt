@@ -45,6 +45,10 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.safeshade.data.MessageChannel
 import com.safeshade.data.UserRole
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.TextButton
+import com.safeshade.ui.board.Avatar
+import com.safeshade.ui.board.plateClickable
 import com.safeshade.ui.board.BoardButton
 import com.safeshade.ui.board.BoardPlate
 import com.safeshade.ui.board.ButtonWeight
@@ -90,8 +94,35 @@ data class CircleMessagePreview(
     val channel: MessageChannel = MessageChannel.BLE
 )
 
+/**
+ * One person a Guardian looks after, as the family dashboard draws them.
+ *
+ * Every field is a fact the phone has or a dash. Battery is the wearable's
+ * own report and exists only for the connected one; a place is the last fix
+ * that reached this phone; the last alert is the newest trip logged for this
+ * person, or for the household when no trip has been stamped with anyone.
+ */
+data class WearerCard(
+    val id: String,
+    val name: String,
+    val avatarId: String,
+    val modeLabel: String,
+    val linkState: LampState,
+    val linkLabel: String,
+    /** "82 %" or null for a dash. */
+    val batteryLabel: String? = null,
+    /** "Home · 4 min ago" or null for a dash. */
+    val placeLabel: String? = null,
+    /** "Fall · yesterday, dismissed" or null for a dash. */
+    val lastAlertLabel: String? = null,
+    /** False when no SIM number is stored for their wearable; the Call action then says so. */
+    val canCall: Boolean = false
+)
+
 /** Everything the Circle hub draws. */
 data class CircleUiState(
+    /** A Guardian's people, one plate each. Empty for a Companion. */
+    val wearers: List<WearerCard> = emptyList(),
     val role: UserRole = UserRole.GUARDIAN,
     /** Who wears the device. Used in guardian copy: "Baba". */
     val wearerName: String = "",
@@ -147,6 +178,10 @@ fun CircleScreen(
     onOpenJourney: () -> Unit,
     onOpenCheckIn: () -> Unit,
     onOpenSim: () -> Unit,
+    onOpenPeople: () -> Unit = {},
+    onOpenPerson: (id: String) -> Unit = {},
+    onLocate: (id: String) -> Unit = {},
+    onCallWearable: (id: String) -> Unit = {},
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(0.dp),
     /**
@@ -198,8 +233,36 @@ fun CircleScreen(
             )
         }
 
-        item("person") {
-            PersonPlate(state = state, name = headlineName, modifier = Modifier.padding(top = Spacing.lg))
+        if (state.role == UserRole.GUARDIAN && state.wearers.isNotEmpty()) {
+            // The family dashboard: one plate per person, the link lamp on
+            // each, the three readouts a guardian actually checks, and the
+            // three things they do next. The single-person plate below is
+            // what a Companion sees of their guardian.
+            item("people-heading") {
+                SectionPlate(
+                    title = "People I look after",
+                    modifier = Modifier.padding(top = Spacing.lg),
+                    trailing = {
+                        TextButton(onClick = onOpenPeople) {
+                            Text("Manage", style = MaterialTheme.typography.bodyMedium, color = colors.inkAttention)
+                        }
+                    }
+                )
+            }
+            items(state.wearers, key = { "wearer-" + it.id }) { card ->
+                WearerPlate(
+                    card = card,
+                    onOpen = { onOpenPerson(card.id) },
+                    onMessage = onOpenThread,
+                    onLocate = { onLocate(card.id) },
+                    onCall = { onCallWearable(card.id) },
+                    modifier = Modifier.padding(top = Spacing.sm)
+                )
+            }
+        } else {
+            item("person") {
+                PersonPlate(state = state, name = headlineName, modifier = Modifier.padding(top = Spacing.lg))
+            }
         }
 
         // ---- Messages
@@ -427,6 +490,91 @@ private fun PersonPlate(state: CircleUiState, name: String, modifier: Modifier =
                 state = if (state.unreadCount > 0) LampState.ATTENTION else null,
                 horizontalAlignment = Alignment.End,
                 modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+/**
+ * One person on the family dashboard.
+ *
+ * The same anatomy as the person plate: identity at the top left, the lamp
+ * at the top right, a rule, a readout strip, a rule, then actions. The face
+ * is what tells two plates apart at a glance; the lamp is what tells a
+ * guardian which one to look at first.
+ */
+@Composable
+private fun WearerPlate(
+    card: WearerCard,
+    onOpen: () -> Unit,
+    onMessage: () -> Unit,
+    onLocate: () -> Unit,
+    onCall: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val colors = MaterialTheme.board
+    BoardPlate(modifier = modifier.fillMaxWidth()) {
+        Row(
+            verticalAlignment = Alignment.Top,
+            modifier = Modifier
+                .fillMaxWidth()
+                .plateClickable(role = Role.Button, onClick = onOpen)
+                .padding(Spacing.lg)
+        ) {
+            Avatar(avatarId = card.avatarId, name = card.name, size = 52.dp)
+            Spacer(Modifier.width(Spacing.md))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = card.name.ifBlank { "Unnamed" },
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = colors.ink
+                )
+                Spacer(Modifier.height(Spacing.xs))
+                Text(text = card.modeLabel, style = MaterialTheme.boardType.rowDetail, color = colors.inkMuted)
+                LampWord(card.linkLabel)
+            }
+            Spacer(Modifier.width(Spacing.md))
+            PilotLamp(state = card.linkState, size = 22.dp, description = card.linkLabel)
+        }
+        Hairline()
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = Spacing.lg, vertical = Spacing.md)
+        ) {
+            Readout(label = "Battery", value = card.batteryLabel ?: "\u2014", modifier = Modifier.weight(1f))
+            Readout(label = "Last seen", value = card.placeLabel ?: "\u2014", compact = true, modifier = Modifier.weight(1.4f))
+            Readout(
+                label = "Last alert",
+                value = card.lastAlertLabel ?: "\u2014",
+                compact = true,
+                horizontalAlignment = Alignment.End,
+                modifier = Modifier.weight(1.2f)
+            )
+        }
+        Hairline()
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = Spacing.lg, vertical = Spacing.md)
+        ) {
+            BoardButton(label = "Message", onClick = onMessage, weight = ButtonWeight.QUIET, modifier = Modifier.weight(1f))
+            BoardButton(label = "Where", onClick = onLocate, weight = ButtonWeight.QUIET, modifier = Modifier.weight(1f))
+            BoardButton(
+                label = "Call",
+                onClick = onCall,
+                weight = ButtonWeight.QUIET,
+                enabled = card.canCall,
+                modifier = Modifier.weight(1f)
+            )
+        }
+        if (!card.canCall) {
+            Text(
+                text = "Call needs the wearable's SIM number, stored under SIM and SMS.",
+                style = MaterialTheme.typography.bodySmall,
+                color = colors.inkFaint,
+                modifier = Modifier.padding(start = Spacing.lg, end = Spacing.lg, bottom = Spacing.md)
             )
         }
     }

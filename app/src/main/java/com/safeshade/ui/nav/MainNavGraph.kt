@@ -45,10 +45,14 @@ import com.safeshade.ui.screens.profile.AccountScreen
 import com.safeshade.ui.screens.profile.AccountWay
 import com.safeshade.ui.screens.profile.ProfilePerson
 import com.safeshade.ui.screens.circle.PeopleScreen
+import com.safeshade.ui.screens.circle.WearerCard
 import com.safeshade.ui.screens.circle.PersonListRow
 import com.safeshade.ui.screens.circle.WearerEditorScreen
 import com.safeshade.ui.screens.circle.WearerEditorUiState
 import com.safeshade.data.Wearer
+import com.safeshade.data.LocationState
+import com.safeshade.ActionResult
+import com.safeshade.dialNumber
 import com.safeshade.data.WearerResult
 import com.safeshade.ui.screens.profile.SignInActions
 import com.safeshade.ui.screens.profile.SignInScreen
@@ -70,6 +74,7 @@ import com.safeshade.data.MessageChannel
 import com.safeshade.data.PersonaMode
 import com.safeshade.data.Reminder
 import com.safeshade.data.ReminderKind
+import com.safeshade.data.TripKind
 import com.safeshade.data.TripOutcome
 import com.safeshade.data.UserRole
 import com.safeshade.device.ConnectionState
@@ -407,6 +412,7 @@ fun MainNavGraph(
 
             CircleScreen(
                 state = CircleUiState(
+                    wearers = if (state.role == UserRole.GUARDIAN) state.wearers.map { w -> wearerCard(state, w, connectedAddress, lastFix) } else emptyList(),
                     role = state.role,
                     // The headline forms, not the raw ones. See
                     wearerName = state.wearerName,
@@ -487,6 +493,19 @@ fun MainNavGraph(
                 onOpenJourney = { navController.navigate(Routes.CIRCLE_JOURNEY) },
                 onOpenCheckIn = { navController.navigate(Routes.CIRCLE_CHECKIN) },
                 onOpenSim = { navController.navigate(Routes.CIRCLE_SIM) },
+                onOpenPeople = { navController.navigate(Routes.CIRCLE_PEOPLE) },
+                onOpenPerson = { id -> navController.navigate(Routes.personEdit(id)) },
+                onLocate = { navController.navigate(Routes.DEVICE_LOCATE) },
+                onCallWearable = {
+                    // The wearable's SIM, dialled through the phone's dialler;
+                    // the number is the one stored under SIM and SMS. A blank
+                    // number never reaches here - the button is disabled and
+                    // says why.
+                    val result = dialNumber(context, state.devicePhoneNumber)
+                    if (result is ActionResult.Failed) {
+                        circleScope.launch { snackbarHostState.showSnackbar(result.reason) }
+                    }
+                },
                 listState = circleListState
             )
         }
@@ -1916,6 +1935,17 @@ private val D_MMM: DateTimeFormatter = DateTimeFormatter.ofPattern("d MMM")
 private fun clockLabel(at: Long): String =
     Instant.ofEpochMilli(at).atZone(ZoneId.systemDefault()).format(HH_MM)
 
+/** "now", "4 min", "7 h", "3 d": for a mono readout that has no room for a sentence. */
+private fun agoShort(at: Long, now: Long = System.currentTimeMillis()): String {
+    val m = ((now - at) / 60_000L).coerceAtLeast(0L)
+    return when {
+        m < 1 -> "now"
+        m < 60 -> "$m min"
+        m < 48 * 60 -> "${m / 60} h"
+        else -> "${m / (60 * 24)} d"
+    }
+}
+
 /** "4 minutes ago". Read at composition time, so it ages until the next frame. */
 private fun agoLabel(at: Long, now: Long = System.currentTimeMillis()): String {
     val minutes = ((now - at) / 60_000L).toInt()
@@ -2399,3 +2429,63 @@ private fun wearerDetail(state: AppState.Ready, w: Wearer): String {
     val wears = device?.let { "Wears ${it.name.ifBlank { "a wearable" }}" } ?: "No wearable bound"
     return "$wears · ${w.activeMode.label}"
 }
+
+/**
+ * One wearer's plate on the family dashboard, from what this phone knows.
+ *
+ * Battery is only ever the connected wearable's own figure, and only for the
+ * person bound to that address; every other plate shows a dash, because the
+ * phone has no number for them and will not invent one. The place is the
+ * last fix that reached this phone; it is the household's, not the person's,
+ * until fixes are stamped with a wearer, so it is shown on the bound plate
+ * only. The last alert is the newest trip stamped with this person, falling
+ * back to the newest unstamped one for the primary wearer alone.
+ */
+private fun wearerCard(
+    state: AppState.Ready,
+    w: Wearer,
+    connectedAddress: String,
+    lastFix: LocationState?
+): WearerCard {
+    val bound = w.deviceAddresses.isNotEmpty()
+    val isConnectedOne = state.connection.isUsable &&
+        w.deviceAddresses.any { it.equals(connectedAddress, ignoreCase = true) }
+    val primary = state.wearers.firstOrNull()?.id == w.id
+    val trip = state.tripHistory
+        .filter { it.wearerId == w.id || (primary && it.wearerId == null) }
+        .maxByOrNull { it.timestamp }
+    return WearerCard(
+        id = w.id,
+        name = w.name,
+        avatarId = w.avatarId,
+        modeLabel = if (bound) w.activeMode.label else "No wearable bound",
+        linkState = when {
+            isConnectedOne -> LampState.LIVE
+            bound -> LampState.OFF
+            else -> LampState.UNKNOWN
+        },
+        linkLabel = when {
+            isConnectedOne -> "Connected"
+            bound -> "Not connected"
+            else -> "No wearable"
+        },
+        batteryLabel = if (isConnectedOne && state.telemetry.isRealData) "${state.telemetry.batteryLevel} %" else null,
+        // Mono readouts, so an age not a sentence; the place itself is on
+        // the Where plate below, where there is room for it.
+        placeLabel = if ((isConnectedOne || primary) && lastFix != null && lastFix.capturedAt > 0L) {
+            "${agoShort(lastFix.capturedAt)} ago"
+        } else null,
+        lastAlertLabel = trip?.let { "${it.kind.short} · ${agoShort(it.timestamp)}" },
+        canCall = bound && state.devicePhoneNumber.isNotBlank()
+    )
+}
+
+/** One word for a readout: "Fall", "SOS", "Button". */
+private val TripKind.short: String
+    get() = when (this) {
+        TripKind.FALL -> "Fall"
+        TripKind.SOS, TripKind.PHONE_SOS -> "SOS"
+        TripKind.MISSED_CHECKIN -> "Check-in"
+        TripKind.ZONE_EXIT -> "Zone"
+        TripKind.JOURNEY_OVERDUE -> "Journey"
+    }
