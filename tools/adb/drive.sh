@@ -1,4 +1,7 @@
-SP="${SP:-$TEMP/safeshade-drive}"; mkdir -p "$SP"; TOOLS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SP="${SP:-$TEMP/safeshade-drive}"; mkdir -p "$SP"
+# A Windows path for python: with MSYS_NO_PATHCONV set below, /c/... is not
+# translated and python cannot open it, so TOOLS is resolved to C:/... first.
+TOOLS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -W 2>/dev/null || pwd)"
 export MSYS_NO_PATHCONV=1
 shot(){ adb shell screencap -p /sdcard/$1.png; adb pull /sdcard/$1.png "$SP/$1.png" >/dev/null; }
 tapfind(){ r=$(python "$TOOLS/tapfind.py" "$1" "$SP/ui.xml" 2>/dev/null); echo "$1 -> $r"; if [ "$r" != "NOTFOUND" ]; then adb shell input tap $r; adb shell sleep ${2:-1.5}; fi; }
