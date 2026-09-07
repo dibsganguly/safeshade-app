@@ -68,6 +68,10 @@ object Routes {
     const val CIRCLE_PEOPLE = "circle/people"
     /** One wearer; a blank id adds a new one. */
     const val CIRCLE_PERSON_EDIT = "circle/people/edit"
+    /** Smart home: the automations that fire on a fall, an SOS, a zone crossing or a low battery. */
+    const val CIRCLE_SMART_HOME = "circle/smarthome"
+    /** One automation; a blank id adds a new one. */
+    const val CIRCLE_SMART_HOOK_EDIT = "circle/smarthome/edit"
 
     /** Bottom destination 3 — everything that fires in an emergency. */
     const val SAFETY = "safety"
@@ -99,6 +103,14 @@ object Routes {
     const val DEVICE_LIGHTS = "device/lights"
     const val DEVICE_PAIRED = "device/paired"
     const val DEVICE_REMINDERS = "device/reminders"
+    /** Firmware: what the wearable runs, what is published for its model, and the update itself. */
+    const val DEVICE_FIRMWARE = "device/firmware"
+    /** Lost: mark a wearable lost, sweep for it, and read where the community last saw it. */
+    const val DEVICE_LOST = "device/lost"
+    /** Pairing by product: pick the model, then search. */
+    const val DEVICE_PAIR = "device/pair"
+    /** Ride log: distance, time moving and top speed for each journey. */
+    const val DEVICE_RIDES = "device/rides"
 
     /** Reached from the Board's top bar, not from the bottom bar. */
     const val SETTINGS = "settings"
@@ -141,6 +153,7 @@ object Routes {
         const val LON = "lon"
         const val RADIUS = "radius"
         const val WEARER_ID = "wearerId"
+        const val HOOK_ID = "hookId"
     }
 
     fun zoneEdit(zoneId: String?): String =
@@ -164,6 +177,9 @@ object Routes {
 
     /** One profile's page. The argument is the enum name, which is also the wire name. */
     fun modeDetail(mode: com.safeshade.data.PersonaMode): String = "$DEVICE_MODE_DETAIL/${mode.name}"
+
+    fun smartHookEdit(hookId: String?): String =
+        "$CIRCLE_SMART_HOOK_EDIT?${Args.HOOK_ID}=${hookId.orEmpty()}"
 
     fun contactEdit(index: Int): String = "$SAFETY_CONTACTS/edit?${Args.CONTACT_INDEX}=$index"
 }

@@ -2,13 +2,16 @@ package com.safeshade.repo
 
 import com.safeshade.SmsMessageEventBus
 import com.safeshade.cloud.dto.CloudTables
+import com.safeshade.data.FallAlertEvent
 import com.safeshade.data.MessageChannel
 import com.safeshade.data.QuickMessage
 import com.safeshade.data.SafeShadePreferences
+import com.safeshade.data.TripKind
 import com.safeshade.data.resolveWearerForDevice
 import com.safeshade.device.ConnectionState
 import com.safeshade.device.DeviceLink
 import com.safeshade.device.DeviceProtocol
+import com.safeshade.platform.QuietWordMatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -55,7 +58,17 @@ class MessagingRepository(
     /** Injected rather than calling `SmsManager` here, so this stays testable. */
     private val sendSms: (phone: String, body: String) -> Unit,
     /** See [SyncHooks]. Nothing is queued for the cloud without one. */
-    private val hooks: SyncHooks = SyncHooks.None
+    private val hooks: SyncHooks = SyncHooks.None,
+    /**
+     * Raises a trip when the quiet word is heard in an inbound message.
+     *
+     * A lambda rather than a direct `SafetyRepository` dependency, so this
+     * class does not have to know that type exists to be constructed or
+     * tested. Defaults to a no-op: `AppContainer` must pass
+     * `{ alert -> safetyRepository.record(alert) }` for the quiet word to
+     * actually raise anything.
+     */
+    private val raiseAlert: suspend (FallAlertEvent) -> Unit = {}
 ) {
 
     /** Null until the first DataStore read completes. See [ProfileRepository]. */
@@ -63,6 +76,16 @@ class MessagingRepository(
         prefs.messages.stateIn(scope, SharingStarted.Eagerly, null)
 
     private val listLock = Mutex()
+
+    /**
+     * When the quiet word last raised a trip, process-lifetime only.
+     *
+     * Not persisted: the cooldown exists to stop one chatty exchange from
+     * raising a dozen trips, not to survive a process death, and a stale
+     * timestamp surviving a restart would only ever make the app wait longer
+     * than [QuietWordGuard] intends before it can raise again.
+     */
+    private var lastQuietWordRaisedAt: Long? = null
 
     init {
         // BLE replies.
@@ -113,6 +136,8 @@ class MessagingRepository(
         val clean = text.trim()
         if (clean.isEmpty()) return
 
+        checkQuietWord(clean)
+
         val wearerId = currentWearerId()
 
         val recorded = listLock.withLock {
@@ -147,6 +172,33 @@ class MessagingRepository(
         } ?: return
 
         hooks.onUpsert(CloudTables.MESSAGES, recorded)
+    }
+
+    /**
+     * Raises a trip when [text] contains the configured quiet word.
+     *
+     * Runs on every inbound reply, BLE or SMS, before the message itself is
+     * recorded — the alert does not depend on whether the message survives
+     * the dedupe check, because the word was still heard either way. The
+     * alert's note never carries the matched text or a redaction of it, only
+     * the fixed sentence below: the wearer's actual words stay in the
+     * message thread, not duplicated into a trip a second guardian might read
+     * without the same context.
+     */
+    private suspend fun checkQuietWord(text: String) {
+        val word = prefs.safetySettings.first().quietWord
+        if (word.isBlank()) return
+        val now = System.currentTimeMillis()
+        if (!QuietWordGuard.shouldRaise(word, text, lastQuietWordRaisedAt, now)) return
+        lastQuietWordRaisedAt = now
+        raiseAlert(
+            FallAlertEvent(
+                timestamp = now,
+                kind = TripKind.QUIET_WORD,
+                note = "Quiet word heard in a message",
+                wearerId = currentWearerId()
+            )
+        )
     }
 
     // ============================================
@@ -265,5 +317,42 @@ class MessagingRepository(
 
         /** The wearable's message screen cannot show more than this. */
         const val MAX_MESSAGE_CHARS = 120
+    }
+}
+
+/**
+ * The pure decision behind [MessagingRepository.checkQuietWord]: whether a
+ * quiet-word match should raise a new trip right now.
+ *
+ * Kept separate from the repository and free of any Android or coroutine
+ * dependency so the cooldown logic can be unit-tested without a `DataStore`,
+ * a `DeviceLink` or a `CoroutineScope`.
+ */
+object QuietWordGuard {
+
+    /**
+     * How long after raising a trip the same quiet word is ignored.
+     *
+     * Ten minutes: long enough that a single tense phone call, which might
+     * legitimately use the phrase more than once, raises exactly one trip,
+     * and short enough that a second, genuinely separate incident later the
+     * same hour still gets its own alert.
+     */
+    const val COOLDOWN_MS = 10 * 60_000L
+
+    /**
+     * @param word the configured quiet word. Blank means the feature is off
+     *   and this always returns false.
+     * @param text the inbound message to check.
+     * @param lastRaisedAt when this word last raised a trip, or null if it
+     *   never has.
+     * @param now the current time, passed in rather than read so this stays
+     *   pure and testable.
+     */
+    fun shouldRaise(word: String, text: String, lastRaisedAt: Long?, now: Long): Boolean {
+        if (word.isBlank()) return false
+        if (!QuietWordMatcher(word).matches(text)) return false
+        if (lastRaisedAt != null && now - lastRaisedAt < COOLDOWN_MS) return false
+        return true
     }
 }

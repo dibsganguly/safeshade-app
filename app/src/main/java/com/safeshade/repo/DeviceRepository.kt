@@ -13,6 +13,8 @@ import com.safeshade.device.ConnectionState
 import com.safeshade.device.DeviceLink
 import com.safeshade.device.DeviceProtocol
 import com.safeshade.device.RealDeviceLink
+import com.safeshade.platform.LeashState
+import com.safeshade.platform.VirtualLeash
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -119,6 +121,22 @@ class DeviceRepository(
      */
     val rssiSmoothed: StateFlow<Int> = _rssiSmoothed.asStateFlow()
 
+    private val virtualLeash = VirtualLeash()
+    private val _leash = MutableStateFlow<LeashState>(LeashState.Unknown)
+
+    /**
+     * How far the wearable is, as a [LeashState] derived from [rssiSmoothed]
+     * and the connection state through [VirtualLeash].
+     *
+     * Unknown whenever the link is not [ConnectionState.Ready] — see
+     * [applyRssiSample]'s sibling reset of [_rssiSmoothed] to
+     * [RSSI_UNKNOWN], which this steps through the same "dropped link" path
+     * [VirtualLeash.step] already has, so a leash that was [LeashState.Far]
+     * when the link drops still promotes to [LeashState.Broken] rather than
+     * silently reading as merely unknown.
+     */
+    val leash: StateFlow<LeashState> = _leash.asStateFlow()
+
     private val _isRinging = MutableStateFlow(false)
 
     /**
@@ -197,12 +215,29 @@ class DeviceRepository(
         // disconnect so a reconnect does not inherit the last strong reading
         // from the previous session and draw a signal bar for a dead link.
         link.rssi
-            .onEach { raw -> if (raw != 0) applyRssiSample(raw) }
+            .onEach { raw ->
+                if (raw != 0) applyRssiSample(raw)
+                stepLeash()
+            }
             .launchIn(scope)
 
         link.connectionState
-            .onEach { if (it !is ConnectionState.Ready) _rssiSmoothed.value = RSSI_UNKNOWN }
+            .onEach {
+                if (it !is ConnectionState.Ready) _rssiSmoothed.value = RSSI_UNKNOWN
+                stepLeash()
+            }
             .launchIn(scope)
+
+        // Steps the leash model once a second while the link is Ready, so a
+        // Far reading that stops updating (no fresh notify) still crosses
+        // into Broken once VirtualLeash's grace period elapses, rather than
+        // waiting for the next RSSI sample that may never come.
+        scope.launch {
+            while (isActive) {
+                if (connection.value is ConnectionState.Ready) stepLeash()
+                delay(LEASH_TICK_MS)
+            }
+        }
 
         scope.launch {
             // Seed the sparklines from the persisted downsample so they are not
@@ -276,6 +311,10 @@ class DeviceRepository(
         } else {
             (RSSI_ALPHA * raw + (1 - RSSI_ALPHA) * previous).toInt()
         }
+    }
+
+    private fun stepLeash() {
+        _leash.value = virtualLeash.step(_rssiSmoothed.value, System.currentTimeMillis())
     }
 
     /**
@@ -621,6 +660,7 @@ class DeviceRepository(
         const val ACK_REPLAY = 16
         const val ACK_TIMEOUT_MS = 4_000L
         const val RSSI_POLL_MS = 5_000L
+        const val LEASH_TICK_MS = 1_000L
         const val PERSIST_INTERVAL_MS = 60_000L
         const val RSSI_ALPHA = 0.3f
 

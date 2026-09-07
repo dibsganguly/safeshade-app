@@ -215,7 +215,10 @@ data class SafetySettingsDto(
      */
     val escalation: EscalationSettingsDto? = null,
     val offlineAlertMinutes: Int? = null,
-    val lowBatteryPercent: Int? = null
+    val lowBatteryPercent: Int? = null,
+    /** Added after this DTO already had rows on disk; null decodes as "no
+     * quiet word set", the same as a fresh install. */
+    val quietWord: String? = null
 ) {
     fun toDomain(): SafetySettings = SafetySettings(
         parentalControlsEnabled = parentalControlsEnabled ?: false,
@@ -234,7 +237,8 @@ data class SafetySettingsDto(
         // Negative values are clamped rather than rejected: a stored -1 would
         // otherwise read as "alert immediately, forever".
         offlineAlertMinutes = (offlineAlertMinutes ?: 120).coerceAtLeast(0),
-        lowBatteryPercent = (lowBatteryPercent ?: 15).coerceIn(0, 100)
+        lowBatteryPercent = (lowBatteryPercent ?: 15).coerceIn(0, 100),
+        quietWord = quietWord.orEmpty()
     )
 }
 
@@ -288,7 +292,8 @@ fun SafetySettings.toDto(): SafetySettingsDto = SafetySettingsDto(
     fallCountdownSeconds = fallCountdownSeconds,
     escalation = escalation.toDto(),
     offlineAlertMinutes = offlineAlertMinutes,
-    lowBatteryPercent = lowBatteryPercent
+    lowBatteryPercent = lowBatteryPercent,
+    quietWord = quietWord
 )
 
 data class FallAlertEventDto(
@@ -612,7 +617,13 @@ data class LocationStateDto(
     val locality: String? = null,
     val altitude: Int? = null,
     val isValid: Boolean? = null,
-    val capturedAt: Long? = null
+    val capturedAt: Long? = null,
+    /** Added after this DTO already had rows on disk; null on every one of
+     * them, and read as "no provenance recorded". */
+    val provider: String? = null,
+    val accuracyM: Float? = null,
+    val fixAt: Long? = null,
+    val fromDevice: Boolean? = null
 ) {
     fun toDomain(): LocationState = LocationState(
         lat = lat ?: 0.0,
@@ -624,12 +635,16 @@ data class LocationStateDto(
         // half-written record claiming validity at 0,0 renders as a confident
         // "last seen" pin in the Gulf of Guinea.
         isValid = (isValid ?: false) && (lat != null && lon != null) && (lat != 0.0 || lon != 0.0),
-        capturedAt = capturedAt ?: 0L
+        capturedAt = capturedAt ?: 0L,
+        provider = provider,
+        accuracyM = accuracyM,
+        fixAt = fixAt,
+        fromDevice = fromDevice ?: false
     )
 }
 
 fun LocationState.toDto(): LocationStateDto =
-    LocationStateDto(lat, lon, locationName, locality, altitude, isValid, capturedAt)
+    LocationStateDto(lat, lon, locationName, locality, altitude, isValid, capturedAt, provider, accuracyM, fixAt, fromDevice)
 
 // ============================================
 // PROFILE AGGREGATE

@@ -1,5 +1,6 @@
 package com.safeshade
 
+import com.safeshade.platform.AirQualityReading
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.GET
@@ -39,4 +40,47 @@ object WeatherService {
         .build()
 
     val api: OpenMeteoApi = retrofit.create(OpenMeteoApi::class.java)
+}
+
+// ============================================
+// AIR QUALITY - Open-Meteo's separate free endpoint, feeding
+// com.safeshade.platform.WeatherNudges.assess's aqiEuropean/pm25 params.
+// ============================================
+
+data class AirQualityResponse(
+    val current: CurrentAirQuality
+)
+
+data class CurrentAirQuality(
+    val european_aqi: Int?,
+    val pm2_5: Float?
+)
+
+interface AirQualityApi {
+    @GET("v1/air-quality?current=european_aqi,pm2_5")
+    suspend fun getAirQuality(
+        @Query("latitude") lat: Double,
+        @Query("longitude") lon: Double
+    ): AirQualityResponse
+}
+
+object AirQualityService {
+    private val retrofit = Retrofit.Builder()
+        .baseUrl("https://air-quality-api.open-meteo.com/")
+        .addConverterFactory(GsonConverterFactory.create())
+        .build()
+
+    val api: AirQualityApi = retrofit.create(AirQualityApi::class.java)
+}
+
+/**
+ * Turns a raw [AirQualityResponse] into the [AirQualityReading]
+ * `WeatherNudges.assess` reads. Pure, so the mapping can be tested against a
+ * hand-built response with no network and no Retrofit involved.
+ */
+object AirQualityMapper {
+    fun map(response: AirQualityResponse): AirQualityReading = AirQualityReading(
+        europeanAqi = response.current.european_aqi,
+        pm25 = response.current.pm2_5
+    )
 }

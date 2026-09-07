@@ -102,6 +102,8 @@ data class BoardUiState(
     val rainChance: Int? = null,
     val weatherCondition: String? = null,
     val uvIndex: Float? = null,
+    /** Weather and air nudges as (title, line), already assessed; empty when nothing applies. */
+    val nudges: List<Pair<String, String>> = emptyList(),
     val lastSyncLabel: String? = null,
     val isSyncing: Boolean = false,
     val isRinging: Boolean = false,
@@ -371,6 +373,17 @@ fun BoardScreen(
                     state = state.uvIndex?.let { if (it >= 8f) LampState.TRIP else if (it >= 6f) LampState.ATTENTION else null },
                     modifier = Modifier.weight(1f)
                 )
+            }
+        }
+
+        if (state.nudges.isNotEmpty()) {
+            item("nudges") {
+                BoardPlate(modifier = Modifier.fillMaxWidth()) {
+                    state.nudges.forEachIndexed { i, (title, line) ->
+                        if (i > 0) Hairline()
+                        Way(name = title, state = LampState.ATTENTION, stateLabel = "Now", detail = line, icon = SafeShadeIcons.TemperatureHot)
+                    }
+                }
             }
         }
 

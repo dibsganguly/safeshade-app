@@ -8,6 +8,7 @@ import com.safeshade.cloud.dto.KIND_VOICE
 import com.safeshade.cloud.dto.MedicalIdRow
 import com.safeshade.cloud.dto.MessageRow
 import com.safeshade.cloud.dto.ProfileRow
+import com.safeshade.cloud.dto.SmartHomeHookRow
 import com.safeshade.cloud.dto.WearerRow
 import com.safeshade.cloud.dto.ZoneRow
 import com.safeshade.cloud.sync.Outbox
@@ -15,15 +16,20 @@ import com.safeshade.cloud.sync.OutboxOp
 import com.safeshade.cloud.sync.PayloadResolution
 import com.safeshade.cloud.sync.PayloadSource
 import com.safeshade.cloud.sync.PullSource
+import com.safeshade.cloud.sync.EvidenceCloud
 import com.safeshade.cloud.sync.VoiceCloud
+import com.safeshade.data.EvidenceUploadState
 import com.safeshade.data.SafetySettings
 import com.safeshade.data.UserRole
 import com.safeshade.data.VoiceUpload
 import com.safeshade.data.Wearer
+import com.safeshade.repo.EvidenceRepository
 import com.safeshade.repo.MessagingRepository
 import com.safeshade.repo.ProfileRepository
 import com.safeshade.repo.SafetyRepository
+import com.safeshade.repo.SmartHomeRepository
 import com.safeshade.repo.SyncKeys
+import com.safeshade.repo.VitalsRepository
 import com.safeshade.repo.VoiceNoteRepository
 import com.safeshade.repo.ZoneRepository
 import kotlinx.coroutines.flow.StateFlow
@@ -91,7 +97,21 @@ class RepositoryPayloadSource(
      * before this. Defaulted to true so a graph without it behaves as the app
      * did before the switch existed.
      */
-    private val shareAlertPlaces: suspend () -> Boolean = { true }
+    private val shareAlertPlaces: suspend () -> Boolean = { true },
+    /**
+     * The vitals ring, or null on a graph built without it.
+     *
+     * Null is the same trap [voice] documents: with it absent every queued
+     * sample id resolves to nothing, counts three skips, and reports itself as
+     * a record this phone no longer holds - about readings sitting in the ring.
+     */
+    private val vitals: VitalsRepository? = null,
+    /** The evidence clips, or null on a graph built without them. */
+    private val evidence: EvidenceRepository? = null,
+    /** Gets a clip's audio into the bucket before its row is built. */
+    private val evidenceCloud: EvidenceCloud? = null,
+    /** The smart-home hooks, or null on a graph built without them. */
+    private val smartHome: SmartHomeRepository? = null
 ) : PayloadSource {
 
     override suspend fun payloadFor(
@@ -185,6 +205,37 @@ class RepositoryPayloadSource(
             }
         }
 
+        if (table == CloudTables.EVIDENCE && op == OutboxOp.UPSERT) {
+            val clip = snapshot.evidenceClips.firstOrNull { it.id == recordId }
+            if (clip != null) {
+                // No uploader means no way to get the audio up, so no row may
+                // be built. A skip, not a failure: nothing was attempted.
+                val cloud = evidenceCloud ?: return PayloadResolution.Skip
+                val held = cloud.ensureUploaded(clip, snapshot.circleId)
+                if (held != null) return held
+
+                // The upload returned OK. The clip's persisted state has been
+                // written for the Safety page to draw, but `clips` is a
+                // DataStore-backed flow and may not have emitted yet - so the
+                // snapshot is patched here rather than re-read, exactly as the
+                // voice path does. Re-reading would risk resolving against a
+                // stale QUEUED and counting a skip against an upload that had
+                // just succeeded.
+                val ready = snapshot.copy(
+                    evidenceClips = snapshot.evidenceClips.map { current ->
+                        if (current.id == clip.id) {
+                            current.copy(upload = EvidenceUploadState.UPLOADED, uploadReason = null)
+                        } else {
+                            current
+                        }
+                    }
+                )
+                return PayloadResolver.resolve(table, recordId, op, ready)
+                    ?.let { PayloadResolution.Row(it) }
+                    ?: PayloadResolution.Skip
+            }
+        }
+
         return PayloadResolver.resolve(table, recordId, op, snapshot)
             ?.let { PayloadResolution.Row(it) }
             ?: PayloadResolution.Skip
@@ -221,7 +272,10 @@ class RepositoryPayloadSource(
             // Only when there is one. A graph without a voice repository is not
             // waiting for it, and blocking every push on a flow that will never
             // arrive would hold the whole queue forever.
-            (voice == null || voice.notes.value != null)
+            (voice == null || voice.notes.value != null) &&
+            (vitals == null || vitals.samples.value != null) &&
+            (evidence == null || evidence.clips.value != null) &&
+            (smartHome == null || smartHome.hooks.value != null)
 
     /** Exposed for the tests; there is nothing here a test cannot construct. */
     suspend fun snapshot(): SyncSnapshot? {
@@ -243,6 +297,9 @@ class RepositoryPayloadSource(
             messages = messaging.messages.value.orEmpty(),
             voiceNotes = voice?.notes?.value.orEmpty(),
             zones = zones.zones.value.orEmpty(),
+            vitalsSamples = vitals?.samples?.value.orEmpty(),
+            evidenceClips = evidence?.clips?.value.orEmpty(),
+            smartHomeHooks = smartHome?.hooks?.value.orEmpty(),
             shareAlertPlaces = shareAlertPlaces()
         )
     }
@@ -271,6 +328,8 @@ class RepositoryPullSource(
     private val zones: ZoneRepository,
     /** Null on a graph built without the Talk thread. See [applyMessages]. */
     private val voice: VoiceNoteRepository?,
+    /** Null on a graph built without the smart-home page. */
+    private val smartHome: SmartHomeRepository? = null,
     private val outbox: Outbox,
     private val session: StateFlow<CloudSession>,
     private val circleIdProvider: suspend () -> String?,
@@ -291,6 +350,7 @@ class RepositoryPullSource(
         CloudTables.ALERTS,
         CloudTables.MESSAGES,
         CloudTables.ZONES,
+        CloudTables.SMART_HOME_HOOKS,
         CloudTables.CIRCLE_MEMBERS,
         CloudTables.INVITES
     )
@@ -343,6 +403,7 @@ class RepositoryPullSource(
             CloudTables.ALERTS -> applyAlerts(rows, circle)
             CloudTables.MESSAGES -> applyMessages(rows, circle)
             CloudTables.ZONES -> applyZones(rows, circle)
+            CloudTables.SMART_HOME_HOOKS -> applySmartHomeHooks(rows, circle)
             else -> sideTables(table, rows)
         }
     }
@@ -480,6 +541,24 @@ class RepositoryPullSource(
         val ids = wearerIds(circleId)
         zones.applyRemoteZones { current ->
             MergeRules.zones(current, remote, circleId, queued, ids)
+        }
+    }
+
+    /**
+     * The smart-home hooks, from whichever guardian set them up.
+     *
+     * Dropped entirely when there is no repository to write into, rather than
+     * routed to [sideTables]: a hook carries a webhook URL and a signing secret,
+     * and the side-table path exists for the Circle surface's own rows. There is
+     * nothing sensible for it to do with these and no reason to hand them over.
+     */
+    private suspend fun applySmartHomeHooks(rows: List<JsonObject>, circleId: String) {
+        val repo = smartHome ?: return
+        val remote = decode(rows, SmartHomeHookRow.serializer())
+        if (remote.isEmpty()) return
+        val queued = pending(CloudTables.SMART_HOME_HOOKS)
+        repo.applyRemoteHooks { current ->
+            MergeRules.smartHomeHooks(current, remote, circleId, queued)
         }
     }
 

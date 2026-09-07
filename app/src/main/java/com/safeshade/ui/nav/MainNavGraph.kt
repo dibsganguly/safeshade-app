@@ -157,6 +157,26 @@ import com.safeshade.ui.screens.device.ModeDetailUiState
 import com.safeshade.ui.screens.device.ModePickerScreen
 import com.safeshade.ui.screens.device.ModePickerUiState
 import com.safeshade.ui.screens.device.PairedDevicesScreen
+import com.safeshade.ui.screens.device.PairScreen
+import com.safeshade.ui.screens.device.RidesScreen
+import com.safeshade.ui.screens.device.FirmwareScreen
+import com.safeshade.ui.screens.device.FirmwareUiState
+import com.safeshade.ui.screens.device.FirmwareReleaseRow
+import com.safeshade.ui.screens.circle.SmartHomeScreen
+import com.safeshade.ui.screens.circle.SmartHomeUiState
+import com.safeshade.ui.screens.circle.SmartHookRow
+import com.safeshade.ui.screens.circle.PlatformRow
+import com.safeshade.ui.screens.circle.SmartHookEditorScreen
+import com.safeshade.ui.screens.circle.SmartHookEditorUiState
+import com.safeshade.ui.screens.circle.SmartHookTriggerLabels
+import com.safeshade.ui.screens.circle.SmartHookProviderLabels
+import com.safeshade.ui.screens.device.LostModeScreen
+import com.safeshade.ui.screens.device.LostUiState
+import com.safeshade.ui.screens.device.LostDeviceRow
+import com.safeshade.ui.screens.device.RidesUiState
+import com.safeshade.ui.screens.device.RideRow
+import com.safeshade.ui.screens.device.PairUiState
+import com.safeshade.data.DeviceModel
 import com.safeshade.ui.screens.device.PairedDevicesUiState
 import com.safeshade.ui.screens.device.RemindersScreen
 import com.safeshade.ui.screens.device.RemindersUiState
@@ -394,6 +414,7 @@ fun MainNavGraph(
         composable(Routes.BOARD) {
             val state = liveState.value
             val weather = liveWeather.value
+            val boardAir by viewModel.airQuality.collectAsStateWithLifecycle()
             val isSyncing = liveSyncing.value
             val permissionsGranted = livePermissions.value
             val hasUnresolvedTrip =
@@ -413,6 +434,16 @@ fun MainNavGraph(
                     rainChance = weather.rainChance.takeIf { weather.isLoaded },
                     weatherCondition = weather.condition.takeIf { weather.isLoaded },
                     uvIndex = weather.uvIndex.takeIf { weather.isLoaded },
+                    nudges = com.safeshade.platform.WeatherNudges.assess(
+                        uvIndex = weather.uvIndex.takeIf { weather.isLoaded },
+                        tempC = weather.temp.takeIf { weather.isLoaded },
+                        feelsLikeC = weather.temp.takeIf { weather.isLoaded },
+                        humidity = weather.humidity.takeIf { weather.isLoaded },
+                        aqiEuropean = boardAir?.europeanAqi,
+                        pm25 = boardAir?.pm25,
+                        hourOfDay = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY),
+                        persona = state.activeMode.name
+                    ).map { it.title to it.line },
                     lastSyncLabel = weather.lastSyncTime.takeIf { weather.isLoaded },
                     isSyncing = isSyncing,
                     isRinging = state.isRinging,
@@ -454,6 +485,7 @@ fun MainNavGraph(
             val openCheckIn = state.checkIns.firstOrNull { it.isOpen }
             val journey = state.journey?.takeIf { it.state == JourneyState.ACTIVE }
 
+            val circleHooks by viewModel.smartHooks.collectAsStateWithLifecycle()
             CircleScreen(
                 state = CircleUiState(
                     wearers = if (state.role == UserRole.GUARDIAN) state.wearers.map { w -> wearerCard(state, w, connectedAddress, lastFix) } else emptyList(),
@@ -523,6 +555,15 @@ fun MainNavGraph(
                             ?: state.checkIns.lastOrNull { it.answeredAt != null }
                                 ?.let { "Last answered at ${clockLabel(it.answeredAt!!)}" }
                     ),
+                    smartHome = run {
+                        val armed = circleHooks.orEmpty().count { it.enabled }
+                        val failed = circleHooks.orEmpty().any { it.enabled && it.lastError != null }
+                        CircleWay(
+                            state = when { failed -> LampState.TRIP; armed > 0 -> LampState.LIVE; else -> LampState.OFF },
+                            stateLabel = when { failed -> "Failed"; armed > 0 -> "$armed armed"; else -> "None" },
+                            detail = if (armed > 0) "What the house does on a fall, an SOS or a zone crossing" else "Webhooks, Home Assistant, IFTTT"
+                        )
+                    },
                     sms = CircleWay(
                         state = if (state.devicePhoneNumber.isBlank()) LampState.OFF else LampState.LIVE,
                         stateLabel = if (state.devicePhoneNumber.isBlank()) "Not set up" else "Ready",
@@ -556,6 +597,7 @@ fun MainNavGraph(
                 onOpenTalk = { navController.navigate(Routes.CIRCLE_TALK) },
                 onOpenPerson = { id -> navController.navigate(Routes.personEdit(id)) },
                 onLocate = { navController.navigate(Routes.DEVICE_LOCATE) },
+                onOpenSmartHome = { navController.navigate(Routes.CIRCLE_SMART_HOME) },
                 onCallWearable = {
                     // The wearable's SIM, dialled through the phone's dialler;
                     // the number is the one stored under SIM and SMS. A blank
@@ -1043,6 +1085,7 @@ fun MainNavGraph(
                     contactsSummary = state.contactsLabel
                 ),
                 onDestinationChange = { destination = it },
+                onWalkHome = { viewModel.startJourney("Home", 20) },
                 onEtaSelected = {
                     etaMinutes = it
                     isCustomEta = false
@@ -1720,6 +1763,8 @@ fun MainNavGraph(
 
         composable(Routes.SAFETY_SILENT) {
             val state = liveState.value
+            var quietDraft by rememberSaveable(state.safetySettings.quietWord) { mutableStateOf(state.safetySettings.quietWord) }
+            var quietError by remember { mutableStateOf<String?>(null) }
             SilentSosScreen(
                 state = SilentSosUiState(
                     silentSosEnabled = silentSosEnabled,
@@ -1729,9 +1774,21 @@ fun MainNavGraph(
                     // The firmware capability is not reported over the link, so
                     // this claims nothing rather than promising a silent alert
                     // the device may not support.
-                    deviceSupportsSilentAlert = false
+                    deviceSupportsSilentAlert = false,
+                    quietWord = quietDraft,
+                    quietWordError = quietError
                 ),
                 onBack = { navController.popBackStack() },
+                onQuietWordChange = { typed ->
+                    quietDraft = typed
+                    quietError = when (com.safeshade.platform.QuietWord.validate(typed)) {
+                        com.safeshade.platform.QuietWordValidation.Ok -> null
+                        com.safeshade.platform.QuietWordValidation.TooShort -> if (typed.isBlank()) null else "Three letters or more."
+                        com.safeshade.platform.QuietWordValidation.TooCommon -> "Too ordinary. It would trip on an everyday message."
+                        com.safeshade.platform.QuietWordValidation.ContainsDigitsOnly -> "Use letters, not just numbers."
+                    }
+                    if (quietError == null) viewModel.setSafetySettings(state.safetySettings.copy(quietWord = typed.trim()))
+                },
                 onSilentSosChange = { silentSosEnabled = it },
                 onStageCall = { stagedCallSeconds = it },
                 onCancelStagedCall = { stagedCallSeconds = null },
@@ -1745,6 +1802,9 @@ fun MainNavGraph(
 
         composable(Routes.DEVICE) {
             val state = liveState.value
+            val deviceLeash by viewModel.leash.collectAsStateWithLifecycle()
+            val deviceRides by viewModel.rides.collectAsStateWithLifecycle()
+            val deviceLost by viewModel.lostDevices.collectAsStateWithLifecycle()
             DeviceScreen(
                 onOpenSettings = { navController.navigate(Routes.SETTINGS) },
                 state = DeviceUiState(
@@ -1766,7 +1826,23 @@ fun MainNavGraph(
                     activeReminderCount = listOf(medicationEnabled, checkInIntervalMinutes > 0).count { it },
                     pairedDeviceCount = state.pairedDevices.size,
                     hasTelemetry = state.telemetryHistory.isNotEmpty(),
-                    isRinging = state.isRinging
+                    isRinging = state.isRinging,
+                    rideCount = deviceRides.orEmpty().size,
+                    lostCount = deviceLost.orEmpty().size,
+                    leashLamp = when (deviceLeash) {
+                        is com.safeshade.platform.LeashState.Near -> LampState.LIVE
+                        is com.safeshade.platform.LeashState.Drifting -> LampState.ATTENTION
+                        is com.safeshade.platform.LeashState.Far, is com.safeshade.platform.LeashState.Broken -> LampState.TRIP
+                        com.safeshade.platform.LeashState.Unknown -> LampState.UNKNOWN
+                    },
+                    leashWord = when (deviceLeash) {
+                        is com.safeshade.platform.LeashState.Near -> "Near"
+                        is com.safeshade.platform.LeashState.Drifting -> "Drifting"
+                        is com.safeshade.platform.LeashState.Far -> "Far"
+                        is com.safeshade.platform.LeashState.Broken -> "Gone"
+                        com.safeshade.platform.LeashState.Unknown -> null
+                    },
+                    leashLine = com.safeshade.platform.VirtualLeash().describe(deviceLeash, System.currentTimeMillis()).takeIf { deviceLeash != com.safeshade.platform.LeashState.Unknown }
                 ),
                 onOpenWay = { route -> navController.navigate(route) },
                 listState = deviceListState
@@ -1957,6 +2033,12 @@ fun MainNavGraph(
             var ringConfirmArmed by rememberSaveable { mutableStateOf(false) }
             val lastFix = state.lastKnownDeviceLocation
 
+            val positioning = com.safeshade.platform.PositioningReadout.from(
+                provider = lastFix?.provider,
+                accuracyM = lastFix?.accuracyM,
+                ageMs = lastFix?.fixAt?.takeIf { it > 0L }?.let { System.currentTimeMillis() - it },
+                fromDevice = lastFix?.fromDevice == true
+            )
             LocateScreen(
                 state = LocateUiState(
                     connection = state.connection,
@@ -1967,7 +2049,10 @@ fun MainNavGraph(
                     lastKnownPlace = lastFix?.locationName?.takeIf { it.isNotBlank() }
                         ?: lastFix?.locality?.takeIf { it.isNotBlank() },
                     lastKnownCoordinates = lastFix?.let { "%.5f, %.5f".format(it.lat, it.lon) },
-                    lastKnownAgeLabel = lastFix?.capturedAt?.takeIf { it > 0L }?.let { agoLabel(it) }
+                    lastKnownAgeLabel = lastFix?.capturedAt?.takeIf { it > 0L }?.let { agoLabel(it) },
+                    positioningSource = positioning.source.label,
+                    positioningAccuracy = positioning.accuracyText,
+                    positioningAge = positioning.ageText
                 ),
                 onArmRing = { ringConfirmArmed = true },
                 onCancelRing = { ringConfirmArmed = false },
@@ -2009,6 +2094,7 @@ fun MainNavGraph(
             LightsScreen(
                 state = LightsUiState(
                     connection = state.connection,
+                    mode = state.activeMode,
                     pattern = ledPattern,
                     // The LED pattern is not part of `AppState`, so there is
                     // nothing to compare a write against. Rather than claim a
@@ -2021,6 +2107,344 @@ fun MainNavGraph(
                     ledPattern = pattern
                     viewModel.setLedPattern(pattern)
                 },
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Routes.CIRCLE_SMART_HOME) {
+            val state = liveState.value
+            val hooks by viewModel.smartHooks.collectAsStateWithLifecycle()
+            val firings by viewModel.smartFirings.collectAsStateWithLifecycle()
+            val context = LocalContext.current
+            var google by remember { mutableStateOf<PlatformRow?>(null) }
+            var alexa by remember { mutableStateOf<PlatformRow?>(null) }
+            var matter by remember { mutableStateOf<PlatformRow?>(null) }
+            fun outcomeRow(name: String, o: com.safeshade.platform.ConnectOutcome): PlatformRow = when (o) {
+                is com.safeshade.platform.ConnectOutcome.Opened -> PlatformRow(name, LampState.LIVE, "Opened", "Opened ${o.appLabel}. Point a routine there at one of the automations above.")
+                is com.safeshade.platform.ConnectOutcome.NotInstalled -> PlatformRow(name, LampState.OFF, "Not installed", "The $name app is not on this phone. Tap again to open the Play Store.")
+                is com.safeshade.platform.ConnectOutcome.Failed -> PlatformRow(name, LampState.TRIP, "Failed", o.reason)
+            }
+            SmartHomeScreen(
+                state = SmartHomeUiState(
+                    wearerName = state.wearerName,
+                    hooks = hooks.orEmpty().map { h ->
+                        SmartHookRow(
+                            id = h.id,
+                            name = h.name,
+                            triggerLabel = SmartHookTriggerLabels[h.trigger] ?: h.trigger,
+                            providerLabel = SmartHookProviderLabels[h.provider] ?: h.provider,
+                            enabled = h.enabled,
+                            lastLine = h.lastFiredAt?.let { at ->
+                                if (h.lastError != null) "Failed ${agoLabel(at)}: ${h.lastError}"
+                                else "Fired ${agoLabel(at)}${h.lastStatusCode?.let { " · $it" } ?: ""}"
+                            },
+                            lastFailed = h.lastError != null
+                        )
+                    },
+                    googleHome = google ?: SmartHomeUiState().googleHome,
+                    alexa = alexa ?: SmartHomeUiState().alexa,
+                    matter = matter ?: SmartHomeUiState().matter,
+                    recent = firings.orEmpty().sortedByDescending { it.at }.take(8).map { f ->
+                        val name = hooks.orEmpty().firstOrNull { it.id == f.hookId }?.name ?: "Automation"
+                        "${agoLabel(f.at)} · $name · ${f.error ?: "answered ${f.statusCode ?: "—"}"}"
+                    }
+                ),
+                onAdd = { navController.navigate(Routes.smartHookEdit(null)) },
+                onOpen = { id -> navController.navigate(Routes.smartHookEdit(id)) },
+                onToggle = { id, enabled -> hooks.orEmpty().firstOrNull { it.id == id }?.let { viewModel.setHookEnabled(it, enabled) } },
+                onGoogleHome = {
+                    val o = com.safeshade.platform.SmartHomeApps.openGoogleHome(context)
+                    if (o is com.safeshade.platform.ConnectOutcome.NotInstalled && google?.word == "Not installed") runCatching { context.startActivity(o.playIntent) }
+                    google = outcomeRow("Google Home", o)
+                },
+                onAlexa = {
+                    val o = com.safeshade.platform.SmartHomeApps.openAlexa(context)
+                    if (o is com.safeshade.platform.ConnectOutcome.NotInstalled && alexa?.word == "Not installed") runCatching { context.startActivity(o.playIntent) }
+                    alexa = outcomeRow("Amazon Alexa", o)
+                },
+                onMatter = {
+                    matter = when (val m = com.safeshade.platform.SmartHomeApps.matterCommissioningAvailable(context)) {
+                        com.safeshade.platform.MatterAvailability.Available -> PlatformRow("Matter", LampState.LIVE, "Ready", "This phone's Google Play services can commission Matter devices. Commissioning itself happens in Google Home.")
+                        is com.safeshade.platform.MatterAvailability.NoGooglePlayServices -> PlatformRow("Matter", LampState.TRIP, "Unavailable", m.reason)
+                        is com.safeshade.platform.MatterAvailability.Unsupported -> PlatformRow("Matter", LampState.OFF, "Unsupported", m.reason)
+                    }
+                },
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            route = "${Routes.CIRCLE_SMART_HOOK_EDIT}?${Routes.Args.HOOK_ID}={${Routes.Args.HOOK_ID}}",
+            arguments = listOf(navArgument(Routes.Args.HOOK_ID) { type = NavType.StringType; defaultValue = "" })
+        ) { entry ->
+            val hookId = entry.arguments?.getString(Routes.Args.HOOK_ID).orEmpty().ifBlank { null }
+            val hooks by viewModel.smartHooks.collectAsStateWithLifecycle()
+            val existing = hooks.orEmpty().firstOrNull { it.id == hookId }
+            val scope = rememberCoroutineScope()
+            var draft by remember(existing?.id) {
+                mutableStateOf(
+                    SmartHookEditorUiState(
+                        id = existing?.id,
+                        name = existing?.name.orEmpty(),
+                        trigger = existing?.trigger ?: "fall",
+                        provider = existing?.provider ?: "webhook",
+                        endpointUrl = existing?.endpointUrl.orEmpty(),
+                        secret = existing?.secret.orEmpty()
+                    )
+                )
+            }
+            // One id for the whole edit, so a test firing recorded before Save
+            // belongs to the hook that is then saved, not to a stranger.
+            val newId = rememberSaveable { java.util.UUID.randomUUID().toString() }
+            fun toHook() = com.safeshade.data.SmartHomeHook(
+                id = existing?.id ?: newId,
+                name = draft.name.trim(),
+                trigger = draft.trigger,
+                provider = draft.provider,
+                endpointUrl = draft.endpointUrl.trim(),
+                secret = draft.secret.trim().ifBlank { null },
+                enabled = existing?.enabled ?: true,
+                lastFiredAt = existing?.lastFiredAt,
+                lastError = existing?.lastError,
+                lastStatusCode = existing?.lastStatusCode
+            )
+            SmartHookEditorScreen(
+                state = draft,
+                onName = { draft = draft.copy(name = it) },
+                onTrigger = { draft = draft.copy(trigger = it) },
+                onProvider = { draft = draft.copy(provider = it) },
+                onUrl = { draft = draft.copy(endpointUrl = it, urlError = if (it.isBlank()) null else viewModel.validateHookUrl(it.trim())) },
+                onSecret = { draft = draft.copy(secret = it) },
+                onTest = {
+                    draft = draft.copy(testing = true, testLine = null)
+                    scope.launch {
+                        val line = when (val r = viewModel.testHook(toHook())) {
+                            is com.safeshade.platform.WebhookResult.Delivered -> "Delivered. The address answered ${r.statusCode}."
+                            is com.safeshade.platform.WebhookResult.Rejected -> "Rejected with ${r.statusCode}: ${r.bodySnippet.ifBlank { "no body" }}"
+                            is com.safeshade.platform.WebhookResult.Unreachable -> "Not reached: ${r.reason}"
+                        }
+                        draft = draft.copy(testing = false, testLine = line)
+                    }
+                },
+                onSave = {
+                    draft = draft.copy(saving = true, saveError = null)
+                    scope.launch {
+                        runCatching { viewModel.saveHook(toHook(), isNew = existing == null) }
+                            .onSuccess { navController.popBackStack() }
+                            .onFailure { draft = draft.copy(saving = false, saveError = "Could not save: ${it.message ?: "unknown reason"}") }
+                    }
+                },
+                onDelete = existing?.let { { viewModel.removeHook(it.id); navController.popBackStack() } },
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Routes.DEVICE_FIRMWARE) {
+            val state = liveState.value
+            val step by viewModel.otaStep.collectAsStateWithLifecycle()
+            val releases by viewModel.firmwareReleases.collectAsStateWithLifecycle()
+            val installed by viewModel.installedFirmware.collectAsStateWithLifecycle()
+            val fwCloudVm: CloudViewModel = viewModel(factory = CloudViewModel.Factory)
+            val fwSession by fwCloudVm.session.collectAsStateWithLifecycle()
+            val scope = rememberCoroutineScope()
+            val model = DeviceModel.fromAdvertisedName(state.deviceSettings.name)
+            var checking by remember { mutableStateOf(false) }
+            var checkError by remember { mutableStateOf<String?>(null) }
+            var lastChecked by rememberSaveable { mutableLongStateOf(0L) }
+            var versionNote by remember { mutableStateOf<String?>(null) }
+            var downloaded by remember { mutableStateOf(setOf<String>()) }
+            var otaJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
+
+            val newest = viewModel.let { releases.orEmpty().maxByOrNull { it.versionCode } }
+                ?.takeIf { r -> installed == null || com.safeshade.repo.FirmwareRepository.compareVersions(r.version, installed!!) > 0 }
+
+            FirmwareScreen(
+                state = FirmwareUiState(
+                    model = model,
+                    deviceName = state.deviceSettings.name,
+                    connected = state.connection.isUsable,
+                    installedVersion = installed,
+                    versionNote = versionNote,
+                    lastCheckedLabel = lastChecked.takeIf { it > 0L }?.let { agoLabel(it) },
+                    checking = checking,
+                    checkError = checkError,
+                    releases = releases.orEmpty().sortedByDescending { it.versionCode }.map { r ->
+                        FirmwareReleaseRow(
+                            id = r.id,
+                            version = r.version,
+                            sizeLabel = "%.1f MB".format(r.byteSize / 1_048_576.0),
+                            publishedLabel = r.publishedAt?.let { agoLabel(it) },
+                            notes = r.releaseNotes?.takeIf { it.isNotBlank() },
+                            mandatory = r.mandatory,
+                            downloaded = r.id in downloaded
+                        )
+                    },
+                    newestId = newest?.id,
+                    step = step,
+                    signedIn = fwSession is CloudSession.SignedIn
+                ),
+                onCheck = {
+                    if (!checking) {
+                        checking = true; checkError = null
+                        scope.launch {
+                            when (val c = viewModel.checkFirmware(model)) {
+                                is com.safeshade.repo.CloudCheck.Found -> Unit
+                                is com.safeshade.repo.CloudCheck.Failed -> checkError = c.reason
+                            }
+                            lastChecked = System.currentTimeMillis()
+                            checking = false
+                        }
+                    }
+                },
+                onAskVersion = {
+                    scope.launch {
+                        versionNote = when (val v = viewModel.queryFirmwareVersion()) {
+                            is com.safeshade.device.OtaProtocol.VersionReply.Version -> null
+                            com.safeshade.device.OtaProtocol.VersionReply.AcknowledgedNoVersion -> "The wearable acknowledged the question but reported no version."
+                            com.safeshade.device.OtaProtocol.VersionReply.Timeout -> "The wearable did not answer the version question."
+                        }
+                    }
+                },
+                onDownload = { id ->
+                    val r = releases.orEmpty().firstOrNull { it.id == id }
+                    if (r != null) otaJob = scope.launch {
+                        val result = viewModel.downloadFirmware(r)
+                        if (result is com.safeshade.device.OtaProtocol.OtaStep.Verifying) downloaded = downloaded + id
+                    }
+                },
+                onInstall = { id ->
+                    val r = releases.orEmpty().firstOrNull { it.id == id }
+                    if (r != null) otaJob = scope.launch { viewModel.installFirmware(r) }
+                },
+                onCancel = { otaJob?.cancel(); otaJob = null },
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Routes.DEVICE_LOST) {
+            val state = liveState.value
+            val permissionsGranted = livePermissions.value
+            val lost by viewModel.lostDevices.collectAsStateWithLifecycle()
+            val ownSeen by viewModel.ownLastSeen.collectAsStateWithLifecycle()
+            val recent by viewModel.sightings.collectAsStateWithLifecycle()
+            val lostCloudVm: CloudViewModel = viewModel(factory = CloudViewModel.Factory)
+            val lostSession by lostCloudVm.session.collectAsStateWithLifecycle()
+            var sweeping by remember { mutableStateOf(false) }
+            var lastSweepAt by rememberSaveable { mutableLongStateOf(0L) }
+            var reporting by rememberSaveable { mutableStateOf(false) }
+            LaunchedEffect(sweeping) {
+                if (sweeping) { delay(20_000L); sweeping = false }
+            }
+            val dayAgo = System.currentTimeMillis() - 86_400_000L
+            var community by remember { mutableStateOf<Map<String, com.safeshade.cloud.dto.DeviceSightingRow>>(emptyMap()) }
+            val lostAddresses = lost.orEmpty().map { it.address }
+            LaunchedEffect(lostAddresses, lostSession) {
+                if (lostAddresses.isNotEmpty() && lostSession is CloudSession.SignedIn) {
+                    community = viewModel.communityLastSeen(lostAddresses)
+                }
+            }
+            LaunchedEffect(reporting, lostSession, recent?.size) {
+                if (reporting && lostSession is CloudSession.SignedIn) viewModel.reportSightings()
+            }
+            LostModeScreen(
+                state = LostUiState(
+                    devices = state.pairedDevices.map { d ->
+                        val mark = lost.orEmpty().firstOrNull { it.address.equals(d.address, ignoreCase = true) }
+                        val wearer = state.wearers.firstOrNull { w -> w.deviceAddresses.any { it.equals(d.address, ignoreCase = true) } }
+                        LostDeviceRow(
+                            address = d.address,
+                            name = d.name,
+                            label = wearer?.name?.takeIf { it.isNotBlank() }?.let { "$it's ${d.name}" } ?: d.name,
+                            lost = mark != null,
+                            lostSinceLabel = mark?.let { agoLabel(it.since) },
+                            ownLastSeenLabel = ownSeen[d.address.uppercase()]?.let { agoLabel(it) },
+                            communityLastSeenLabel = community[d.address.uppercase()]?.let { row ->
+                                com.safeshade.cloud.parseServerInstant(row.seenAt)?.toEpochMilli()?.let { agoLabel(it) }
+                            },
+                            communityLat = community[d.address.uppercase()]?.lat,
+                            communityLon = community[d.address.uppercase()]?.lon
+                        )
+                    },
+                    sweeping = sweeping,
+                    permissionsGranted = permissionsGranted,
+                    signedIn = lostSession is CloudSession.SignedIn,
+                    heardOthersToday = recent.orEmpty().count { it.at > dayAgo },
+                    reporting = reporting,
+                    lastSweepLabel = lastSweepAt.takeIf { it > 0L }?.let { agoLabel(it) }
+                ),
+                onMarkLost = { address ->
+                    val d = state.pairedDevices.firstOrNull { it.address == address }
+                    viewModel.markLost(address, d?.name ?: address)
+                },
+                onMarkFound = { viewModel.markFound(it) },
+                onSweep = {
+                    viewModel.sweepForSightings()
+                    sweeping = true
+                    lastSweepAt = System.currentTimeMillis()
+                },
+                onOpenMap = { lat, lon ->
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("geo:$lat,$lon?q=$lat,$lon(SafeShade)"))
+                    runCatching { navController.context.startActivity(intent) }
+                },
+                onReporting = { reporting = it },
+                onRequestPermissions = requestPermissions,
+                onOpenSignIn = { navController.navigate(Routes.SETTINGS_SIGN_IN) },
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Routes.DEVICE_RIDES) {
+            val state = liveState.value
+            val rides by viewModel.rides.collectAsStateWithLifecycle()
+            val list = rides.orEmpty().sortedByDescending { it.startedAt }
+            RidesScreen(
+                state = RidesUiState(
+                    wearerName = state.wearerName,
+                    rides = list.map { r ->
+                        RideRow(
+                            id = r.id,
+                            whenLabel = agoLabel(r.startedAt),
+                            distanceKm = r.distanceM / 1000.0,
+                            movingMinutes = r.movingSeconds / 60,
+                            maxKmh = r.maxSpeedMps * 3.6,
+                            samples = r.samples,
+                            live = r.endedAt == null
+                        )
+                    },
+                    totalKm = list.sumOf { it.distanceM } / 1000.0,
+                    totalMinutes = list.sumOf { it.movingSeconds } / 60,
+                    bikeMode = state.activeMode == PersonaMode.BIKE
+                ),
+                onClear = { viewModel.clearRides() },
+                onStartJourney = { navController.navigate(Routes.CIRCLE_JOURNEY) },
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Routes.DEVICE_PAIR) {
+            val state = liveState.value
+            val permissionsGranted = livePermissions.value
+            val context = LocalContext.current
+            var chosen by rememberSaveable { mutableStateOf(DeviceModel.S1.name) }
+            val foundName = when (val c = state.connection) {
+                is ConnectionState.Found -> c.name
+                ConnectionState.Ready, ConnectionState.Connected, ConnectionState.Connecting -> state.deviceSettings.name.takeIf { it.isNotBlank() }
+                else -> null
+            }
+            PairScreen(
+                state = PairUiState(
+                    chosen = DeviceModel.valueOf(chosen),
+                    connection = state.connection,
+                    permissionsGranted = permissionsGranted,
+                    foundName = foundName,
+                    foundModel = foundName?.let { DeviceModel.fromAdvertisedName(it) },
+                    nfcAvailable = com.safeshade.platform.nfcAvailability(context) is com.safeshade.platform.NfcAvailability.Available
+                ),
+                onChoose = { chosen = it.name },
+                onSearch = { viewModel.connect() },
+                onStop = { viewModel.disconnect() },
+                onRequestPermissions = requestPermissions,
+                onDone = { navController.popBackStack() },
                 onBack = { navController.popBackStack() }
             )
         }
@@ -2048,7 +2472,7 @@ fun MainNavGraph(
                         it.address to agoLabel(it.lastConnected)
                     }
                 ),
-                onPairNew = { viewModel.connect() },
+                onPairNew = { navController.navigate(Routes.DEVICE_PAIR) },
                 onRequestPermissions = requestPermissions,
                 onConnect = { address -> viewModel.connectTo(address) },
                 onDisconnect = { viewModel.disconnect() },
@@ -3121,6 +3545,7 @@ private val TripKind.short: String
         TripKind.MISSED_CHECKIN -> "Check-in"
         TripKind.ZONE_EXIT -> "Zone"
         TripKind.JOURNEY_OVERDUE -> "Journey"
+        TripKind.QUIET_WORD -> "Quiet word"
     }
 
 /** "72 bpm · 98% · 36.6°" for the hub's Vitals way; only the fields that were measured. */

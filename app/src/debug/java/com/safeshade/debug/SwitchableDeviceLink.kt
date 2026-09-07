@@ -2,6 +2,7 @@ package com.safeshade.debug
 
 import com.safeshade.data.LedPattern
 import com.safeshade.data.LiveSensorData
+import com.safeshade.device.BleSighting
 import com.safeshade.device.DeviceAlert
 import com.safeshade.device.DeviceLink
 import kotlinx.coroutines.CoroutineScope
@@ -70,9 +71,12 @@ class SwitchableDeviceLink(
     override val alerts: SharedFlow<DeviceAlert> = switchingShared { it.alerts }
     override val replies: SharedFlow<String> = switchingShared { it.replies }
     override val acks: SharedFlow<String> = switchingShared { it.acks }
+    override val sightings: SharedFlow<BleSighting> = switchingShared { it.sightings }
 
     override fun startScan(preferredAddress: String?) = active.startScan(preferredAddress)
     override fun stopScan() = active.stopScan()
+    override fun startSightingScan(durationMs: Long) = active.startSightingScan(durationMs)
+    override fun stopSightingScan() = active.stopSightingScan()
     override fun disconnect() = active.disconnect()
     override fun readRssi() = active.readRssi()
 

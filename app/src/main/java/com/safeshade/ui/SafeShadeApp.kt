@@ -116,6 +116,24 @@ fun SafeShadeApp(viewModel: SafeShadeViewModel) {
         } else {
             val navController = rememberNavController()
 
+            // A shortcut or the tile asked for a page. Navigate once, then
+            // clear, so a rotation does not replay it. The SOS action lands on
+            // the Safety tab, whose bar carries the hold-to-fire disc; nothing
+            // fires without the hold.
+            val launchAction by viewModel.launchAction.collectAsStateWithLifecycle()
+            LaunchedEffect(launchAction) {
+                val route = when (launchAction) {
+                    "com.safeshade.action.SOS" -> Routes.SAFETY
+                    "com.safeshade.action.CHECK_IN" -> Routes.CIRCLE_CHECKIN
+                    "com.safeshade.action.LOCATE" -> Routes.DEVICE_LOCATE
+                    else -> null
+                }
+                if (route != null) {
+                    navController.navigate(route) { launchSingleTop = true }
+                    viewModel.consumeLaunchAction()
+                }
+            }
+
             // Hoisted above the NavHost, and this is not an optimisation.
             // The bar no longer saves and restores tab stacks (see
             // BoardBottomBar's own note on why), so switching tabs destroys the
@@ -329,6 +347,7 @@ private fun tripBody(kind: TripKind, wearerName: String): String {
         TripKind.MISSED_CHECKIN -> "$who did not answer a check-in."
         TripKind.ZONE_EXIT -> "$who left a safe zone."
         TripKind.JOURNEY_OVERDUE -> "$who has not arrived, and the journey time has passed."
+        TripKind.QUIET_WORD -> "$who used the quiet word in a message. Nothing sounded on the wearable."
     }
 }
 

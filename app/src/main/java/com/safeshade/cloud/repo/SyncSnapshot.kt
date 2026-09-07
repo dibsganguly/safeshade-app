@@ -1,11 +1,14 @@
 package com.safeshade.cloud.repo
 
 import com.safeshade.data.EmergencyContact
+import com.safeshade.data.EvidenceClip
 import com.safeshade.data.FallAlertEvent
 import com.safeshade.data.GeofenceZone
 import com.safeshade.data.PairedDevice
 import com.safeshade.data.QuickMessage
+import com.safeshade.data.SmartHomeHook
 import com.safeshade.data.UserRole
+import com.safeshade.data.VitalsSample
 import com.safeshade.data.VoiceNote
 import com.safeshade.data.Wearer
 
@@ -81,6 +84,37 @@ data class SyncSnapshot(
     val voiceNotes: List<VoiceNote> = emptyList(),
 
     val zones: List<GeofenceZone> = emptyList(),
+
+    /**
+     * The vitals ring, as `VitalsRepository` holds it.
+     *
+     * Every entry is already known to carry a measurement and a source the
+     * server's check constraint accepts - the repository refuses to store one
+     * that does not - so the resolver's job is arithmetic, not validation.
+     */
+    val vitalsSamples: List<VitalsSample> = emptyList(),
+
+    /**
+     * The evidence clips.
+     *
+     * A clip in [com.safeshade.data.EvidenceUploadState.LOCAL_ONLY] is here and
+     * is *deliberately unsendable*: that state means the person said this
+     * recording may not leave the phone. Nothing in the push may promote it -
+     * see `EvidenceCloud`, which never writes LOCAL_ONLY and never reads past
+     * it into an upload.
+     */
+    val evidenceClips: List<EvidenceClip> = emptyList(),
+
+    /**
+     * The smart-home hooks.
+     *
+     * These carry a webhook URL and a signing secret, and both go on the wire -
+     * the row is row-level-security protected and readable only by the circle
+     * that wrote it, and a hook that arrived on a second guardian's phone
+     * without them would be a row that looks configured and fires nothing. See
+     * `SmartHomeHookRow`, which says the same thing from the schema's side.
+     */
+    val smartHomeHooks: List<SmartHomeHook> = emptyList(),
 
     /**
      * Whether an alert may carry **where** it happened.

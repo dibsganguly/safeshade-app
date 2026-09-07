@@ -13,6 +13,8 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.google.android.gms.location.LocationServices
 import com.safeshade.SafeShadeApplication
 import com.safeshade.WeatherService
+import com.safeshade.AirQualityService
+import com.safeshade.AirQualityMapper
 import com.safeshade.data.DarkModePreference
 import com.safeshade.data.DeviceSettings
 import com.safeshade.data.EmergencyContact
@@ -213,6 +215,10 @@ class SafeShadeViewModel(
                 )
                 _weather.value = state
 
+                // Air quality rides alongside; a failure leaves the last reading.
+                runCatching { AirQualityService.api.getAirQuality(fix.lat, fix.lon) }
+                    .getOrNull()?.let { _airQuality.value = AirQualityMapper.map(it) }
+
                 val now = Calendar.getInstance()
                 container.deviceRepository.syncWeather(
                     DeviceProtocol.weather(
@@ -248,7 +254,10 @@ class SafeShadeViewModel(
                                 lon = it.longitude,
                                 altitude = it.altitude.toInt(),
                                 isValid = true,
-                                capturedAt = System.currentTimeMillis()
+                                capturedAt = System.currentTimeMillis(),
+                                provider = it.provider,
+                                accuracyM = if (it.hasAccuracy()) it.accuracy else null,
+                                fixAt = it.time
                             )
                         }
                     )
@@ -313,6 +322,109 @@ class SafeShadeViewModel(
 
     /** What the wearable watch believes this minute. */
     val watchState: StateFlow<com.safeshade.service.WatchState> = container.wearableWatch.state
+
+    // ============================================
+    // Rides, leash, air, launcher actions
+    // ============================================
+
+    val rides: StateFlow<List<com.safeshade.data.Ride>?> = container.rideLogRepository.rides
+    fun clearRides() = launchIo { container.rideLogRepository.clear() }
+
+    val leash: StateFlow<com.safeshade.platform.LeashState> = container.deviceRepository.leash
+
+    private val _airQuality = MutableStateFlow<com.safeshade.platform.AirQualityReading?>(null)
+    /** The newest Open-Meteo air-quality reading for the last fix, or null. */
+    val airQuality = _airQuality.asStateFlow()
+
+    /**
+     * An action a launcher shortcut or the Quick Settings tile asked for:
+     * "com.safeshade.action.SOS", CHECK_IN or LOCATE. The app graph consumes
+     * it once and clears it. The tile never fires anything itself.
+     */
+    private val _launchAction = MutableStateFlow<String?>(null)
+    val launchAction = _launchAction.asStateFlow()
+    fun onLaunchAction(action: String?) { if (action != null && action.startsWith("com.safeshade.action.")) _launchAction.value = action }
+    fun consumeLaunchAction() { _launchAction.value = null }
+
+    // ============================================
+    // Sightings and lost mode
+    // ============================================
+
+    val sightings: StateFlow<List<com.safeshade.data.Sighting>?> = container.sightingsRepository.recent
+    val lostDevices: StateFlow<List<com.safeshade.data.LostMode>?> = container.sightingsRepository.lost
+    val ownLastSeen: StateFlow<Map<String, Long>> = container.sightingsRepository.ownLastSeen
+    fun markLost(address: String, label: String) = launchIo { container.sightingsRepository.markLost(address, label) }
+    fun markFound(address: String) = launchIo { container.sightingsRepository.markFound(address) }
+    /** A twenty-second low-power listen for any SafeShade nearby. Needs the scan permission; the link logs a refusal. */
+    fun sweepForSightings() = container.sightingsRepository.startSweep()
+
+    // ============================================
+    // Smart home
+    // ============================================
+
+    val smartHooks: StateFlow<List<com.safeshade.data.SmartHomeHook>?> = container.smartHomeRepository.hooks
+    val smartFirings: StateFlow<List<com.safeshade.data.SmartHomeFiring>?> = container.smartHomeRepository.firings
+    fun validateHookUrl(url: String): String? = container.smartHomeRepository.validateUrl(url)
+    suspend fun saveHook(hook: com.safeshade.data.SmartHomeHook, isNew: Boolean) {
+        if (isNew) container.smartHomeRepository.add(hook) else container.smartHomeRepository.update(hook)
+    }
+    fun removeHook(id: String) = launchIo { container.smartHomeRepository.removeById(id) }
+    fun setHookEnabled(hook: com.safeshade.data.SmartHomeHook, enabled: Boolean) =
+        launchIo { container.smartHomeRepository.update(hook.copy(enabled = enabled)) }
+    /** Posts a real test event to the hook and returns what the endpoint answered. */
+    suspend fun testHook(hook: com.safeshade.data.SmartHomeHook): com.safeshade.platform.WebhookResult {
+        val ready = appState.value.readyOrNull
+        val event = com.safeshade.platform.SmartHomeEvent(
+            trigger = hook.trigger,
+            wearerName = ready?.selectedWearer?.name?.takeIf { it.isNotBlank() } ?: ready?.deviceSettings?.wearerName.orEmpty(),
+            at = System.currentTimeMillis(),
+            detail = "Test from the SafeShade app"
+        )
+        val result = com.safeshade.platform.SmartHomeApps.post(hook, event, container.httpClient)
+        val (code, error) = when (result) {
+            is com.safeshade.platform.WebhookResult.Delivered -> result.statusCode to null
+            is com.safeshade.platform.WebhookResult.Rejected -> result.statusCode to "Rejected: ${result.bodySnippet}"
+            is com.safeshade.platform.WebhookResult.Unreachable -> null to result.reason
+        }
+        container.smartHomeRepository.recordFiring(hook.id, code, error)
+        return result
+    }
+
+    // ============================================
+    // Firmware
+    // ============================================
+
+    val otaStep: StateFlow<com.safeshade.device.OtaProtocol.OtaStep> = container.firmwareRepository.state
+    val firmwareReleases: StateFlow<List<com.safeshade.data.FirmwareRelease>?> = container.firmwareRepository.releases
+    val installedFirmware: StateFlow<String?> = container.firmwareRepository.installedVersion
+    suspend fun checkFirmware(model: com.safeshade.data.DeviceModel) = container.firmwareRepository.check(model)
+    suspend fun queryFirmwareVersion() = container.firmwareRepository.queryVersion()
+    suspend fun downloadFirmware(release: com.safeshade.data.FirmwareRelease) = container.firmwareRepository.downloadAndVerify(release)
+    suspend fun installFirmware(release: com.safeshade.data.FirmwareRelease) =
+        container.firmwareRepository.install(release, mtu = 185)
+
+    /** Where the community last heard each of the given addresses, newest first per address. */
+    suspend fun communityLastSeen(addresses: List<String>): Map<String, com.safeshade.cloud.dto.DeviceSightingRow> {
+        if (addresses.isEmpty()) return emptyMap()
+        return when (val r = container.sightingsCloud.lastSeen(addresses)) {
+            is com.safeshade.cloud.CloudResult.Ok -> r.value
+                .filter { it.bleAddress != null }
+                .groupBy { it.bleAddress!!.uppercase() }
+                .mapValues { (_, rows) -> rows.maxByOrNull { it.seenAt.orEmpty() }!! }
+            else -> emptyMap()
+        }
+    }
+
+    /** Reports every unreported sighting to the community, once per address per ten minutes (the cloud rate-limits too). */
+    fun reportSightings() = launchIo {
+        val pending = container.sightingsRepository.unreported()
+        val done = mutableListOf<Pair<String, Long>>()
+        for (s in pending) {
+            val r = container.sightingsCloud.report(s.address, s.rssi, s.lat, s.lon, s.accuracyM, s.at)
+            if (r is com.safeshade.cloud.CloudResult.Ok) done += s.address to s.at
+        }
+        if (done.isNotEmpty()) container.sightingsRepository.markReported(done)
+    }
 
     // ============================================
     // Vitals

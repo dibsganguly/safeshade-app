@@ -196,6 +196,46 @@ interface CloudClient {
     ): CloudResult<List<JsonObject>>
 
     /**
+     * Reads rows of [table] whose [column] is one of [values].
+     *
+     * ### Why this exists when the class KDoc says there is no filter DSL
+     *
+     * It is not one, and the restraint is deliberate: one column, one `in`, one
+     * optional sort. It exists because two tables in the schema have **no
+     * `circle_id` column at all**, so [select] against either is not an empty
+     * answer but a 400 from PostgREST naming a column that does not exist:
+     *
+     *  - `firmware_releases` belongs to a product line, not to a family, and is
+     *    the one publicly readable table in the schema.
+     *  - `device_sightings` is deliberately not circle-scoped - the whole
+     *    feature is a stranger's phone reporting a wearable it walked past.
+     *
+     * Both are read by a filter on one plain column, and neither is worth an
+     * edge function or a `security definer` SQL function that would have to be
+     * migrated before the app could ship. Anything richer than this still
+     * belongs on the server; if a caller wants a join, a filter DSL is not the
+     * answer to that either.
+     *
+     * Row-level security still decides what comes back. This narrows a result
+     * that was already narrowed; it widens nothing.
+     *
+     * @param values empty means empty: no rows, and no request. `in ()` is a
+     *   syntax error at the server, and sending no filter would return the
+     *   whole table - the opposite of what an empty list asks for.
+     * @param orderBy a column name, applied server-side. Null leaves the order
+     *   to the database, which is to say undefined.
+     * @param limit rows, after the sort. Null for all of them.
+     */
+    suspend fun selectWhereIn(
+        table: String,
+        column: String,
+        values: List<String>,
+        orderBy: String? = null,
+        descending: Boolean = true,
+        limit: Int? = null
+    ): CloudResult<List<JsonObject>>
+
+    /**
      * Calls an edge function and returns its JSON body.
      *
      * A non-2xx response is a [CloudResult.Failed], not an [CloudResult.Ok]
@@ -313,6 +353,27 @@ interface CloudClient {
      * reason to think about it.
      */
     suspend fun downloadPrivate(bucket: String, path: String): CloudResult<ByteArray>
+
+    /**
+     * The permanent URL of an object in a **public** bucket.
+     *
+     * Not a suspend function and not a [CloudResult]: nothing is asked of the
+     * server. A public bucket's URL is a string built from the project URL and
+     * the path, and it is as valid before the object exists as after - which is
+     * why this cannot report whether the file is there and does not pretend to.
+     *
+     * The one bucket this is for is `firmware`, and that bucket is public on
+     * purpose: a device checking whether it is out of date should not need a
+     * session, and the images are signed or they are not trustworthy whichever
+     * way the bucket is set. **Never call this for `evidence` or `voice`.** A
+     * public URL over a private object is either broken or, if the bucket were
+     * ever flipped, a permanent un-revokable handle on a recording of somebody
+     * collapsing. Those go through [downloadPrivate] or [signedUrl].
+     *
+     * @return null when this build has no project configured, in which case
+     *   there is no URL to give rather than a wrong one.
+     */
+    fun publicUrl(bucket: String, path: String): String?
 
     /**
      * A time-limited URL for one private object.

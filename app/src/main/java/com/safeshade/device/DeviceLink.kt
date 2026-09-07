@@ -43,6 +43,15 @@ interface DeviceLink {
     val acks: SharedFlow<String>
 
     /**
+     * Every SafeShade advertisement the radio reports, unfiltered.
+     *
+     * Including this phone's own wearable: see [BleSighting] for why the
+     * "is this one mine" question is answered above this interface and not
+     * here. Both [startScan] and [startSightingScan] feed it.
+     */
+    val sightings: SharedFlow<BleSighting>
+
+    /**
      * Starts looking for a device.
      *
      * [preferredAddress], when given, restricts the scan to that one device.
@@ -54,6 +63,32 @@ interface DeviceLink {
      */
     fun startScan(preferredAddress: String? = null)
     fun stopScan()
+
+    /**
+     * A listen-only sweep: reports what is nearby and connects to none of it.
+     *
+     * This is the community last-seen sweep and the lost-device sweep, and it
+     * is a different operation from [startScan] in every way that matters. It
+     * never joins a device, so it is safe to run while already connected to
+     * one; it runs at `SCAN_MODE_LOW_POWER`, because it is a background
+     * errand rather than something a user is waiting on; and it stops itself
+     * after [durationMs] rather than being left to the caller, since a scan
+     * nobody remembered to stop is a flat battery.
+     *
+     * **Android throttles an app that starts more than 5 scans in 30 seconds.**
+     * The sixth `startScan` is silently refused — no callback, no error, no
+     * results — for the rest of that window. So sweeps must be spaced out, and
+     * a sweep started while one is already running is ignored rather than
+     * restarted, because the restart would spend a slot for nothing.
+     *
+     * Results arrive on [sightings]. Missing scan permissions are logged and
+     * the call returns; nothing is thrown.
+     */
+    fun startSightingScan(durationMs: Long)
+
+    /** Ends a [startSightingScan] early. Never touches a connect scan. */
+    fun stopSightingScan()
+
     fun disconnect()
     fun readRssi()
 
@@ -149,4 +184,58 @@ sealed interface DeviceAlert {
 
     /** Anything else arriving on ALERT_CHAR, kept rather than dropped. */
     data class Unknown(val raw: String, override val at: Long = System.currentTimeMillis()) : DeviceAlert
+}
+
+/**
+ * One advertisement seen during a scan, from any SafeShade in earshot.
+ *
+ * Every SafeShade wearable advertises the same `SERVICE_UUID`, so a scan
+ * filtered on that service sees other people's devices as well as this phone's
+ * own. That is not noise to be discarded — it is the whole community
+ * last-seen feature: a wearable that has walked off, or a collar on a dog that
+ * has, is found because some other SafeShade phone passed it and said where.
+ *
+ * So this type carries *every* result the radio reported, this phone's own
+ * devices included. Deciding which addresses are the user's own is a question
+ * about the paired list, not about the radio, and it is answered one layer up
+ * in `SightingsRepository`.
+ *
+ * No Android imports, deliberately: [manufacturerData] is a plain `ByteArray`
+ * rather than a `ScanRecord` so the dedupe and storage rules above it can be
+ * unit tested with no scan callback anywhere in sight. Feed the bytes to
+ * [MeshAdvertCodec.parseManufacturerData], which expects them already stripped
+ * of the two-byte company identifier.
+ *
+ * @param at wall-clock milliseconds, so it can be compared with stored rows.
+ *   Not `ScanResult.getTimestampNanos()`, which counts from boot.
+ */
+data class BleSighting(
+    val address: String,
+    /** The advertised name, or null when the frame carried none. Never a placeholder. */
+    val name: String?,
+    val rssi: Int,
+    val at: Long,
+    /** The manufacturer payload as advertised, or null when the frame carried none. */
+    val manufacturerData: ByteArray? = null
+) {
+    // ByteArray uses identity equality, which would make two sightings of the
+    // same frame unequal and defeat every dedupe and every assertion.
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is BleSighting) return false
+        return address == other.address &&
+            name == other.name &&
+            rssi == other.rssi &&
+            at == other.at &&
+            manufacturerData.contentEquals(other.manufacturerData)
+    }
+
+    override fun hashCode(): Int {
+        var result = address.hashCode()
+        result = 31 * result + (name?.hashCode() ?: 0)
+        result = 31 * result + rssi
+        result = 31 * result + at.hashCode()
+        result = 31 * result + (manufacturerData?.contentHashCode() ?: 0)
+        return result
+    }
 }

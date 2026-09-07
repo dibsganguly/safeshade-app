@@ -4,17 +4,24 @@ import com.safeshade.cloud.dto.AlertRow
 import com.safeshade.cloud.dto.CloudTables
 import com.safeshade.cloud.dto.DeviceRow
 import com.safeshade.cloud.dto.EmergencyContactRow
+import com.safeshade.cloud.dto.EvidenceRow
 import com.safeshade.cloud.dto.KIND_TEXT
 import com.safeshade.cloud.dto.KIND_VOICE
 import com.safeshade.cloud.dto.MedicalIdRow
 import com.safeshade.cloud.dto.MessageRow
 import com.safeshade.cloud.dto.ProfileRow
+import com.safeshade.cloud.dto.SmartHomeHookRow
+import com.safeshade.cloud.dto.VitalsSampleRow
 import com.safeshade.cloud.dto.WearerRow
 import com.safeshade.cloud.dto.ZoneRow
 import com.safeshade.cloud.dto.toIsoOrNull
 import com.safeshade.cloud.sync.OutboxOp
 import com.safeshade.data.EmergencyContact
+import com.safeshade.data.EvidenceClip
+import com.safeshade.data.EvidenceUploadState
+import com.safeshade.data.SmartHomeHook
 import com.safeshade.data.UserRole
+import com.safeshade.data.VitalsSample
 import com.safeshade.data.VoiceNote
 import com.safeshade.data.VoiceUpload
 import com.safeshade.platform.PhoneNumbers
@@ -105,6 +112,9 @@ internal object PayloadResolver {
             CloudTables.ALERTS -> alert(recordId, snapshot)
             CloudTables.MESSAGES -> message(recordId, snapshot)
             CloudTables.ZONES -> zone(recordId, snapshot)
+            CloudTables.VITALS_SAMPLES -> vitals(recordId, snapshot)
+            CloudTables.EVIDENCE -> evidence(recordId, snapshot)
+            CloudTables.SMART_HOME_HOOKS -> smartHomeHook(recordId, snapshot)
             else -> null
         }
     }
@@ -395,6 +405,146 @@ internal object PayloadResolver {
         )
     }
 
+    /**
+     * One vitals reading.
+     *
+     * ### `source` is checked here as well as in the repository
+     *
+     * `vitals_samples.source` carries a check constraint, and this app has no
+     * third state: a sample it did not measure is not written.
+     * `VitalsRepository.record` already refuses a source outside
+     * [VitalsSample.SOURCES], but a row that reached the wire with one would be
+     * rejected non-retryably as a *batch*, taking every other sample in the
+     * same drain down with it. So it is refused twice, and the second refusal
+     * costs one `in`.
+     *
+     * `device_id` and `battery_percent` go as null. Neither is a property of a
+     * reading on this phone: the device row is keyed by BLE address and a
+     * sample carries no address, and battery belongs to the telemetry frame
+     * rather than to the sensor value. Null is the honest answer for both, and
+     * they are *present* as null so every row of this table keeps the same key
+     * set - see the class KDoc.
+     */
+    private fun vitals(recordId: String, s: SyncSnapshot): JsonObject? {
+        val sample: VitalsSample = s.vitalsSamples.firstOrNull { it.id == recordId } ?: return null
+        if (sample.source !in VitalsSample.SOURCES) return null
+        return encode(
+            VitalsSampleRow.serializer(),
+            VitalsSampleRow(
+                id = CloudIds.cloudId(sample.id, s.circleId),
+                circleId = s.circleId,
+                wearerId = sample.wearerId?.let { CloudIds.cloudId(it, s.circleId) },
+                deviceId = null,
+                // When it was measured, never when it was sent. A sample that
+                // sat in an offline queue for a day is still a reading from
+                // yesterday, and stamping it "now" would put a heart rate on a
+                // guardian's chart at a minute nobody's heart was read.
+                measuredAt = sample.at.toIsoOrNull(),
+                heartRateBpm = sample.heartRateBpm,
+                spo2Percent = sample.spo2Percent,
+                bodyTempC = sample.tempC?.toDouble(),
+                ambientDb = sample.ambientDb,
+                batteryPercent = null,
+                source = sample.source
+            ),
+            CloudTables.VITALS_SAMPLES
+        )
+    }
+
+    /**
+     * One evidence clip, **only once its audio is in the bucket**.
+     *
+     * Exactly the voice-note invariant, for exactly the voice-note reason: the
+     * row is a pointer at a storage object, so a row that exists before the
+     * object does is a recording every guardian in the Circle can see, tap and
+     * fail to play. Anything short of [EvidenceUploadState.UPLOADED] therefore
+     * resolves to null and no row is sent.
+     *
+     * [EvidenceUploadState.LOCAL_ONLY] is the load-bearing one of those. It is
+     * not "not yet"; it is the person having said this recording of the room
+     * they were in may not leave the phone. Getting a clip past it is
+     * `EvidenceCloud`'s job and it will not do it either - the state is only
+     * ever set by `EvidenceRepository.add` when the opt-in was false, and
+     * nothing in `cloud/` writes it.
+     *
+     * `storage_path` is derived rather than remembered, for the reason
+     * [voicePath] is: [EvidenceClip] has no path field, and any phone holding
+     * the row can name the object from the ids it already has.
+     *
+     * `alert_id` is a real foreign key into `alerts`, so it is sent only when
+     * this phone can still see the alert it names. A clip recorded around a
+     * trip the user has since removed from their log would otherwise carry a
+     * key to a row that does not exist, and PostgREST rejects the whole batch
+     * it travelled in, not just the one row.
+     */
+    private fun evidence(recordId: String, s: SyncSnapshot): JsonObject? {
+        val clip: EvidenceClip = s.evidenceClips.firstOrNull { it.id == recordId } ?: return null
+        if (clip.upload != EvidenceUploadState.UPLOADED) return null
+        val alertId = clip.alertId
+            ?.takeIf { local -> s.alerts.any { it.id == local } }
+            ?.let { CloudIds.cloudId(it, s.circleId) }
+        return encode(
+            EvidenceRow.serializer(),
+            EvidenceRow(
+                id = CloudIds.cloudId(clip.id, s.circleId),
+                circleId = s.circleId,
+                alertId = alertId,
+                wearerId = null,
+                kind = clip.kind.ifBlank { EvidenceClip.KIND_AUDIO },
+                bucket = CloudTables.Buckets.EVIDENCE,
+                storagePath = evidencePath(clip.id, s.circleId),
+                contentType = EVIDENCE_MIME,
+                byteSize = clip.byteSize,
+                // Seconds on the wire, milliseconds on the phone. Rounded to
+                // the nearest rather than truncated, so a 29.6-second clip does
+                // not report itself as 29.
+                durationSeconds = ((clip.durationMs + 500) / 1000).coerceAtLeast(0),
+                capturedAt = clip.capturedAt.toIsoOrNull()
+            ),
+            CloudTables.EVIDENCE
+        )
+    }
+
+    /**
+     * One smart-home hook.
+     *
+     * ### The two credential fields go, and that is a decision, not an oversight
+     *
+     * `endpoint_url` and `secret` both travel. `SmartHomeStore` treats the URL
+     * as a credential in its own right - a Home Assistant webhook path *is* the
+     * authority to call it - and `SmartHomeHook.toString()` redacts both so
+     * they cannot reach a log by accident. Sending them to the server is
+     * nevertheless right: `smart_home_hooks` is row-level-security protected
+     * and readable only by the circle that wrote it, the schema's own KDoc says
+     * as much, and a hook that reached the second guardian's phone with the URL
+     * stripped would look configured on their screen and fire nothing at all.
+     *
+     * They must still never be logged. Nothing in this function does.
+     *
+     * `last_fired_at` and `last_error` are sent because they are how another
+     * phone in the circle sees the hook is alive; `last_status_code` has no
+     * column and stays a local detail.
+     */
+    private fun smartHomeHook(recordId: String, s: SyncSnapshot): JsonObject? {
+        val hook: SmartHomeHook = s.smartHomeHooks.firstOrNull { it.id == recordId } ?: return null
+        return encode(
+            SmartHomeHookRow.serializer(),
+            SmartHomeHookRow(
+                id = CloudIds.cloudId(hook.id, s.circleId),
+                circleId = s.circleId,
+                name = hook.name.ifBlank { null },
+                trigger = hook.trigger.ifBlank { null },
+                provider = hook.provider.ifBlank { null },
+                endpointUrl = hook.endpointUrl.ifBlank { null },
+                secret = hook.secret?.takeIf { it.isNotBlank() },
+                enabled = hook.enabled,
+                lastFiredAt = hook.lastFiredAt?.toIsoOrNull(),
+                lastError = hook.lastError?.takeIf { it.isNotBlank() }
+            ),
+            CloudTables.SMART_HOME_HOOKS
+        )
+    }
+
     // ============================================
     // TOMBSTONES
     // ============================================
@@ -435,6 +585,21 @@ internal object PayloadResolver {
             CloudTables.ZONES ->
                 encode(ZoneRow.serializer(), ZoneRow(id, s.circleId), table)
 
+            // `VitalsRepository.clear` tombstones every sample it drops and
+            // `EvidenceRepository.delete` tombstones any clip that had reached
+            // the server. Without these two branches each of those DELETEs
+            // resolved to null - a skip - and three drains later the record
+            // reported "there was nothing left on this phone to send for this"
+            // about a deletion that was the whole point of the tap.
+            CloudTables.VITALS_SAMPLES ->
+                encode(VitalsSampleRow.serializer(), VitalsSampleRow(id, s.circleId), table)
+
+            CloudTables.EVIDENCE ->
+                encode(EvidenceRow.serializer(), EvidenceRow(id, s.circleId), table)
+
+            CloudTables.SMART_HOME_HOOKS ->
+                encode(SmartHomeHookRow.serializer(), SmartHomeHookRow(id, s.circleId), table)
+
             else -> null
         }
     }
@@ -453,6 +618,17 @@ internal object PayloadResolver {
      * having to be trusted about where it put it.
      */
     fun voicePath(noteId: String, circleId: String): String = "$circleId/$noteId.m4a"
+
+    /**
+     * Where an evidence clip's audio lives in the private `evidence` bucket.
+     *
+     * The same `<circle_id>/<record_id>.m4a` scheme as [voicePath], and the
+     * first segment is load-bearing for the same reason: the storage policies
+     * in `0001_init.sql` read the circle id straight out of it with
+     * `path_circle_id(name)`, so an object filed anywhere else is unwritable by
+     * the person recording it and unreadable by the Circle it belongs to.
+     */
+    fun evidencePath(clipId: String, circleId: String): String = "$circleId/$clipId.m4a"
 
     /**
      * The uuid the server stores for a local record id.
@@ -513,6 +689,9 @@ internal object PayloadResolver {
      * a third. A voice note is the third.
      */
     private const val VOICE_CHANNEL = "CLOUD"
+
+    /** What `MediaRecorder`'s AAC output actually is. Matches `VoiceCloud`. */
+    internal const val EVIDENCE_MIME = "audio/mp4"
 
     private fun digitsOf(raw: String): String = PhoneNumbers.digitsOf(raw)
 }

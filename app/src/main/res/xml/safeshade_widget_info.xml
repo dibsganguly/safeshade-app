@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  2x2-to-4x2-friendly: minWidth/minHeight is the 2x2 minimum, and
+  maxResizeWidth lets it stretch out to a 4-wide row without the height
+  changing, which is the shape SafeShadeWidget's SizeMode.Responsive is
+  built to answer (see widget/SafeShadeWidget.kt).
+
+  initialLayout points at Glance's own placeholder layout, shipped inside the
+  glance-appwidget AAR - RemoteViews requires *some* initial layout resource
+  before Glance's runtime composition has produced one, and this app defines
+  no layout resources of its own to use instead.
+-->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="110dp"
+    android:minHeight="110dp"
+    android:targetCellWidth="2"
+    android:targetCellHeight="2"
+    android:minResizeWidth="110dp"
+    android:minResizeHeight="110dp"
+    android:maxResizeWidth="250dp"
+    android:maxResizeHeight="110dp"
+    android:resizeMode="horizontal|vertical"
+    android:widgetCategory="home_screen"
+    android:updatePeriodMillis="0"
+    android:initialLayout="@layout/glance_default_loading_layout" />

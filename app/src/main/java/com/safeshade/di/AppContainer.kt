@@ -20,6 +20,7 @@ import java.io.File
 import com.safeshade.sendSmsText
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -103,13 +104,21 @@ class AppContainer(
         // The SMS transport is injected as a lambda so MessagingRepository holds
         // no Context and stays unit-testable without Robolectric.
         sendSms = { phone, body -> sendSmsText(appContext, phone, body) },
-        hooks = syncHooks
+        hooks = syncHooks,
+        // The quiet word: a match in an incoming message becomes an alert of
+        // its own kind, recorded like any other so the ladder and the log see it.
+        raiseAlert = { alert -> safetyRepository.record(alert) }
     )
 
     val zoneRepository =
         ZoneRepository(preferences, link, geofenceManager, scope, syncHooks)
 
     val journeyRepository = JourneyRepository(preferences, safetyRepository, scope)
+
+    /** The ride log: distance, time moving and top speed off the phone's own fixes, per journey. */
+    val rideLogRepository = com.safeshade.repo.RideLogRepository(
+        com.safeshade.data.DataStoreRideLogStore(appContext), scope
+    )
 
     val voiceNoteRepository = VoiceNoteRepository(
         prefs = preferences,
@@ -170,6 +179,46 @@ class AppContainer(
         uploadOptIn = { evidenceSettings.value.uploadToCloud }
     )
 
+    /**
+     * Sightings: other SafeShades heard on the radio, and which of this phone's
+     * own wearables are marked lost. Own addresses come from the paired list,
+     * which is DataStore-backed and empty for the first moments of a cold
+     * start; the repository also treats the connected address as its own, and
+     * the sweep is only ever started from a screen, by which time the list has
+     * loaded.
+     */
+    val sightingsRepository = com.safeshade.repo.SightingsRepository(
+        link = link,
+        store = com.safeshade.data.DataStoreSightingsStore(appContext),
+        scope = scope,
+        ownAddresses = { profileRepository.pairedDevices.value.orEmpty().map { it.address }.toSet() },
+        location = {
+            com.safeshade.service.LastKnownLocation.state.value?.takeIf { it.isValid }?.let { fix ->
+                Triple(fix.lat, fix.lon, (fix.accuracyM ?: 0f).toDouble())
+            }
+        }
+    )
+
+    /** Smart home: the automations and the runner that fires them on the real signals. */
+    val smartHomeRepository = com.safeshade.repo.SmartHomeRepository(
+        store = com.safeshade.data.DataStoreSmartHomeStore(appContext),
+        scope = scope,
+        syncHooks = syncHooks
+    )
+
+    /** One HTTP client for the webhooks and the firmware downloads. */
+    val httpClient: okhttp3.OkHttpClient = okhttp3.OkHttpClient()
+
+    val smartHomeRunner = com.safeshade.service.SmartHomeRunner(
+        repository = smartHomeRepository,
+        safety = safetyRepository,
+        zones = zoneRepository,
+        lowBattery = wearableWatch.state.map { it.lowBatteryAlerted },
+        client = httpClient,
+        scope = scope,
+        wearerName = { (appStateRepository.state.value as? com.safeshade.repo.AppState.Ready)?.selectedWearer?.name.orEmpty() }
+    )
+
     val appStateRepository = AppStateRepository(
         device = deviceRepository,
         profileRepo = profileRepository,
@@ -199,9 +248,53 @@ class AppContainer(
             safety = safetyRepository,
             messaging = messagingRepository,
             zones = zoneRepository,
-            voice = voiceNoteRepository
+            voice = voiceNoteRepository,
+            vitals = vitalsRepository,
+            evidence = evidenceRepository,
+            evidenceDir = File(appContext.filesDir, com.safeshade.platform.EvidenceRecorder.DIR_NAME),
+            smartHome = smartHomeRepository
         )
     )
+
+    /**
+     * Firmware: releases from the public table, images from the public bucket,
+     * the install over the link. After [cloud] because it reads through the
+     * cloud client; the adapter keeps the repository's own small interface.
+     */
+    val firmwareRepository = com.safeshade.repo.FirmwareRepository(
+        source = object : com.safeshade.repo.FirmwareSource {
+            private val firmwareCloud = com.safeshade.cloud.FirmwareCloud(cloud.client)
+            override suspend fun releases(model: String): List<com.safeshade.data.FirmwareRelease> =
+                when (val r = firmwareCloud.releases(model)) {
+                    is com.safeshade.cloud.CloudResult.Ok -> r.value.mapNotNull { row ->
+                        val id = row.id ?: return@mapNotNull null
+                        com.safeshade.data.FirmwareRelease(
+                            id = id,
+                            model = row.model ?: model,
+                            version = row.version ?: return@mapNotNull null,
+                            versionCode = row.versionCode ?: 0,
+                            storagePath = row.storagePath ?: return@mapNotNull null,
+                            sha256 = row.sha256 ?: return@mapNotNull null,
+                            byteSize = row.byteSize ?: 0L,
+                            releaseNotes = row.releaseNotes,
+                            mandatory = row.mandatory ?: false,
+                            publishedAt = com.safeshade.cloud.parseServerInstant(row.publishedAt)?.toEpochMilli()
+                        )
+                    }
+                    is com.safeshade.cloud.CloudResult.Failed -> throw java.io.IOException(r.reason)
+                    com.safeshade.cloud.CloudResult.Disabled -> throw java.io.IOException("SafeShade Cloud is not configured on this build.")
+                }
+            override suspend fun downloadUrl(storagePath: String): String? = firmwareCloud.downloadUrl(storagePath)
+        },
+        store = com.safeshade.data.DataStoreFirmwareStore(appContext),
+        downloader = com.safeshade.platform.OkHttpFirmwareDownloader(httpClient),
+        link = link,
+        scope = scope,
+        filesDir = appContext.filesDir
+    )
+
+    /** Community sightings: reports what this phone hears, and asks where its own wearables were last heard. */
+    val sightingsCloud = com.safeshade.cloud.SightingsCloud(cloud.client)
 
     init {
         // The last wire in the graph, and it has to be here: the repositories
@@ -213,6 +306,35 @@ class AppContainer(
         // device repository, and both are pure observers of state built above.
         escalationRunner.start()
         wearableWatch.start()
+        smartHomeRunner.start()
+        // The journey service reports fixes to a process-wide sink; point it here.
+        com.safeshade.service.RideLogSink.attach(rideLogRepository)
+
+        /*
+         * The Quick Settings tile and the home-screen widget read the app's
+         * state through two process-wide feeds. Both only ever open the app;
+         * neither fires anything. Battery is null unless a real reading has
+         * arrived, so the widget draws a dash rather than a zero.
+         */
+        scope.launch {
+            appStateRepository.state.collect { st ->
+                val ready = st as? com.safeshade.repo.AppState.Ready
+                com.safeshade.platform.SosTileState.update(ready?.activeAlert != null)
+                val snapshot = com.safeshade.widget.WidgetSnapshot(
+                    wearerName = ready?.let { r -> r.selectedWearer?.name?.takeIf { it.isNotBlank() } ?: r.deviceSettings.wearerName.takeIf { it.isNotBlank() } },
+                    linkWord = when {
+                        ready == null -> "—"
+                        ready.connection is com.safeshade.device.ConnectionState.Ready -> "Connected"
+                        else -> "Not connected"
+                    },
+                    batteryPercent = ready?.telemetry?.takeIf { it.isRealData }?.batteryLevel,
+                    tripLine = ready?.activeAlert?.kind?.label
+                        ?: ready?.journey?.takeIf { it.state == com.safeshade.data.JourneyState.ACTIVE }?.let { "Journey to ${it.label}" },
+                    alertOpen = ready?.activeAlert != null
+                )
+                runCatching { com.safeshade.widget.WidgetFeed.publish(appContext, snapshot) }
+            }
+        }
 
         // The evidence service runs in this process and hands each finished
         // recording here; a failure is left on the service's own state for the

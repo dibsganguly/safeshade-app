@@ -63,6 +63,7 @@ class MainActivity : ComponentActivity() {
         // already up. Both go to the cloud client; with no project configured
         // the fake ignores it, so there is no null check and no cast here.
         (application as SafeShadeApplication).container.cloud.auth.handleDeepLink(intent)
+        viewModel.onLaunchAction(intent?.action)
 
         setContent {
             val state by viewModel.appState.collectAsStateWithLifecycle()
@@ -82,6 +83,7 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         (application as SafeShadeApplication).container.cloud.auth.handleDeepLink(intent)
+        viewModel.onLaunchAction(intent.action)
     }
 
     override fun onResume() {

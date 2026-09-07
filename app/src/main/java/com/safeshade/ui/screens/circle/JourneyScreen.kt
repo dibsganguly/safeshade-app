@@ -106,6 +106,7 @@ fun JourneyScreen(
     onCustomEtaSelected: () -> Unit,
     onCustomEtaChange: (String) -> Unit,
     onStart: () -> Unit,
+    onWalkHome: () -> Unit = {},
     onArrived: () -> Unit,
     onCancelJourney: () -> Unit,
     onBack: () -> Unit,
@@ -154,7 +155,7 @@ fun JourneyScreen(
             if (state.isActive) {
                 activeJourney(state, onArrived, onCancelJourney)
             } else {
-                journeySetup(state, onDestinationChange, onEtaSelected, onCustomEtaSelected, onCustomEtaChange, onStart)
+                journeySetup(state, onDestinationChange, onEtaSelected, onCustomEtaSelected, onCustomEtaChange, onStart, onWalkHome)
             }
 
             if (state.errorText != null) {
@@ -177,7 +178,8 @@ private fun LazyListScope.journeySetup(
     onEtaSelected: (Int) -> Unit,
     onCustomEtaSelected: () -> Unit,
     onCustomEtaChange: (String) -> Unit,
-    onStart: () -> Unit
+    onStart: () -> Unit,
+    onWalkHome: () -> Unit
 ) {
     item("destination") {
         BoardField(
@@ -223,6 +225,18 @@ private fun LazyListScope.journeySetup(
 
     item("bargain") {
         BargainPlate(state)
+    }
+
+    item("walk-home") {
+        BoardButton(
+            label = "Walk Home",
+            icon = SafeShadeIcons.WalkingPerson,
+            supporting = "Home, twenty minutes. The same journey, filled in for the walk everybody makes.",
+            onClick = onWalkHome,
+            enabled = !state.isBusy,
+            weight = ButtonWeight.SECONDARY,
+            modifier = Modifier.fillMaxWidth()
+        )
     }
 
     item("start") {

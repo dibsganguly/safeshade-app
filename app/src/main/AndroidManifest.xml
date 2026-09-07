@@ -111,6 +111,15 @@
     <uses-feature android:name="android.hardware.bluetooth_le" android:required="true" />
 
     <!--
+        Writing the emergency card to a tag (platform/NfcTagWriter.kt). Not
+        `required="true"`: the test phone (Redmi Note 10S) has no NFC radio at
+        all, and this app is otherwise fully usable without one - NfcAvailability
+        reaches NoNfc on it without ever touching the adapter.
+    -->
+    <uses-permission android:name="android.permission.NFC" />
+    <uses-feature android:name="android.hardware.nfc" android:required="false" />
+
+    <!--
         Package visibility. On API 30+ an app cannot see another package unless
         it declares it here, and `getPackageInfo("com.google.android.apps.healthdata")`
         is exactly how HealthConnectVitals tells "not installed" apart from
@@ -121,6 +130,10 @@
     -->
     <queries>
         <package android:name="com.google.android.apps.healthdata" />
+        <!-- Smart home: the two apps whose launch intent the Platforms rows
+             resolve, so "Not installed" is a fact and not a guess. -->
+        <package android:name="com.google.android.apps.chromecast.app" />
+        <package android:name="com.amazon.dee.app" />
     </queries>
 
     <application
@@ -166,7 +179,50 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="safeshade" android:host="login-callback" />
             </intent-filter>
+
+            <!--
+                Static launcher shortcuts (res/xml/shortcuts.xml). Each one
+                carries only an action string - MainActivity is the sole
+                place any of them is handled, same as the QS tile and the
+                widget's SOS button. See platform/SosTileService.kt.
+            -->
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
         </activity>
+
+        <!--
+            Quick Settings tile. `bindTileService` is what actually gates who
+            may bind (Settings/SysUI only), independent of `exported` - see
+            platform/SosTileService.kt for why it never sends anything itself.
+        -->
+        <service
+            android:name=".platform.SosTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_sos_asterisk"
+            android:label="SafeShade SOS"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
+        <!--
+            The home-screen widget (widget/SafeShadeWidget.kt). `exported=true`
+            is required for APPWIDGET_UPDATE to reach it from the launcher /
+            AppWidgetManager; it accepts no other caller because it declares
+            no other intent-filter and no other action does anything.
+        -->
+        <receiver
+            android:name=".widget.SafeShadeWidgetReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/safeshade_widget_info" />
+        </receiver>
 
         <!--
             Health Connect asks an app to explain why it wants health data, and

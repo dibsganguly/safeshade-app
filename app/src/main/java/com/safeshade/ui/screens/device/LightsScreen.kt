@@ -57,6 +57,7 @@ import com.safeshade.ui.board.Nameplate
 import com.safeshade.ui.board.Readout
 import com.safeshade.ui.board.ScreenHeader
 import com.safeshade.ui.board.SectionPlate
+import com.safeshade.ui.board.Way
 import com.safeshade.ui.board.rowClickable
 import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.theme.BoardColors
@@ -77,7 +78,9 @@ data class LightsUiState(
     val pattern: LedPattern = LedPattern.TORCH,
     /** Written to `LED_CHAR` and still waiting for its ack. */
     val inFlightPattern: LedPattern? = null,
-    val ack: AckState = AckState.IDLE
+    val ack: AckState = AckState.IDLE,
+    /** The wearable's adaptive profile, which decides which of its own lights are armed. */
+    val mode: com.safeshade.data.PersonaMode = com.safeshade.data.PersonaMode.AUTO
 )
 
 /**
@@ -169,6 +172,43 @@ fun LightsScreen(
                         onClick = { onSelectPattern(pattern) }
                     )
                 }
+            }
+        }
+
+        // What the wearable lights by itself. Read off the firmware: the brake
+        // light and the path light have no BLE path, so these rows carry a
+        // value and no control, in the device-only manner.
+        item("own-heading") { SectionPlate(title = "On its own") }
+
+        item("own") {
+            val bike = state.mode == com.safeshade.data.PersonaMode.BIKE
+            val elderly = state.mode == com.safeshade.data.PersonaMode.ELDERLY
+            BoardPlate(modifier = Modifier.fillMaxWidth()) {
+                Way(
+                    name = "Brake light",
+                    state = if (bike) LampState.LIVE else LampState.OFF,
+                    stateLabel = if (bike) "Armed" else "Bike profile",
+                    detail = if (bike) {
+                        "A hard stop strobes the ring red for a second and a half, 80 ms flashes. Fixed in the wearable."
+                    } else {
+                        "In the Bike profile a hard stop strobes the ring red. Other profiles show a solid red on the same stop."
+                    },
+                    icon = SafeShadeIcons.Bicycle01,
+                    deviceOnly = true
+                )
+                Hairline()
+                Way(
+                    name = "Path light",
+                    state = if (elderly) LampState.LIVE else LampState.OFF,
+                    stateLabel = if (elderly) "Armed" else "Elderly profile",
+                    detail = if (elderly) {
+                        "Below about 1000 lux the ring glows warm amber and the headlamp comes on, until it is light again."
+                    } else {
+                        "In the Elderly profile a dark room lights the ring warm amber and the headlamp. Set by the wearable's light sensor."
+                    },
+                    icon = SafeShadeIcons.LightBulb,
+                    deviceOnly = true
+                )
             }
         }
 

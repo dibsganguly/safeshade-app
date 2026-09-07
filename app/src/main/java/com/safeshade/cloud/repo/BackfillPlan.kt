@@ -91,6 +91,22 @@ internal object BackfillPlan {
             identity += CloudTables.ZONES to zone.id
         }
 
+        // Bounded configuration, exactly like the zones above, and here for a
+        // case that is not first sign-in: joining a *second* circle. The
+        // backfill marker is `userId:circleId`, so accepting an invite runs
+        // this again - and every hook already sent to the first circle has been
+        // removed from the outbox, so without this line a hook set up on this
+        // phone would simply never exist in the new circle.
+        //
+        // Vitals and evidence are deliberately absent. Vitals are 500 rows of
+        // telemetry and would evict the identity records this list exists to
+        // protect; evidence is opt-in, and a clip in LOCAL_ONLY must never be
+        // queued by anything. Both are queued on write by their repositories,
+        // which fire whether or not anybody is signed in.
+        for (hook in snapshot.smartHomeHooks) {
+            identity += CloudTables.SMART_HOME_HOOKS to hook.id
+        }
+
         val budget = (limit - identity.size).coerceAtLeast(0)
         val history = mutableListOf<Pair<String, String>>()
 

@@ -153,7 +153,8 @@ data class CircleUiState(
     val zones: CircleWay = CircleWay(),
     val journey: CircleWay = CircleWay(),
     val checkIn: CircleWay = CircleWay(),
-    val sms: CircleWay = CircleWay()
+    val sms: CircleWay = CircleWay(),
+    val smartHome: CircleWay = CircleWay(state = LampState.OFF, stateLabel = "None")
 )
 
 /**
@@ -186,6 +187,7 @@ fun CircleScreen(
     onOpenPeople: () -> Unit = {},
     onOpenPerson: (id: String) -> Unit = {},
     onLocate: (id: String) -> Unit = {},
+    onOpenSmartHome: () -> Unit = {},
     onCallWearable: (id: String) -> Unit = {},
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(0.dp),
@@ -436,6 +438,15 @@ fun CircleScreen(
                     detail = state.sms.detail,
                     icon = SafeShadeIcons.SimAndSms,
                     onClick = onOpenSim
+                )
+                Hairline()
+                Way(
+                    name = "Smart home",
+                    state = state.smartHome.state,
+                    stateLabel = state.smartHome.stateLabel,
+                    detail = state.smartHome.detail,
+                    icon = SafeShadeIcons.SmartHome,
+                    onClick = onOpenSmartHome
                 )
             }
         }

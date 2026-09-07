@@ -7,6 +7,7 @@ import com.safeshade.cloud.repo.RepositoryPayloadSource
 import com.safeshade.cloud.repo.RepositoryPullSource
 import com.safeshade.cloud.repo.SyncBackfill
 import com.safeshade.cloud.sync.Connectivity
+import com.safeshade.cloud.sync.EvidenceCloud
 import com.safeshade.cloud.sync.NoPayloadSource
 import com.safeshade.cloud.sync.NoPullSource
 import com.safeshade.cloud.sync.Outbox
@@ -14,10 +15,13 @@ import com.safeshade.cloud.sync.PayloadSource
 import com.safeshade.cloud.sync.PullSource
 import com.safeshade.cloud.sync.SyncEngine
 import com.safeshade.cloud.sync.VoiceCloud
+import com.safeshade.repo.EvidenceRepository
 import com.safeshade.repo.MessagingRepository
 import com.safeshade.repo.ProfileRepository
 import com.safeshade.repo.SafetyRepository
+import com.safeshade.repo.SmartHomeRepository
 import com.safeshade.repo.SyncHooks
+import com.safeshade.repo.VitalsRepository
 import com.safeshade.repo.VoiceNoteRepository
 import com.safeshade.repo.ZoneRepository
 import kotlinx.coroutines.CoroutineScope
@@ -93,7 +97,33 @@ class CloudContainer(
          * it. `AppContainer` passes `voice = voiceNoteRepository`; the default
          * exists only for the graphs that have no repositories at all.
          */
-        val voice: VoiceNoteRepository? = null
+        val voice: VoiceNoteRepository? = null,
+        /**
+         * The vitals ring.
+         *
+         * **No default, deliberately.** A sample queues itself against
+         * `vitals_samples` the moment it is recorded, so with this absent the
+         * drain finds no row body for that id, counts three skips and reports
+         * the reading as "there was nothing left on this phone to send for
+         * this" - about a measurement sitting in the ring. [voice] carries a
+         * default and that default is exactly how this class shipped a
+         * silently-unwired repository once already; the cure is a parameter
+         * that cannot be forgotten, so a graph that has not been updated fails
+         * to compile rather than failing quietly at three in the morning.
+         */
+        val vitals: VitalsRepository,
+        /** The evidence clips. No default, for the reason [vitals] has none. */
+        val evidence: EvidenceRepository,
+        /**
+         * `filesDir/evidence`, matching what `AppContainer` hands
+         * [EvidenceRepository]. One directory, named in two places, and a
+         * mismatch shows up as every clip reporting that its recording is no
+         * longer on this phone - which is why it is passed rather than
+         * re-derived here.
+         */
+        val evidenceDir: File,
+        /** The smart-home hooks. No default, for the reason [vitals] has none. */
+        val smartHome: SmartHomeRepository
     )
 
     private val context: Context = appContext.applicationContext
@@ -181,6 +211,18 @@ class CloudContainer(
         voiceDir = File(context.filesDir, VOICE_DIR)
     )
 
+    /**
+     * The bytes behind an evidence clip, on the way up.
+     *
+     * Built here for the same reason [voiceCloud] is, and given the directory
+     * `AppContainer` hands the repository rather than a second guess at it.
+     */
+    val evidenceCloud: EvidenceCloud = EvidenceCloud(
+        client = client,
+        clips = repositories?.evidence,
+        evidenceDir = repositories?.evidenceDir
+    )
+
     private val pullSource: PullSource = repositories?.let { repos ->
         RepositoryPullSource(
             profiles = repos.profiles,
@@ -188,6 +230,7 @@ class CloudContainer(
             messaging = repos.messaging,
             zones = repos.zones,
             voice = repos.voice,
+            smartHome = repos.smartHome,
             outbox = outbox,
             session = client.session,
             circleIdProvider = { circle.cachedCircleId() },
@@ -207,7 +250,11 @@ class CloudContainer(
             voiceCloud = voiceCloud,
             // Read at resolve time rather than captured, so turning the switch
             // off takes effect on the very next alert this phone pushes.
-            shareAlertPlaces = { circle.state.value.shareAlertPlaces }
+            shareAlertPlaces = { circle.state.value.shareAlertPlaces },
+            vitals = repos.vitals,
+            evidence = repos.evidence,
+            evidenceCloud = evidenceCloud,
+            smartHome = repos.smartHome
         )
     }
 

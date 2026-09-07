@@ -150,6 +150,11 @@ dependencies {
     // see platform/HealthConnectVitals.kt.
     implementation(libs.health.connect.client)
 
+    // Launcher surfaces: the home-screen widget (widget/SafeShadeWidget.kt).
+    // The QS tile and static shortcuts are pure platform APIs and need no
+    // dependency of their own.
+    implementation(libs.androidx.glance.appwidget)
+
     // Test
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

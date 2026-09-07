@@ -21,6 +21,7 @@ import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.query.Columns
+import io.github.jan.supabase.postgrest.query.Order
 import io.github.jan.supabase.postgrest.query.filter.FilterOperator
 import io.github.jan.supabase.realtime.PostgresAction
 import io.github.jan.supabase.realtime.Realtime
@@ -92,7 +93,9 @@ import kotlin.time.Duration.Companion.seconds
  * complete — which is why the OTP path is the one the UI should offer first.
  */
 class SupabaseCloudClient(
-    supabaseUrl: String,
+    // A val, because publicUrl() composes a storage URL from it offline - see
+    // that method for why a public object needs no request to be addressed.
+    private val supabaseUrl: String,
     supabaseKey: String,
     scope: CoroutineScope
 ) : CloudClient {
@@ -365,6 +368,37 @@ class SupabaseCloudClient(
         }.decodeList<JsonObject>()
     }
 
+    /**
+     * The column-filter read. See the interface for why it exists at all.
+     *
+     * `runAuthedOrFail` rather than `runOrFail`: `device_sightings` is read
+     * under a session, and a phone that spent the night in Doze meets a 401 on
+     * its first morning call. `firmware_releases` is readable without one, and
+     * the retry costs nothing there.
+     *
+     * Soft deletes are filtered by the callers rather than here, so this stays
+     * one filter and one sort.
+     */
+    override suspend fun selectWhereIn(
+        table: String,
+        column: String,
+        values: List<String>,
+        orderBy: String?,
+        descending: Boolean,
+        limit: Int?
+    ): CloudResult<List<JsonObject>> {
+        if (values.isEmpty()) return CloudResult.Ok(emptyList())
+        return runAuthedOrFail {
+            client.from(table).select(Columns.ALL) {
+                filter { isIn(column, values) }
+                if (orderBy != null) {
+                    order(orderBy, if (descending) Order.DESCENDING else Order.ASCENDING)
+                }
+                if (limit != null) limit(limit.toLong())
+            }.decodeList<JsonObject>()
+        }
+    }
+
     override suspend fun invoke(function: String, body: JsonObject): CloudResult<JsonObject> =
         runOrFail {
             val response = client.functions.invoke(function = function, body = body)
@@ -493,6 +527,16 @@ class SupabaseCloudClient(
         // RLS policy, never by a URL anybody could hold on to.
         client.storage[bucket].downloadAuthenticated(path)
     }
+
+    /**
+     * `<project>/storage/v1/object/public/<bucket>/<path>`.
+     *
+     * Built rather than asked for, because there is nothing to ask: the
+     * supabase-kt call composes the same string offline, without a request. See
+     * the interface for why this must never be pointed at a private bucket.
+     */
+    override fun publicUrl(bucket: String, path: String): String =
+        supabaseUrl.trimEnd('/') + "/storage/v1/object/public/" + bucket + "/" + path.trimStart('/')
 
     override suspend fun signedUrl(
         bucket: String,

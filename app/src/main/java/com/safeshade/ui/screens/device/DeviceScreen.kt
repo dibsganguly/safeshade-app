@@ -211,7 +211,16 @@ data class DeviceUiState(
     val activeReminderCount: Int = 0,
     val pairedDeviceCount: Int = 0,
     val hasTelemetry: Boolean = false,
-    val isRinging: Boolean = false
+    val isRinging: Boolean = false,
+    /** What the wearable reported as its firmware, or null when it never has. */
+    val firmwareVersion: String? = null,
+    /** How many of this phone's wearables are marked lost. */
+    val lostCount: Int = 0,
+    val rideCount: Int = 0,
+    /** The leash as a word and a line, or null while the link is down. */
+    val leashWord: String? = null,
+    val leashLine: String? = null,
+    val leashLamp: LampState = LampState.UNKNOWN
 )
 
 /**
@@ -382,6 +391,38 @@ fun DeviceScreen(
                     },
                     icon = SafeShadeIcons.PairedDevices,
                     onClick = { onOpenWay(Routes.DEVICE_PAIRED) }
+                )
+                Hairline()
+                Way(
+                    name = "Nearby",
+                    state = state.leashLamp,
+                    stateLabel = state.leashWord ?: "—",
+                    detail = state.leashLine ?: "How far the wearable is from this phone, read off the link's strength.",
+                    icon = SafeShadeIcons.Bluetooth
+                )
+                Hairline()
+                Way(
+                    name = "Firmware",
+                    state = if (state.firmwareVersion != null) LampState.LIVE else LampState.UNKNOWN,
+                    stateLabel = state.firmwareVersion ?: "—",
+                    icon = SafeShadeIcons.CpuChip,
+                    onClick = { onOpenWay(Routes.DEVICE_FIRMWARE) }
+                )
+                Hairline()
+                Way(
+                    name = "Lost",
+                    state = if (state.lostCount > 0) LampState.ATTENTION else LampState.OFF,
+                    stateLabel = if (state.lostCount > 0) "${state.lostCount} lost" else "None",
+                    icon = SafeShadeIcons.Search01,
+                    onClick = { onOpenWay(Routes.DEVICE_LOST) }
+                )
+                Hairline()
+                Way(
+                    name = "Ride log",
+                    state = if (state.rideCount > 0) LampState.LIVE else LampState.OFF,
+                    stateLabel = if (state.rideCount > 0) "${state.rideCount}" else "None",
+                    icon = SafeShadeIcons.Bicycle01,
+                    onClick = { onOpenWay(Routes.DEVICE_RIDES) }
                 )
             }
         }

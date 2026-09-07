@@ -142,6 +142,31 @@ class BleManager(private val context: Context) {
     private var isScanning = false
     private var activeScanCallback: ScanCallback? = null
 
+    // The sighting sweep runs on its own callback and its own flag, entirely
+    // separate from the connect scan above. Sharing either one would mean a
+    // sweep makes startScanning() refuse with "already in progress", or that
+    // stopScanning() silently kills the sweep - and both of those failures are
+    // invisible, since a scan that was never started reports nothing either way.
+    private var sightingCallback: ScanCallback? = null
+    private var sightingStopHandler: android.os.Handler? = null
+    private var sightingStopRunnable: Runnable? = null
+
+    /**
+     * Every advertisement matching [SERVICE_UUID], from both scan paths.
+     *
+     * DROP_OLDEST rather than SUSPEND: this is emitted from a `ScanCallback` on
+     * a binder thread, which cannot suspend, and in a crowded room results
+     * arrive faster than a collector writing to DataStore drains them. Losing
+     * the oldest sighting of a device that is still advertising costs nothing -
+     * the next frame is a second away - while blocking the callback would stall
+     * the whole scan.
+     */
+    private val _sightings = MutableSharedFlow<com.safeshade.device.BleSighting>(
+        extraBufferCapacity = 64,
+        onBufferOverflow = kotlinx.coroutines.channels.BufferOverflow.DROP_OLDEST
+    )
+    val sightings = _sightings.asSharedFlow()
+
     // ============================================
     // State Flows for UI observation
     // ============================================
@@ -296,6 +321,23 @@ class BleManager(private val context: Context) {
                     _deviceName.value = deviceNameResult
                     _deviceAddress.value = device.address
                     _rssi.value = result.rssi
+
+                    // Published here, in the middle, for two reasons that pull
+                    // in opposite directions.
+                    //
+                    // After _deviceAddress: a collector deciding whether this
+                    // address is one of the user's own can then read it off the
+                    // link. On a cold start the paired list is still loading out
+                    // of DataStore, so without this ordering the user's own
+                    // wearable is briefly indistinguishable from a stranger's -
+                    // and a stranger's gets reported to the cloud.
+                    //
+                    // Before stopScanning()/connectToDevice(): the scan ends
+                    // there and this callback is never called again, so an emit
+                    // placed afterwards would lose the single result a
+                    // preferredAddress scan ever produces.
+                    publishSighting(result)
+
                     stopScanning()
                     connectToDevice(device)
                     onFound()
@@ -327,6 +369,173 @@ class BleManager(private val context: Context) {
         }
         isScanning = false
         activeScanCallback = null
+    }
+
+    // ============================================
+    // Sighting sweep - listen only, never connects
+    // ============================================
+
+    /**
+     * Scans for nearby SafeShades for [durationMs], reporting them on
+     * [sightings] and connecting to nothing.
+     *
+     * Every SafeShade advertises the same service UUID, so this sees other
+     * people's wearables as well as this phone's own - which is the point.
+     * A wearable that has walked away is found because some other SafeShade
+     * phone passed it and reported where.
+     *
+     * Deliberately independent of [startScanning]:
+     *  - it does not check or set `bluetoothGatt`, so it works while connected;
+     *  - it never writes `_connectionState`, because a sweep announcing
+     *    "Scanning..." over a live Ready connection would flip the whole UI
+     *    state machine for twenty seconds;
+     *  - it uses its own callback, so [stopScanning] cannot stop it and it
+     *    cannot make [startScanning] think a scan is already running.
+     *
+     * **Android throttles more than 5 scan starts in 30 seconds**: the sixth is
+     * refused for the rest of the window with no error and no results at all.
+     * A sweep requested while one is already running is therefore ignored
+     * rather than restarted - a restart would burn one of those five slots and
+     * gain nothing, since the running sweep is already reporting.
+     *
+     * Missing scan permission is logged and returns. `startScan` can also throw
+     * `SecurityException` when the grant is revoked between the check and the
+     * call, so the call itself is guarded too.
+     */
+    @SuppressLint("MissingPermission")
+    fun startSightingScan(durationMs: Long) {
+        if (sightingCallback != null) {
+            Log.d("BLE_SIGHT", "Sweep already running, ignoring request")
+            return
+        }
+        if (!hasScanPermission()) {
+            Log.w("BLE_SIGHT", "Scan permission not granted, sweep skipped")
+            return
+        }
+
+        val adapter = bluetoothAdapter
+        if (adapter == null || !adapter.isEnabled) {
+            Log.d("BLE_SIGHT", "Bluetooth unavailable, sweep skipped")
+            return
+        }
+        val scanner = adapter.bluetoothLeScanner ?: run {
+            Log.d("BLE_SIGHT", "No LE scanner, sweep skipped")
+            return
+        }
+
+        val filter = android.bluetooth.le.ScanFilter.Builder()
+            .setServiceUuid(android.os.ParcelUuid(SERVICE_UUID))
+            .build()
+
+        // LOW_POWER, not LOW_LATENCY: nobody is waiting on this sweep, and a
+        // low-latency radio duty cycle held for twenty seconds is a battery
+        // cost the user never asked for.
+        val settings = android.bluetooth.le.ScanSettings.Builder()
+            .setScanMode(android.bluetooth.le.ScanSettings.SCAN_MODE_LOW_POWER)
+            .build()
+
+        val callback = object : ScanCallback() {
+            override fun onScanResult(callbackType: Int, result: ScanResult?) {
+                if (result != null) publishSighting(result)
+            }
+
+            override fun onBatchScanResults(results: MutableList<ScanResult>?) {
+                results?.forEach { publishSighting(it) }
+            }
+
+            override fun onScanFailed(errorCode: Int) {
+                // Never touches _connectionState: a failed sweep must not make a
+                // live connection look broken.
+                Log.e("BLE_SIGHT", "Sweep failed: $errorCode")
+                stopSightingScan()
+            }
+        }
+
+        val started = runCatching { scanner.startScan(listOf(filter), settings, callback) }
+        if (started.isFailure) {
+            Log.e("BLE_SIGHT", "Sweep could not start", started.exceptionOrNull())
+            return
+        }
+        sightingCallback = callback
+
+        val handler = android.os.Handler(android.os.Looper.getMainLooper())
+        val stop = Runnable { stopSightingScan() }
+        sightingStopHandler = handler
+        sightingStopRunnable = stop
+        handler.postDelayed(stop, durationMs.coerceAtLeast(0L))
+    }
+
+    /**
+     * Ends the sweep early, or does nothing if none is running.
+     *
+     * Cancels the self-stop as well, so a sweep stopped by hand does not leave
+     * a runnable that would later stop a *later* sweep partway through.
+     */
+    @SuppressLint("MissingPermission")
+    fun stopSightingScan() {
+        sightingStopRunnable?.let { sightingStopHandler?.removeCallbacks(it) }
+        sightingStopRunnable = null
+        sightingStopHandler = null
+
+        val callback = sightingCallback ?: return
+        sightingCallback = null
+        val scanner = bluetoothAdapter?.bluetoothLeScanner ?: return
+        runCatching { scanner.stopScan(callback) }
+            .onFailure { Log.w("BLE_SIGHT", "Sweep stop refused", it) }
+    }
+
+    /**
+     * Turns one scan result into a [com.safeshade.device.BleSighting].
+     *
+     * The name comes from the advertisement record rather than
+     * `BluetoothDevice.getName()`: the latter needs `BLUETOOTH_CONNECT` on
+     * API 31+, and these are strangers' devices this app has no business
+     * connecting to. A frame with no name yields null, never a stand-in.
+     *
+     * `at` is wall clock, not `ScanResult.getTimestampNanos()`, which is
+     * measured from boot and cannot be compared with a stored row.
+     *
+     * The firmware currently advertises no manufacturer data, so the first
+     * record present (if any) is taken; `MeshAdvertCodec.parseManufacturerData`
+     * expects exactly these bytes, Android having already stripped the
+     * company identifier.
+     */
+    @SuppressLint("MissingPermission")
+    private fun publishSighting(result: ScanResult) {
+        val address = result.device?.address ?: return
+        val record = result.scanRecord
+        val manufacturer = record?.manufacturerSpecificData
+            ?.takeIf { it.size() > 0 }
+            ?.valueAt(0)
+            ?.takeIf { it.isNotEmpty() }
+
+        _sightings.tryEmit(
+            com.safeshade.device.BleSighting(
+                address = address,
+                name = record?.deviceName?.takeIf { it.isNotBlank() },
+                rssi = result.rssi,
+                at = System.currentTimeMillis(),
+                manufacturerData = manufacturer
+            )
+        )
+    }
+
+    /**
+     * Whether this app may scan right now.
+     *
+     * The class carries `@SuppressLint("MissingPermission")` because the
+     * connect path is gated in `MainActivity` before any of it is reachable.
+     * The sweep is not: it is started by a repository on a timer, with no user
+     * gesture and no screen in front of it, so it has to ask.
+     */
+    private fun hasScanPermission(): Boolean {
+        val required = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+            android.Manifest.permission.BLUETOOTH_SCAN
+        } else {
+            android.Manifest.permission.ACCESS_FINE_LOCATION
+        }
+        return context.checkSelfPermission(required) ==
+            android.content.pm.PackageManager.PERMISSION_GRANTED
     }
 
     // ============================================

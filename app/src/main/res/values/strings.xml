@@ -1,3 +1,16 @@
 <resources>
     <string name="app_name">SafeShade</string>
+
+    <!--
+        Static shortcut labels (res/xml/shortcuts.xml). Required here, not as
+        literals in the XML: android:shortcutShortLabel/LongLabel are a
+        reference|string attribute type and AAPT refuses a raw literal for
+        them, unlike every other attribute in that file.
+    -->
+    <string name="shortcut_sos_short">SOS</string>
+    <string name="shortcut_sos_long">Raise SOS</string>
+    <string name="shortcut_checkin_short">Check in</string>
+    <string name="shortcut_checkin_long">Send a Circle check-in</string>
+    <string name="shortcut_locate_short">Locate</string>
+    <string name="shortcut_locate_long">Locate the device</string>
 </resources>

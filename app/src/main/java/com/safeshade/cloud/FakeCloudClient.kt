@@ -238,6 +238,54 @@ class FakeCloudClient(
         }.toList()
     }
 
+    /**
+     * The column-filter read. Mirrors the real client, sort included.
+     *
+     * The sort is the part worth having a fake for: `version_code` compared as
+     * a string puts "9" above "10", which is exactly how a phone would be
+     * offered an older firmware than the one it is already running. So numbers
+     * are compared as numbers when both sides parse, and as text otherwise.
+     */
+    override suspend fun selectWhereIn(
+        table: String,
+        column: String,
+        values: List<String>,
+        orderBy: String?,
+        descending: Boolean,
+        limit: Int?
+    ): CloudResult<List<JsonObject>> {
+        if (disabled) return CloudResult.Disabled
+        // Checked after `disabled` and before `failNext`: an empty list is not
+        // a call, so it must not consume the one forced failure a test armed
+        // for the call it actually cares about.
+        if (values.isEmpty()) return CloudResult.Ok(emptyList())
+        return guarded {
+            val wanted = values.toSet()
+            var rows = tables[table].orEmpty().values.filter { cell(it, column) in wanted }
+            if (orderBy != null) {
+                val comparator = Comparator<JsonObject> { a, b ->
+                    val left = cell(a, orderBy)
+                    val right = cell(b, orderBy)
+                    val leftNumber = left?.toDoubleOrNull()
+                    val rightNumber = right?.toDoubleOrNull()
+                    if (leftNumber != null && rightNumber != null) {
+                        leftNumber.compareTo(rightNumber)
+                    } else {
+                        compareValues(left, right)
+                    }
+                }
+                rows = rows.sortedWith(if (descending) comparator.reversed() else comparator)
+            }
+            if (limit != null) rows.take(limit) else rows
+        }
+    }
+
+    /** One column of one row as text, or null when it is absent or JSON null. */
+    private fun cell(row: JsonObject, column: String): String? =
+        (row[column] as? kotlinx.serialization.json.JsonPrimitive)
+            ?.takeIf { it != JsonNull }
+            ?.content
+
     private fun newerThan(row: JsonObject, since: Instant?): Boolean {
         if (since == null) return true
         val raw = (row["updated_at"] as? kotlinx.serialization.json.JsonPrimitive)?.content
@@ -335,6 +383,14 @@ class FakeCloudClient(
             CloudResult.Disabled -> CloudResult.Disabled
         }
     }
+
+    /**
+     * Shaped so nobody mistakes it for a reachable URL, and null when this
+     * client is standing in for a build with no project - which is the case the
+     * nullable return type exists for.
+     */
+    override fun publicUrl(bucket: String, path: String): String? =
+        if (disabled) null else "https://fake.local/public/$bucket/$path"
 
     override suspend fun signedUrl(
         bucket: String,

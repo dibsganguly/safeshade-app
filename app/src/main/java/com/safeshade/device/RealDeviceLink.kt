@@ -70,6 +70,9 @@ class RealDeviceLink(
 
     override val acks = ble.ackEvents
 
+    /** Straight through: BleManager already publishes both scan paths here. */
+    override val sightings = ble.sightings
+
     /** The MTU actually negotiated, for payload budgeting in DeviceProtocol. */
     val mtu get() = ble.negotiatedMtu.value
 
@@ -101,6 +104,8 @@ class RealDeviceLink(
 
     override fun startScan(preferredAddress: String?) = ble.startScanning(preferredAddress = preferredAddress)
     override fun stopScan() = ble.stopScanning()
+    override fun startSightingScan(durationMs: Long) = ble.startSightingScan(durationMs)
+    override fun stopSightingScan() = ble.stopSightingScan()
     override fun disconnect() = ble.disconnect()
     override fun readRssi() = ble.readRssi()
 

@@ -43,6 +43,10 @@ data class SilentSosUiState(
     /** The name the staged call shows. Something ordinary works best. */
     val callerName: String = "Home",
     val hasContacts: Boolean = false,
+    /** The stranger-danger quiet word, as stored. Blank means none. */
+    val quietWord: String = "",
+    /** Why the typed word is not accepted, or null. */
+    val quietWordError: String? = null,
     /**
      * Whether the wearable can raise an alert without making a sound. False on
      * current firmware, which always shows and sounds an SOS.
@@ -80,6 +84,7 @@ fun SilentSosScreen(
     onBack: () -> Unit,
     onSilentSosChange: (Boolean) -> Unit,
     onStageCall: (Int) -> Unit,
+    onQuietWordChange: (String) -> Unit = {},
     onCancelStagedCall: () -> Unit,
     onOpenContacts: () -> Unit,
     modifier: Modifier = Modifier,
@@ -149,6 +154,33 @@ fun SilentSosScreen(
                 }
             }
         }
+
+        Spacer(Modifier.height(Spacing.xl))
+        SectionPlate(title = "Quiet word")
+        Spacer(Modifier.height(Spacing.sm))
+        BoardPlate(modifier = Modifier.fillMaxWidth()) {
+            Way(
+                name = "A word that means trouble",
+                state = if (state.quietWord.isNotBlank() && state.quietWordError == null) LampState.LIVE else LampState.OFF,
+                stateLabel = if (state.quietWord.isNotBlank() && state.quietWordError == null) "Armed" else "Off",
+                detail = if (state.quietWord.isNotBlank()) {
+                    "A message from the wearable containing it raises a Quiet word alert here, without a sound on the wearable."
+                } else {
+                    "Something ordinary to say or type that tells you something is wrong. Nobody else knows it."
+                },
+                icon = SafeShadeIcons.ChatLock
+            )
+        }
+        Spacer(Modifier.height(Spacing.md))
+        PlateField(
+            label = "The word",
+            value = state.quietWord,
+            onValueChange = onQuietWordChange,
+            placeholder = "blue kettle",
+            helper = "Three letters or more. Not a word that comes up on its own, like help or ok.",
+            error = state.quietWordError,
+            maxLength = 30
+        )
 
         Spacer(Modifier.height(Spacing.xl))
         SectionPlate(title = "Stage a call")

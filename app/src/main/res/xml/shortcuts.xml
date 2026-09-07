@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Static (long-press launcher icon) shortcuts. All three land on MainActivity
+  carrying an action string - nothing here fires anything itself, exactly
+  like the QS tile: see platform/SosTileService.kt's doc comment for why "SOS"
+  is never sent from outside the hold-to-fire surface.
+
+  "Where is <wearer>" cannot be personalised in a *static* shortcut (its
+  label is fixed at install time, not at launch), so this is "Locate" -
+  it opens device/locate, which names the wearer once the screen is up.
+-->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <shortcut
+        android:shortcutId="sos"
+        android:enabled="true"
+        android:icon="@drawable/ic_sos_asterisk"
+        android:shortcutShortLabel="@string/shortcut_sos_short"
+        android:shortcutLongLabel="@string/shortcut_sos_long">
+        <intent
+            android:action="com.safeshade.action.SOS"
+            android:targetPackage="com.safeshade"
+            android:targetClass="com.safeshade.MainActivity" />
+    </shortcut>
+
+    <shortcut
+        android:shortcutId="check_in"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_checkin"
+        android:shortcutShortLabel="@string/shortcut_checkin_short"
+        android:shortcutLongLabel="@string/shortcut_checkin_long">
+        <intent
+            android:action="com.safeshade.action.CHECK_IN"
+            android:targetPackage="com.safeshade"
+            android:targetClass="com.safeshade.MainActivity" />
+    </shortcut>
+
+    <shortcut
+        android:shortcutId="locate"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_locate"
+        android:shortcutShortLabel="@string/shortcut_locate_short"
+        android:shortcutLongLabel="@string/shortcut_locate_long">
+        <intent
+            android:action="com.safeshade.action.LOCATE"
+            android:targetPackage="com.safeshade"
+            android:targetClass="com.safeshade.MainActivity" />
+    </shortcut>
+
+</shortcuts>

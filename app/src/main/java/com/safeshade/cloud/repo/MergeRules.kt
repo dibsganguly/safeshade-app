@@ -4,6 +4,7 @@ import com.safeshade.cloud.dto.AlertRow
 import com.safeshade.cloud.dto.EmergencyContactRow
 import com.safeshade.cloud.dto.MedicalIdRow
 import com.safeshade.cloud.dto.MessageRow
+import com.safeshade.cloud.dto.SmartHomeHookRow
 import com.safeshade.cloud.dto.WearerRow
 import com.safeshade.cloud.dto.ZoneRow
 import com.safeshade.cloud.dto.isoToEpochMillis
@@ -15,6 +16,7 @@ import com.safeshade.data.MedicalId
 import com.safeshade.data.MessageChannel
 import com.safeshade.data.PersonaMode
 import com.safeshade.data.QuickMessage
+import com.safeshade.data.SmartHomeHook
 import com.safeshade.data.TripOutcome
 import com.safeshade.data.VoiceNote
 import com.safeshade.data.VoiceUpload
@@ -256,6 +258,73 @@ internal object MergeRules {
             } else {
                 result[result.indexOfFirst { it.id == existing.id }] =
                     incoming.copy(id = existing.id, wearerId = existing.wearerId ?: owner)
+            }
+        }
+
+        return result.filterNot { it.id in removed }
+    }
+
+    // ============================================
+    // SMART HOME HOOKS
+    // ============================================
+
+    /**
+     * Hooks, merged the way zones are, with one extra rule.
+     *
+     * The extra rule is about the last-fired stamp: `lastStatusCode` has no
+     * column, so an arriving row would blank it. It is kept from the local copy
+     * instead. It is this phone's note about its own last attempt, and losing
+     * it on every pull would make a hook's row flicker between "403" and
+     * nothing depending on when the last sync happened.
+     *
+     * A hook with no endpoint is dropped rather than kept: it names nowhere to
+     * post, so it can never fire, and a row in the list that cannot work is
+     * worse than no row - the user believes the light will come on.
+     */
+    fun smartHomeHooks(
+        local: List<SmartHomeHook>,
+        remote: List<SmartHomeHookRow>,
+        circleId: String,
+        pending: Set<String> = emptySet()
+    ): List<SmartHomeHook> {
+        val byServerId = local.associateBy { CloudIds.cloudId(it.id, circleId) }
+        val result = local.toMutableList()
+        val removed = mutableSetOf<String>()
+
+        for (row in remote) {
+            val serverId = row.id ?: continue
+            val existing = byServerId[serverId]
+
+            if (deleted(row.deletedAt)) {
+                if (existing != null) removed += existing.id
+                continue
+            }
+            // A local edit that has not been pushed is newer than anything the
+            // server could be holding. See the class KDoc.
+            if (existing != null && existing.id in pending) continue
+
+            val endpoint = row.endpointUrl?.takeIf { it.isNotBlank() }
+            if (endpoint == null && existing == null) continue
+
+            val incoming = SmartHomeHook(
+                id = existing?.id ?: serverId,
+                name = row.name.orEmpty().ifBlank { existing?.name ?: "" },
+                trigger = row.trigger.orEmpty().ifBlank { existing?.trigger ?: "" },
+                provider = row.provider.orEmpty().ifBlank { existing?.provider ?: "" },
+                endpointUrl = endpoint ?: existing?.endpointUrl.orEmpty(),
+                secret = row.secret?.takeIf { it.isNotBlank() } ?: existing?.secret,
+                enabled = row.enabled ?: existing?.enabled ?: true,
+                lastFiredAt = com.safeshade.cloud.parseServerInstant(row.lastFiredAt)?.toEpochMilli()
+                    ?: existing?.lastFiredAt,
+                lastError = row.lastError?.takeIf { it.isNotBlank() },
+                // No column. This phone's own note about its own last attempt.
+                lastStatusCode = existing?.lastStatusCode
+            )
+
+            if (existing == null) {
+                result += incoming
+            } else {
+                result[result.indexOfFirst { it.id == existing.id }] = incoming
             }
         }
 

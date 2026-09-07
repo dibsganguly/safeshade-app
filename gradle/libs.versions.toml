@@ -65,6 +65,13 @@ kotlinxSerialization = "1.9.0"
 # 1.9.0 already pinned by `coroutines` - nothing is downgraded.
 healthConnect = "1.1.0"
 
+# --- Launcher surfaces: QS tile, static shortcuts, home-screen widget ---
+# 1.1.1 is the newest STABLE glance-appwidget release. Checked against the
+# Kotlin-metadata note above before adding: its POM declares kotlin-stdlib
+# 1.8.22, well under the 2.2.10 compiler's N+1 metadata ceiling, so it does
+# not repeat the supabase 3.8.0 failure. Nothing newer was tried.
+glanceAppwidget = "1.1.1"
+
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-core-splashscreen = { group = "androidx.core", name = "core-splashscreen", version.ref = "coreSplashscreen" }
@@ -118,6 +125,10 @@ androidx-credentials-play-services-auth = { group = "androidx.credentials", name
 googleid = { group = "com.google.android.libraries.identity.googleid", name = "googleid", version.ref = "googleid" }
 health-connect-client = { group = "androidx.health.connect", name = "connect-client", version.ref = "healthConnect" }
 billing-ktx = { group = "com.android.billingclient", name = "billing-ktx", version.ref = "billing" }
+
+# Home-screen widget. QS tile and static shortcuts need no library of their
+# own - TileService and the shortcuts XML are pure platform APIs.
+androidx-glance-appwidget = { group = "androidx.glance", name = "glance-appwidget", version.ref = "glanceAppwidget" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

@@ -80,6 +80,13 @@ class JourneyService : Service() {
         override fun onLocationResult(result: LocationResult) {
             val fix = result.lastLocation ?: return
             LastKnownLocation.update(fix)
+            RideLogSink.onFix(
+                lat = fix.latitude,
+                lon = fix.longitude,
+                speedMps = if (fix.hasSpeed()) fix.speed else null,
+                accuracyM = if (fix.hasAccuracy()) fix.accuracy else null,
+                at = fix.time
+            )
             refreshNotification()
         }
     }
@@ -167,19 +174,37 @@ class JourneyService : Service() {
         }.onFailure { Log.e(TAG, "Could not request location updates", it) }
     }
 
-    /** Stops as soon as the journey is no longer running. */
+    /**
+     * Stops as soon as the journey is no longer running, and brackets the
+     * ride log around the same lifetime through [RideLogSink]: every journey
+     * is a ride (there is no per-mode gate here — see `RideLogRepository`),
+     * it begins the moment the journey is first seen ACTIVE and ends the
+     * moment it leaves ACTIVE, so a ride's duration always matches the
+     * journey it was walked for.
+     */
     private fun observeJourney() {
         val container = (applicationContext as? SafeShadeApplication)?.container ?: return
+        var rideActive = false
         container.journeyRepository.journey
             .onEach { journey ->
                 if (journey != null && journey.state == JourneyState.ACTIVE) {
+                    if (!rideActive) {
+                        rideActive = true
+                        RideLogSink.begin(journey.id)
+                    }
                     refreshNotification()
-                } else if (container.journeyRepository.loaded.value) {
-                    // `loaded` guards the cold-start case: `journey` is null
-                    // both for "no journey" and for "DataStore has not answered
-                    // yet", and stopping on the second would end the service a
-                    // frame after it started.
-                    stopSelf()
+                } else {
+                    if (rideActive) {
+                        rideActive = false
+                        RideLogSink.end()
+                    }
+                    if (container.journeyRepository.loaded.value) {
+                        // `loaded` guards the cold-start case: `journey` is
+                        // null both for "no journey" and for "DataStore has
+                        // not answered yet", and stopping on the second would
+                        // end the service a frame after it started.
+                        stopSelf()
+                    }
                 }
             }
             .launchIn(scope)
@@ -340,11 +365,50 @@ object LastKnownLocation {
             lon = location.longitude,
             altitude = location.altitude.toInt(),
             isValid = true,
-            capturedAt = System.currentTimeMillis()
+            capturedAt = System.currentTimeMillis(),
+            provider = location.provider,
+            accuracyM = if (location.hasAccuracy()) location.accuracy else null,
+            fixAt = location.time,
+            fromDevice = false
         )
     }
 
     fun clear() {
         _state.value = null
+    }
+}
+
+/**
+ * Where a journey's begin/end and location fixes go so the ride log can be
+ * built from them.
+ *
+ * Mirrors [LastKnownLocation]: a process-wide, plumbing-free target so
+ * [JourneyService] — started by the platform, outside the DI graph — can hand
+ * ride events on to `RideLogRepository` without holding a reference to
+ * `AppContainer` itself. `AppContainer` is the one place that calls [attach],
+ * once, pointing this at the real repository
+ * (`RideLogSink.attach(rideLogRepository)`); before that call every event is
+ * silently dropped, which is correct — one arriving before the container
+ * exists has nowhere real to be logged.
+ */
+object RideLogSink {
+
+    private var repository: com.safeshade.repo.RideLogRepository? = null
+
+    /** Called once, from `AppContainer`, to point this at the real repository. */
+    fun attach(repository: com.safeshade.repo.RideLogRepository) {
+        this.repository = repository
+    }
+
+    fun begin(journeyId: String?) {
+        repository?.begin(journeyId)
+    }
+
+    fun onFix(lat: Double, lon: Double, speedMps: Float?, accuracyM: Float?, at: Long) {
+        repository?.addFix(lat, lon, speedMps, accuracyM, at)
+    }
+
+    suspend fun end() {
+        repository?.end()
     }
 }

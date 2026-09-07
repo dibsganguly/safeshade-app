@@ -72,7 +72,13 @@ data class LocateUiState(
     /** "where your phone was", preformatted by the caller. */
     val lastKnownPlace: String? = null,
     val lastKnownCoordinates: String? = null,
-    val lastKnownAgeLabel: String? = null
+    val lastKnownAgeLabel: String? = null,
+    /** Where the last fix came from: "Wearable GPS", "Phone", "Network", or "—". */
+    val positioningSource: String = "—",
+    /** "±12 m" or "—". */
+    val positioningAccuracy: String = "—",
+    /** "just now", "40 s ago", or "—". */
+    val positioningAge: String = "—"
 )
 
 /**
@@ -178,6 +184,19 @@ fun LocateScreen(
 
         // ---------- (c) Last known location ----------
         item("last-heading") { SectionPlate(title = "Last known location") }
+
+        item("positioning") {
+            BoardPlate(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier.padding(Spacing.lg),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.lg)
+                ) {
+                    Readout(label = "SOURCE", value = state.positioningSource, compact = true, modifier = Modifier.weight(1.3f))
+                    Readout(label = "ACCURACY", value = state.positioningAccuracy, modifier = Modifier.weight(1f))
+                    Readout(label = "AGE", value = state.positioningAge, compact = true, modifier = Modifier.weight(1f))
+                }
+            }
+        }
 
         item("last") {
             if (state.lastKnownPlace == null && state.lastKnownCoordinates == null) {

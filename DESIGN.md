@@ -551,6 +551,34 @@ Heart rate, blood oxygen and temperature as three large mono readouts on one pla
 
 The microphone after a fall or an SOS, on one page: two rockers for the two causes, one dial for how long, one rocker for whether a recording ever leaves the phone (Off means it stays; On while signed out reads Signed out, not On). A recording made from the page is labelled a test and is saved exactly like a real one. The sound meter is an instrument: a large readout in dB with its calibration limit printed under it verbatim, and a Loud environment way that goes amber only on a sustained minute at 85 dB. Recordings are ways whose state word is where the file is (On this phone, Sending, On SafeShade Cloud, Not sent with the reason); tapping one plays it and reveals Delete. Nothing on the page starts the microphone without the system notification showing.
 
+### Product silhouette
+
+The three wearables drawn in the character's three flat tones (rim, skin, shade) with ink outlines: the S1 is the flat puck with its small recessed screen, three light pips and the knob on the right edge; the 5G is the same puck with the aerial nub off centre on top and the SIM tray notch below; the Spark is the round tag on a lanyard ring with the bolt on its button face. The accent is identity only. Used at 84 dp on the pairing page's chooser and at 72 dp beside the firmware readout. Never a render, never a photograph: the job is to let a hand pick the right outline.
+
+### Pair a wearable
+
+Three silhouette plates across the top, the chosen one raised with a live bus tick under it; a bank of four facts for that product (what it carries, what the phone can do with it: the Spark's tag row reads a dash with "This phone has no NFC" on a phone without one); then the search as a plate with the connection's own state word and a lamp, and one button whose label is the next thing to do. A wearable that answers as a different model than the one chosen is reported as such and pairing continues.
+
+### Firmware
+
+The wearable's version as a large readout beside its silhouette, with the sentence saying where the number came from (the wearable over the link, or "acknowledged the question but reported no version"). Published releases are ways whose state word is the relationship to this device (On the wearable, On this phone, Newer, or the size). The update is one way whose state word is the step (a percentage, Verifying, n of m chunks, Asking, Installed, Failed) and whose detail is the real reason. Installed means the wearable reported the new version itself; nothing else counts.
+
+### Lost
+
+Each of this phone's wearables as a way with a Lost rocker and a detail line of two dashes or two times: when this phone last heard it, and when the community last did. A lost device with a community fix gains a second way that opens the map. The sweep is a way (Idle, Listening, Not allowed) and a button; the community is one rocker that says exactly what leaves the phone (the wearable's address, the time, the place) and reads Signed out rather than On when the account is out.
+
+### Smart home
+
+Automations are ways: name, "trigger → destination", and the last thing that happened with its status code; the rocker arms it, the row opens it. The editor is chip rows for trigger and destination, an address field whose error states the reason, an optional secret, a Send a Test button whose supporting line becomes the real reply, and one COMMIT save. The three platform rows report the real outcome of their one action in the past tense and a dash until tapped ("Not installed", "Opened Google Home", "This phone can commission Matter devices").
+
+### Ride log
+
+Three readouts (rides, km, moving) that are dashes until a ride exists, then a bank of rides with the distance as the state word and "moving · top speed · fixes" as the detail; a ride with fewer than three fixes says it could not be measured. The Bike profile's brake light is described in one line as the wearable's own behaviour, because the phone cannot change it.
+
+### Quiet word, positioning, the wearable's own lights, nudges, walk home
+
+Five small additions that follow existing patterns rather than adding kit. The **quiet word** is a way plus a field on the Silent SOS page; the way reads Armed only once a word passes validation, and the field's error states the reason ("Too ordinary. It would trip on an everyday message."). The **positioning readout** on Locate is three compact readouts, SOURCE / ACCURACY / AGE, dashes when there is no fix; the source is the provider's name, never a guess. The **wearable's own lights** are two device-only ways on the Lights page (Brake light, Path light) whose state word names the profile they belong to and whose detail is the firmware's behaviour in numbers; no control, because no BLE path exists. **Weather nudges** are amber ways under the Board's gauges, present only when a rule fires, each line a consequence. **Walk Home** is a secondary button on the Journey setup that fills the same journey in ("Home", twenty minutes); it is not a separate mode.
+
 ### First run
 
 Six steps, each the same shape: a scene at the top in which the character does the thing the step is about (walks on and lights the board; stands beside a cane or a phone; peeks at the face being chosen; watches a small board light up as grants land; searches with its antenna until the wearable's own nub answers; holds up the card), a rail of bus ticks for progress, a headline, at most one line of body copy, the controls, and the actions pinned at the foot, rising with the keyboard. The scene runs under the status bar. Feature statements on the welcome step are rows with an icon in its accent and no bus tick or lamp, because they are not circuits.

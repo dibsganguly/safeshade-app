@@ -199,6 +199,7 @@ internal val TripKind.icon: ImageVector
         TripKind.MISSED_CHECKIN -> SafeShadeIcons.CheckIn
         TripKind.ZONE_EXIT -> SafeShadeIcons.SafeZone
         TripKind.JOURNEY_OVERDUE -> SafeShadeIcons.HourglassTimer
+        TripKind.QUIET_WORD -> SafeShadeIcons.ChatLock
     }
 
 // ============================================

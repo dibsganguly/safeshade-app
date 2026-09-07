@@ -2,6 +2,7 @@ package com.safeshade.debug
 
 import com.safeshade.data.LedPattern
 import com.safeshade.data.LiveSensorData
+import com.safeshade.device.BleSighting
 import com.safeshade.device.ConnectionState
 import com.safeshade.device.DeviceAlert
 import com.safeshade.device.DeviceLink
@@ -70,6 +71,9 @@ class FakeDeviceLink(
 
     private val _acks = MutableSharedFlow<String>(extraBufferCapacity = 16)
     override val acks = _acks.asSharedFlow()
+
+    private val _sightings = MutableSharedFlow<BleSighting>(extraBufferCapacity = 64)
+    override val sightings = _sightings.asSharedFlow()
 
     private val _scenario = MutableStateFlow(initialScenario)
     val scenario = _scenario.asStateFlow()
@@ -243,6 +247,22 @@ class FakeDeviceLink(
         }
     }
 
+    /**
+     * A sweep with no radio: it reports nothing on its own.
+     *
+     * Deliberately not scripted with invented neighbours. A fabricated stranger
+     * would be written into the sightings store and then reported to the cloud
+     * as a real device someone's phone had passed, which is a claim about the
+     * physical world that this fake is in no position to make. Use
+     * [emitSighting] to drive the screens instead - an explicit call from a
+     * debug drawer is a person choosing to, rather than the app inventing it.
+     *
+     * The connection state is untouched, exactly as on hardware.
+     */
+    override fun startSightingScan(durationMs: Long) = Unit
+
+    override fun stopSightingScan() = Unit
+
     override fun disconnect() {
         timeline?.cancel()
         _connectionState.value = ConnectionState.Disconnected
@@ -305,6 +325,11 @@ class FakeDeviceLink(
     /** Pushes an alert as if the wearable had sent one. */
     fun emitAlert(alert: DeviceAlert) {
         scope.launch { _alerts.emit(alert) }
+    }
+
+    /** Pushes an advertisement as if a SafeShade had walked past. */
+    fun emitSighting(sighting: BleSighting) {
+        scope.launch { _sightings.emit(sighting) }
     }
 
     /** Pushes a companion reply as if it had arrived over BLE. */

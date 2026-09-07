@@ -299,6 +299,7 @@ object AlertNotifier {
             TripKind.MISSED_CHECKIN -> "Check-in missed"
             TripKind.ZONE_EXIT -> "Left a safe zone"
             TripKind.JOURNEY_OVERDUE -> "Journey overdue"
+            TripKind.QUIET_WORD -> "Quiet word heard"
         }
 
         return NotificationCompat.Builder(context, Channels.FALL_ALERT)

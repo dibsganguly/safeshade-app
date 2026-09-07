@@ -35,7 +35,19 @@ data class LocationState(
     val altitude: Int = 0,
     val isValid: Boolean = false,
     /** When this fix was taken. Used to age "last seen" copy honestly. */
-    val capturedAt: Long = 0L
+    val capturedAt: Long = 0L,
+    /** The Android `LocationManager`/`FusedLocationProvider` provider string
+     * ("gps", "fused", "network"), or null when this fix did not come from an
+     * `android.location.Location`. See [com.safeshade.platform.PositioningReadout]. */
+    val provider: String? = null,
+    /** The fix's reported accuracy radius in metres, or null when unknown. */
+    val accuracyM: Float? = null,
+    /** When the platform itself timestamped the fix (`Location.getTime()`),
+     * distinct from [capturedAt], which is when this app observed it. */
+    val fixAt: Long? = null,
+    /** True when this fix came over BLE from the wearable's own GNSS rather
+     * than from this phone's location stack. */
+    val fromDevice: Boolean = false
 )
 
 // ============================================
@@ -376,7 +388,15 @@ data class SafetySettings(
      * The battery percentage at or below which the guardian is told once.
      * Zero switches the notice off.
      */
-    val lowBatteryPercent: Int = 15
+    val lowBatteryPercent: Int = 15,
+
+    /**
+     * A stranger-danger phrase the wearer can say or type that sounds
+     * ordinary but tells the guardian something is wrong. Blank means the
+     * feature is off — see `MessagingRepository`, which never matches
+     * against a blank word. See `com.safeshade.platform.QuietWordMatcher`.
+     */
+    val quietWord: String = ""
 ) {
     val primaryContact: EmergencyContact?
         get() = emergencyContacts.firstOrNull { it.isPrimary } ?: emergencyContacts.firstOrNull()
@@ -459,7 +479,18 @@ enum class TripKind(val label: String) {
     PHONE_SOS("SOS sent from the phone"),
     MISSED_CHECKIN("Check-in missed"),
     ZONE_EXIT("Left a safe zone"),
-    JOURNEY_OVERDUE("Journey overdue")
+    JOURNEY_OVERDUE("Journey overdue"),
+
+    /**
+     * The quiet word was heard in an inbound message. See
+     * `MessagingRepository` and `com.safeshade.platform.QuietWordMatcher`.
+     *
+     * Safe to have been added mid-life: these are persisted by *name* (see
+     * `Dtos.kt`, which decodes with `enumOrDefault`), so an older build
+     * reading a newer store degrades this to FALL rather than shifting every
+     * subsequent ordinal.
+     */
+    QUIET_WORD("Quiet word")
 }
 
 enum class TripOutcome(val label: String) {
