@@ -14,8 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -319,7 +317,7 @@ private fun AllowedNumberRow(
         Readout(value = number, modifier = Modifier.weight(1f))
         IconButton(onClick = onRemove, enabled = enabled) {
             Icon(
-                imageVector = Icons.Outlined.Close,
+                imageVector = SafeShadeIcons.CloseX,
                 contentDescription = "Remove $number from the allowlist",
                 tint = colors.inkMuted,
                 modifier = Modifier.size(20.dp)

@@ -283,9 +283,9 @@ private fun NearbyPlate(
                         detail = listOfNotNull(kind.label, service.address, service.phone).joinToString(" · "),
                         icon = when (kind) {
                             ServiceKind.HOSPITAL -> SafeShadeIcons.Cross
-                            ServiceKind.PHARMACY -> SafeShadeIcons.Cross
-                            ServiceKind.POLICE -> SafeShadeIcons.SafeZone
-                            ServiceKind.FIRE -> SafeShadeIcons.Alert02
+                            ServiceKind.PHARMACY -> SafeShadeIcons.Pharmacy
+                            ServiceKind.POLICE -> SafeShadeIcons.PoliceBadge
+                            ServiceKind.FIRE -> SafeShadeIcons.FireExtinguisher
                         },
                         onClick = { if (service.phone != null) onCall(service.phone) else onDirections(service) }
                     )

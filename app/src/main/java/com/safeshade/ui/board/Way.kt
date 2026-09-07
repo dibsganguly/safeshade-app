@@ -23,8 +23,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -47,6 +45,7 @@ import androidx.compose.ui.semantics.toggleableState
 import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.theme.accentFor
 import com.safeshade.ui.theme.Motion
 import com.safeshade.ui.theme.Radius
@@ -358,7 +357,7 @@ fun Seal(modifier: Modifier = Modifier) {
             .padding(horizontal = 5.dp, vertical = 1.dp)
     ) {
         Icon(
-            imageVector = Icons.Outlined.Lock,
+            imageVector = SafeShadeIcons.PadlockLocked,
             contentDescription = null,
             tint = colors.inkMuted,
             modifier = Modifier.size(10.dp)

@@ -104,7 +104,7 @@ fun WatchSettingsScreen(
                 state = linkLamp,
                 stateLabel = linkWord,
                 detail = linkLine,
-                icon = SafeShadeIcons.ConnectToTheDevice
+                icon = SafeShadeIcons.Bluetooth
             )
             Hairline()
             val (battLamp, battWord, battLine) = batteryWay(state)
@@ -113,7 +113,7 @@ fun WatchSettingsScreen(
                 state = battLamp,
                 stateLabel = battWord,
                 detail = battLine,
-                icon = SafeShadeIcons.BatteryLow
+                icon = SafeShadeIcons.BatteryMedium01
             )
         }
 

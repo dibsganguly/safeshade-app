@@ -5,7 +5,8 @@ generated Kotlin is checked in so the build needs no codegen step.
 
     python tools/gen_icons.py        # from the repo root
 
-Three things this has to get right, each of which it once got wrong:
+Three things this has to get right, each of which it once got wrong, and two more
+that the icon drop this file was last run against would have caught it on:
 
 * **Kotlin identifiers cannot start with a digit.** `3-g-signal` naively
   pascal-cased is `3GSignal`, which is a syntax error, not a warning. The
@@ -19,6 +20,21 @@ Three things this has to get right, each of which it once got wrong:
   top of its box sits above the word it labels. `OPTICAL` corrects both by
   wrapping the paths in a scaled and translated group, so the SVGs stay
   untouched and a redrop of the source file does not silently undo it.
+* **The root element is not always the first tag.** The root used to be read as
+  everything up to the first `>`, which is the `<?xml ?>` prolog in any file
+  that carries one. No icon in the set before this drop had a prolog; the two
+  brand marks do, and both would have had their `viewBox` and their `fill` read
+  as absent and been drawn into a 24-unit box they are not drawn in. The root
+  is now located as the `<svg ...>` element itself.
+* **Paint has to resolve the way SVG says it does.** The old rule was "fill if
+  the element has one, otherwise stroke it at 1.5", with the root defaulting to
+  `fill="none"`. Every file in the set happens to state enough paint for that
+  to land on the right answer, so it never produced a wrong glyph - but a shape
+  that states no paint at all would have been emitted as a hairline stroke in
+  whatever units its viewBox uses, which in a 512-unit box is 1/340th of the
+  glyph's width and invisible at every size the app draws it. Fill now defaults
+  to black and stroke to none, as the specification says; a shape can carry
+  both; and one that ends up with neither is a hard error rather than a blank.
 """
 import re, glob, os, sys
 
@@ -30,6 +46,16 @@ OUT = "app/src/main/java/com/safeshade/ui/icons/SafeShadeIcons.kt"
 # name longer: `SafeShadeIcons.Tick02StrokeRounded` reads worse than `Tick02`.
 STYLE_SUFFIXES = ("-stroke-rounded", "-stroke-sharp", "-stroke-standard")
 
+# Every icon is emitted into a 24-unit viewport whatever box it was drawn in,
+# so a call site, and the OPTICAL table below, can speak one set of units.
+BOX = 24.0
+
+# A stroked path that states no width. SVG's own default is 1, but nothing in
+# this set means it: the Hugeicons exports all declare 1.5 and the one file that
+# omits the attribute (`google-logo-outline`) is drawn to sit beside them. The
+# set's weight is the right fallback here, not the specification's.
+DEFAULT_STROKE_WIDTH = 1.5
+
 # Optical size corrections, keyed by slug, as a scale factor about the centre.
 #
 # These are not arbitrary taste. A 24-unit viewBox says nothing about how much
@@ -37,8 +63,8 @@ STYLE_SUFFIXES = ("-stroke-rounded", "-stroke-sharp", "-stroke-standard")
 # about 18 of the 24 units, `check-in` spans 20. Drawn at the same declared
 # 20dp in a `Way` row it is visibly the largest thing in the column, which is
 # exactly the complaint that produced this table.
-# A value is either a bare scale, or a dict of `scale`, `dx` and `dy` in viewBox
-# units (positive dy moves the glyph down).
+# A value is either a bare scale, or a dict of `scale`, `dx` and `dy` in
+# viewport units (positive dy moves the glyph down).
 #
 # `dy` exists because a glyph can be the right size and still sit wrong. `Way`
 # top-aligns its icon and lifts it 2dp so the glyph's cap lands level with the
@@ -60,6 +86,22 @@ OPTICAL = {
     # `Way` anchoring every icon against the row instead of against the title's
     # first line, which is fixed in `Way.kt` and was never this glyph's fault.
     "call-after-a-fall": {"dy": 2.5},
+    # The three solid-silhouette imports. Normalisation fits their box to 24
+    # units, but their artwork then runs to the very edge of it: measured with
+    # `getBBox` in a browser, the set's own glyphs span 21.5 units at the median
+    # (19.5 at the tenth percentile) including their stroke, while these three
+    # span 23.5, 23.9 and 24.0. Each scale below brings the glyph a little
+    # inside that median rather than exactly onto it, because a solid shape
+    # carries more ink per unit than an outline of the same size and reads
+    # larger for it.
+    #
+    # An earlier pass took them to 0.80 by eye and overshot: on the Safety
+    # screen `fall-detection` then sat visibly smaller than the phone and speech
+    # bubble either side of it, which is the same complaint as before with the
+    # sign flipped.
+    "fall-detection": 0.88,
+    "apple-logo": 0.86,
+    "google-logo": 0.86,
 }
 
 
@@ -78,6 +120,21 @@ JOIN = {"miter": "Miter", "round": "Round", "bevel": "Bevel"}
 # Everything that can carry paint. Anything outside this set is a hard error:
 # a silently skipped element is a glyph that renders wrong with no way to tell.
 DRAWABLE = ("path", "circle", "ellipse", "rect", "line", "polyline", "polygon")
+
+# Structural or descriptive elements that carry no ink of their own.
+IGNORABLE = ("svg", "g", "desc", "title", "defs", "metadata", "style")
+
+# Painting attributes that inherit down the tree. `transform` inherits too but
+# composes rather than overrides, so it is tracked separately.
+INHERITED = ("fill", "stroke", "stroke-width", "stroke-linecap",
+             "stroke-linejoin", "stroke-miterlimit", "fill-rule")
+
+# SVG's initial values for those, which is what a file that states nothing gets.
+INITIAL = {"fill": "black", "stroke": "none", "stroke-width": None,
+           "stroke-linecap": "butt", "stroke-linejoin": "miter",
+           "stroke-miterlimit": "4", "fill-rule": "nonzero"}
+
+NUM = r"-?\d*\.?\d+(?:[eE]-?\d+)?"
 
 
 def attr(s, name, default=None):
@@ -114,7 +171,7 @@ def rect_to_path(x, y, w, h):
 
 
 def points_to_path(points, close):
-    nums = [float(n) for n in re.findall(r"-?\d*\.?\d+(?:e-?\d+)?", points)]
+    nums = [float(n) for n in re.findall(NUM, points)]
     pairs = list(zip(nums[0::2], nums[1::2]))
     if not pairs:
         return ""
@@ -143,93 +200,212 @@ def path_data(tag, raw):
     raise AssertionError("unhandled element <%s>" % tag)
 
 
+class Group(object):
+    """One `addGroup` worth of transform, in Compose's parameter names."""
+
+    def __init__(self, rotate=0.0, pivot_x=0.0, pivot_y=0.0,
+                 scale_x=1.0, scale_y=1.0, tx=0.0, ty=0.0):
+        self.rotate, self.pivot_x, self.pivot_y = rotate, pivot_x, pivot_y
+        self.scale_x, self.scale_y, self.tx, self.ty = scale_x, scale_y, tx, ty
+
+    def args(self):
+        pairs = [("rotate", self.rotate, 0.0), ("pivotX", self.pivot_x, 0.0),
+                 ("pivotY", self.pivot_y, 0.0), ("scaleX", self.scale_x, 1.0),
+                 ("scaleY", self.scale_y, 1.0), ("translationX", self.tx, 0.0),
+                 ("translationY", self.ty, 0.0)]
+        return [(k, v) for k, v, default in pairs if v != default]
+
+
+def parse_transform(slug, spec):
+    """An SVG `transform` as the list of groups that reproduces it.
+
+    Compose builds a group's matrix as `T(tx+px, ty+py) . R . S . T(-px, -py)`,
+    which is exactly one translate, one rotation about a pivot and one scale -
+    less than SVG allows in a single attribute. An SVG transform list applies
+    left to right outermost first, so each function becomes its own group and
+    they nest in source order. Anything a group cannot express - a matrix with
+    shear or rotation in it, `skewX`, `skewY` - is a hard error: quietly
+    dropping it would leave the glyph mirrored or displaced with nothing said.
+    """
+    groups = []
+    pos = 0
+    for m in re.finditer(r"([a-zA-Z]+)\s*\(([^)]*)\)\s*,?\s*", spec):
+        if spec[pos:m.start()].strip():
+            sys.exit("%s: cannot parse transform %r" % (slug, spec))
+        pos = m.end()
+        fn = m.group(1)
+        a = [float(n) for n in re.findall(NUM, m.group(2))]
+        if fn == "translate" and len(a) in (1, 2):
+            groups.append(Group(tx=a[0], ty=a[1] if len(a) > 1 else 0.0))
+        elif fn == "scale" and len(a) in (1, 2):
+            groups.append(Group(scale_x=a[0], scale_y=a[1] if len(a) > 1 else a[0]))
+        elif fn == "rotate" and len(a) in (1, 3):
+            groups.append(Group(rotate=a[0],
+                                pivot_x=a[1] if len(a) == 3 else 0.0,
+                                pivot_y=a[2] if len(a) == 3 else 0.0))
+        elif fn == "matrix" and len(a) == 6:
+            av, b, c, d, e, f = a
+            if b or c:
+                sys.exit("%s: transform matrix(%s) has shear or rotation, which "
+                         "an ImageVector group cannot express" % (slug, m.group(2)))
+            groups.append(Group(scale_x=av, scale_y=d, tx=e, ty=f))
+        else:
+            sys.exit("%s: unsupported transform %s(%s)" % (slug, fn, m.group(2)))
+    if spec[pos:].strip() or not groups:
+        sys.exit("%s: cannot parse transform %r" % (slug, spec))
+    return groups
+
+
+def root_of(slug, svg):
+    """The `<svg ...>` element - which is not necessarily the first tag.
+
+    A file with an `<?xml ?>` prolog or a leading comment puts a `>` before the
+    root's, so slicing to the first one reads the prolog's attributes instead
+    of the root's and silently loses the viewBox and the paint.
+    """
+    m = re.search(r"<svg\b[^>]*>", svg, re.S)
+    if not m:
+        sys.exit("%s: no <svg> root element" % slug)
+    return m.group(0)
+
+
 def shapes_of(slug, svg):
-    """Every drawable element, with its paint attributes resolved from the root."""
-    head = svg[: svg.index(">") + 1]
-    root = {
-        "fill": attr(head, "fill", "none"),
-        "stroke": attr(head, "stroke"),
-        "stroke-width": attr(head, "stroke-width"),
-        "stroke-linecap": attr(head, "stroke-linecap", "butt"),
-        "stroke-linejoin": attr(head, "stroke-linejoin", "miter"),
-    }
+    """Every drawable element, with paint and transform inherited down the tree.
+
+    Returned in document order as (paint dict, `d`, [Group]) where the groups
+    run outermost first and are the accumulated `transform`s of the element and
+    of every `<g>` enclosing it.
+    """
+    root = root_of(slug, svg)
+    body = svg[svg.index(root) + len(root):]
+
     # Loud, not silent: an element this generator does not know how to convert
     # would otherwise leave a partly-drawn glyph and no error anywhere.
-    body = svg[svg.index(">") + 1:]
     for m in re.finditer(r"<([a-zA-Z][\w-]*)", body):
-        tag = m.group(1)
-        if tag in DRAWABLE or tag in ("svg", "desc", "title", "defs", "g", "style", "metadata"):
-            continue
-        sys.exit("%s: unhandled element <%s> - it would be dropped silently" % (slug, tag))
-    if re.search(r"\btransform=", svg):
-        sys.exit("%s: has a transform= this generator does not apply" % slug)
+        if m.group(1) not in DRAWABLE and m.group(1) not in IGNORABLE:
+            sys.exit("%s: unhandled element <%s> - it would be dropped silently"
+                     % (slug, m.group(1)))
 
+    def inherit(base, raw):
+        out = dict(base)
+        for k in INHERITED:
+            v = attr(raw, k)
+            if v is not None:
+                out[k] = v
+        return out
+
+    paint = [inherit(INITIAL, root)]
+    trans = [parse_transform(slug, attr(root, "transform")) if attr(root, "transform") else []]
     out = []
-    for m in re.finditer(r"<(%s)\b([^>]*)>" % "|".join(DRAWABLE), svg):
-        tag, raw = m.group(1), m.group(2)
+    # `<g>` is the only element here that has children, so a stack of one kind
+    # of frame is enough; a self-closing `<g/>` opens and closes in one tag.
+    for m in re.finditer(r"<(/?)([a-zA-Z][\w-]*)\b([^>]*?)(/?)>", body):
+        closing, tag, raw, selfclose = m.groups()
+        if tag == "g":
+            if closing:
+                paint.pop()
+                trans.pop()
+            elif not selfclose:
+                paint.append(inherit(paint[-1], raw))
+                t = attr(raw, "transform")
+                trans.append(trans[-1] + (parse_transform(slug, t) if t else []))
+            continue
+        if closing or tag not in DRAWABLE:
+            continue
         d = path_data(tag, raw)
         if not d:
             continue
-        shape = dict(root)
-        for k in list(root):
-            v = attr(raw, k)
-            if v is not None:
-                shape[k] = v
+        shape = inherit(paint[-1], raw)
+        if shape["fill"] == "none" and shape["stroke"] == "none":
+            sys.exit("%s: <%s> paints neither a fill nor a stroke" % (slug, tag))
         shape["d"] = " ".join(d.split())
-        out.append(shape)
+        t = attr(raw, "transform")
+        out.append((shape, trans[-1] + (parse_transform(slug, t) if t else [])))
     if not out:
         sys.exit("%s: produced no drawable shapes" % slug)
     return out
 
 
+def indent(text, depth):
+    pad = "    " * depth
+    return "\n".join(pad + ln if ln else ln for ln in text.split("\n"))
+
+
+def wrap(body, group, note=None):
+    """`body` inside one `addGroup`/`clearGroup` pair."""
+    args = ",\n".join("    %s = %gf" % (k, v) for k, v in group.args())
+    head = ("// %s\n" % note if note else "") + "addGroup(\n%s\n)" % args
+    return "%s\n%s\nclearGroup()" % (head, body)
+
+
 def kotlin_for(slug, svg):
-    head = svg[: svg.index(">") + 1]
-    vb = (attr(head, "viewBox") or "0 0 24 24").split()
-    vw, vh = float(vb[2]), float(vb[3])
+    vb = (attr(root_of(slug, svg), "viewBox") or "0 0 24 24").split()
+    if len(vb) != 4:
+        sys.exit("%s: viewBox %r is not four numbers" % (slug, " ".join(vb)))
+    min_x, min_y, vw, vh = [float(n) for n in vb]
 
-    lines = []
-    for sh in shapes_of(slug, svg):
-        data = '            pathData = addPathNodes(\n                "%s"\n            ),' % sh["d"]
-        if sh["fill"] not in (None, "none"):
-            lines.append("        addPath(\n%s\n            fill = SolidColor(Color.Black)\n        )" % data)
-        else:
-            lines.append(
-                "        addPath(\n%s\n"
-                "            stroke = SolidColor(Color.Black),\n"
-                "            strokeLineWidth = %sf,\n"
-                "            strokeLineCap = StrokeCap.%s,\n"
-                "            strokeLineJoin = StrokeJoin.%s\n"
-                "        )" % (data, float(sh["stroke-width"] or "1.5"),
-                               CAP[sh["stroke-linecap"]], JOIN[sh["stroke-linejoin"]]))
+    needs = set()
+    blocks = []
+    for sh, groups in shapes_of(slug, svg):
+        args = ['pathData = addPathNodes(\n    "%s"\n)' % sh["d"]]
+        if sh["fill-rule"] in ("evenodd", "evenOdd"):
+            args.append("pathFillType = PathFillType.EvenOdd")
+            needs.add("PathFillType")
+        if sh["fill"] != "none":
+            args.append("fill = SolidColor(Color.Black)")
+        if sh["stroke"] != "none":
+            width = float(sh["stroke-width"] or DEFAULT_STROKE_WIDTH)
+            args.append("stroke = SolidColor(Color.Black)")
+            args.append("strokeLineWidth = %sf" % width)
+            args.append("strokeLineCap = StrokeCap.%s" % CAP[sh["stroke-linecap"]])
+            args.append("strokeLineJoin = StrokeJoin.%s" % JOIN[sh["stroke-linejoin"]])
+            if float(sh["stroke-miterlimit"]) != 4.0:
+                args.append("strokeLineMiter = %sf" % float(sh["stroke-miterlimit"]))
+        block = "addPath(\n%s\n)" % indent(",\n".join(args), 1)
+        for g in reversed(groups):
+            block = wrap(indent(block, 1), g)
+        blocks.append(block)
 
-    body = "\n".join(lines)
+    body = "\n".join(blocks)
+
+    # Normalise whatever box the artwork was drawn in onto the shared 24-unit
+    # viewport, fitting the longer side and centring the shorter one. Without
+    # this a 512-unit import would need its own viewport, and then every
+    # OPTICAL entry and every stroke width would be in different units per
+    # glyph. Skipped when the file is already drawn in the target box, so the
+    # 223 icons that are stay byte-for-byte what they were.
+    if (min_x, min_y, vw, vh) != (0.0, 0.0, BOX, BOX):
+        s = BOX / max(vw, vh)
+        body = wrap(indent(body, 1),
+                    Group(scale_x=s, scale_y=s,
+                          tx=(BOX - s * vw) / 2 - s * min_x,
+                          ty=(BOX - s * vh) / 2 - s * min_y),
+                    "Drawn in a %g x %g box; fitted to the shared %g-unit viewport."
+                    % (vw, vh, BOX))
+
     correction = optical(slug)
     if correction is not None:
         scale, dx, dy = correction
-        # Scale about the viewBox centre, so the glyph shrinks in place rather
+        # Scale about the viewport centre, so the glyph shrinks in place rather
         # than towards the origin. A group is the only way to express this -
         # ImageVector.Builder's viewport has a size but no origin offset, so a
         # negative-origin viewBox cannot be transcribed directly.
         #
         # The nudge is added to that inset and is pre-scale, so it is stated in
-        # the same viewBox units the artwork is drawn in whether or not the
-        # glyph is also being resized.
-        inset_x = vw * (1 - scale) / 2 + dx * scale
-        inset_y = vh * (1 - scale) / 2 + dy * scale
+        # the same viewport units the artwork ends up in whether or not the
+        # glyph is also being resized. Outside the normalisation group above,
+        # so an imported glyph and a native one take the same numbers.
+        #
         # addGroup/clearGroup rather than the `group {}` helper: those two are
         # members of the builder, so a corrected icon costs the generated file
-        # no extra import that all 101 un-corrected ones would carry unused.
-        body = ('        // Optically matched to its neighbours - see OPTICAL in tools/gen_icons.py.\n'
-                '        addGroup(\n'
-                '            scaleX = %gf,\n'
-                '            scaleY = %gf,\n'
-                '            translationX = %gf,\n'
-                '            translationY = %gf\n'
-                '        )\n%s\n        clearGroup()' % (scale, scale, inset_x, inset_y, body))
+        # no extra import that the un-corrected ones would carry unused.
+        body = wrap(indent(body, 1),
+                    Group(scale_x=scale, scale_y=scale,
+                          tx=BOX * (1 - scale) / 2 + dx * scale,
+                          ty=BOX * (1 - scale) / 2 + dy * scale),
+                    "Optically matched to its neighbours - see OPTICAL in tools/gen_icons.py.")
 
-    body = "\n".join("    " + ln for ln in body.split("\n"))
-    name = pascal(slug)
-    return ('\n'
+    return needs, ('\n'
             '    /** `%s.svg` */\n'
             '    val %s: ImageVector by lazy {\n'
             '        ImageVector.Builder(\n'
@@ -241,13 +417,14 @@ def kotlin_for(slug, svg):
             '        ).apply {\n'
             '%s\n'
             '        }.build()\n'
-            '    }\n' % (slug, name, name, vw, vh, body))
+            '    }\n' % (slug, pascal(slug), pascal(slug), BOX, BOX,
+                         indent(body, 3)))
 
 
 HEADER = '''package com.safeshade.ui.icons
 
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
+%simport androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -271,21 +448,25 @@ import androidx.compose.ui.unit.dp
  *
  * Strokes are declared `Color.Black`, which is never seen: `Icon()` applies a
  * tint `ColorFilter` over the whole painter, so a glyph takes `inkMuted` or its
- * row's accent exactly as a Material icon does.
+ * row's accent exactly as a Material icon does. The one consequence worth
+ * knowing is that a glyph drawn in brand colours - `GoogleLogo` - arrives
+ * monochrome like every other, because the tint covers the whole painter.
  *
  * Members rather than extension properties. Material declares its icons as
  * extensions so that a very large set stays splittable; this one does not need
  * that, and extensions would cost a separate import line per icon at every call
  * site. `by lazy` still means none is built until it is first drawn.
  *
- * **Chrome is in scope now.** An earlier revision of this file said utility
- * chrome - back arrows, chevrons, close, tick, info - stays on Material,
- * because the set then had no equivalent for any of them. It does now, and the
- * back chevron alone is the most repeated glyph in the app, so the exception is
- * retired. What is still on Material is what this set genuinely has no answer
- * for: the mode personas and device shapes in `ui/board/ModeVisuals.kt`, and a
- * handful of one-off actions. Reusing one glyph across eight distinct modes
- * would be worse than the mixture it replaced.
+ * **The whole app is on this set.** Earlier revisions of this file carved out
+ * exceptions - first utility chrome, then the mode personas and device shapes
+ * in `ui/board/ModeVisuals.kt` and a handful of one-off actions - because the
+ * set had no equivalent for them. It does now, down to a walking figure, a
+ * bicycle, a paw and a pair of brand marks, so the exceptions are retired and
+ * no screen draws a Material icon.
+ *
+ * Every icon is emitted into a 24-unit viewport whatever box its SVG was drawn
+ * in, so a call site can size any two of them against each other and get what
+ * it asked for.
  *
  * [All] is the whole set in declaration order, which is what the kit gallery
  * renders. It is generated too, so a new SVG appears there without anybody
@@ -309,12 +490,24 @@ def main():
             sys.exit("name collision: %s and %s both give %s" % (seen[name], slug, name))
         seen[name] = slug
 
-    parts = [HEADER]
+    unknown = sorted(set(OPTICAL) - set(seen.values()))
+    if unknown:
+        sys.exit("OPTICAL names icons that are not in %s: %s" % (SRC, ", ".join(unknown)))
+
+    needs = set()
+    parts = [None]
     entries = []
     for f in files:
         slug = slug_of(f)
-        parts.append(kotlin_for(slug, open(f, encoding="utf-8").read()))
+        n, kt = kotlin_for(slug, open(f, encoding="utf-8").read())
+        needs |= n
+        parts.append(kt)
         entries.append((slug, pascal(slug)))
+
+    # Only the imports the set actually needs: an unused one is a build warning
+    # on a file nobody is allowed to hand-edit away.
+    extra = "import androidx.compose.ui.graphics.PathFillType\n" if "PathFillType" in needs else ""
+    parts[0] = HEADER % extra
 
     parts.append('\n    /** Every icon in the set, for the kit gallery. */\n'
                  '    val All: List<Pair<String, ImageVector>> = listOf(\n'

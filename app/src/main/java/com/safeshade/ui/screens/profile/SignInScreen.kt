@@ -267,7 +267,7 @@ fun SignInScreen(
                         label = if (busy == Busy.GOOGLE) "Waiting for Google…" else "Continue with Google",
                         onClick = { run(Busy.GOOGLE, { google(context) }) },
                         weight = ButtonWeight.SECONDARY,
-                        icon = SafeShadeIcons.NavbarCircle,
+                        icon = SafeShadeIcons.GoogleLogo,
                         enabled = busy == null,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -276,6 +276,7 @@ fun SignInScreen(
                     label = "Continue with Apple",
                     onClick = { error = null; appleError = actions.appleReason },
                     weight = ButtonWeight.SECONDARY,
+                    icon = SafeShadeIcons.AppleLogo,
                     enabled = busy == null,
                     modifier = Modifier.fillMaxWidth()
                 )

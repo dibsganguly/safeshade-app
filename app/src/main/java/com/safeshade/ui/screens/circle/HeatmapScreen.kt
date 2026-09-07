@@ -133,7 +133,7 @@ fun HeatmapScreen(
                 stateLabel = if (state.own.isEmpty()) "Nothing yet" else "${state.own.size} places",
                 detail = if (state.own.isEmpty()) "Alerts, zones and fixes appear here as they happen"
                 else "Alerts with a fix, safe zones, and the last fix",
-                icon = SafeShadeIcons.SafeZone
+                icon = SafeShadeIcons.FavouritePlace
             )
             Hairline()
             Way(
@@ -154,7 +154,7 @@ fun HeatmapScreen(
                     state.gated -> "Nearby alert density from every SafeShade household, 1 km cells, never fewer than five. Part of Plus."
                     else -> "1 km cells, never fewer than five alerts each, so nobody's home is visible in it."
                 },
-                icon = SafeShadeIcons.NavbarCircle,
+                icon = SafeShadeIcons.RadarBroadcast,
                 checked = if (state.gated) null else state.communityOn,
                 onCheckedChange = if (state.gated) null else onToggleCommunity,
                 // Gated: the row opens the plans. Otherwise the whole row

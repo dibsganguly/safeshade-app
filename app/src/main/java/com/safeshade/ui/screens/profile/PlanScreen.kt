@@ -151,7 +151,7 @@ fun PlanScreen(
                             state = if (on) LampState.LIVE else LampState.OFF,
                             stateLabel = if (on) "On" else "Off",
                             detail = "Sets the tier on this phone only, without a subscription",
-                            icon = SafeShadeIcons.DeviceSettings,
+                            icon = SafeShadeIcons.Crown,
                             onClick = { onSetOverride(if (on) null else tier) }
                         )
                     }

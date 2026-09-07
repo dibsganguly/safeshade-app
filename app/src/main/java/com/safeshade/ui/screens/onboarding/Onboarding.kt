@@ -225,7 +225,7 @@ fun WelcomeScreen(onStart: () -> Unit, modifier: Modifier = Modifier) {
                 Hairline()
                 FeatureRow(SafeShadeIcons.SafeZone, "Location and safe zones", "Where they are, and a word when they leave somewhere they should be.")
                 Hairline()
-                FeatureRow(SafeShadeIcons.NavbarCircle, "Your Circle", "Messages, check-ins and a medical card the people who matter can reach.")
+                FeatureRow(SafeShadeIcons.UserGroup, "Your Circle", "Messages, check-ins and a medical card the people who matter can reach.")
             }
         }
     }

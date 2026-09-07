@@ -166,7 +166,7 @@ fun ProfileScreen(
                         name = "Add a person",
                         state = LampState.OFF,
                         stateLabel = "Add",
-                        icon = SafeShadeIcons.NavbarCircle,
+                        icon = SafeShadeIcons.UserAdd,
                         onClick = onAddPerson
                     )
                 }
@@ -182,7 +182,7 @@ fun ProfileScreen(
                     state = state.account.state,
                     stateLabel = state.account.label,
                     detail = state.account.detail,
-                    icon = SafeShadeIcons.NavbarCircle,
+                    icon = SafeShadeIcons.CloudBackup,
                     onClick = if (state.account.tappable) { { onOpenWay(Routes.SETTINGS_ACCOUNT) } } else null
                 )
                 Hairline()
@@ -191,7 +191,7 @@ fun ProfileScreen(
                     state = LampState.LIVE,
                     stateLabel = state.role.label,
                     detail = state.role.blurb,
-                    icon = SafeShadeIcons.NavbarCircle,
+                    icon = SafeShadeIcons.User,
                     onClick = { onOpenWay(Routes.SETTINGS_ROLE) }
                 )
                 Hairline()
@@ -229,7 +229,7 @@ fun ProfileScreen(
                     state = LampState.OFF,
                     stateLabel = "Facts",
                     detail = "What this phone knows, and where each thing goes",
-                    icon = SafeShadeIcons.Info,
+                    icon = SafeShadeIcons.ShieldWithPadlock,
                     onClick = { onOpenWay(Routes.SETTINGS_PRIVACY) }
                 )
             }
@@ -252,7 +252,7 @@ fun ProfileScreen(
                         name = "Developer",
                         state = LampState.OFF,
                         stateLabel = "Debug",
-                        icon = SafeShadeIcons.DeviceSettings,
+                        icon = SafeShadeIcons.SourceCode,
                         onClick = { onOpenWay(Routes.SETTINGS_DEVELOPER) }
                     )
                 }

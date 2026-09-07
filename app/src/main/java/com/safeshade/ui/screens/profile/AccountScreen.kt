@@ -111,14 +111,14 @@ fun AccountScreen(
                         state = LampState.LIVE,
                         stateLabel = "Live",
                         detail = session.email ?: session.userId,
-                        icon = SafeShadeIcons.NavbarCircle
+                        icon = SafeShadeIcons.UserCircle
                     )
                     CloudSession.Guest -> Way(
                         name = "Not signed in",
                         state = LampState.OFF,
                         stateLabel = "Off",
                         detail = "Saved on this phone only",
-                        icon = SafeShadeIcons.NavbarCircle,
+                        icon = SafeShadeIcons.LogSignIn,
                         onClick = onOpenSignIn
                     )
                     CloudSession.Loading -> Way(
@@ -126,14 +126,14 @@ fun AccountScreen(
                         state = LampState.UNKNOWN,
                         stateLabel = "…",
                         detail = "Reading the saved session",
-                        icon = SafeShadeIcons.NavbarCircle
+                        icon = SafeShadeIcons.CloudLoading
                     )
                     CloudSession.Disabled -> Way(
                         name = "Not available",
                         state = LampState.OFF,
                         stateLabel = "Off",
                         detail = "This build has no SafeShade Cloud project",
-                        icon = SafeShadeIcons.NavbarCircle
+                        icon = SafeShadeIcons.CloudOffUnavailable
                     )
                 }
             }
@@ -149,7 +149,7 @@ fun AccountScreen(
                         state = state,
                         stateLabel = label,
                         detail = detail,
-                        icon = SafeShadeIcons.Info
+                        icon = SafeShadeIcons.CloudBackup
                     )
                     if (sync.lastError != null) {
                         Hairline()
@@ -158,7 +158,7 @@ fun AccountScreen(
                             state = LampState.ATTENTION,
                             stateLabel = "Reported",
                             detail = sync.lastError,
-                            icon = SafeShadeIcons.Alert02
+                            icon = SafeShadeIcons.CloudErrorAlert
                         )
                     }
                     Hairline()
@@ -182,7 +182,7 @@ fun AccountScreen(
                         state = LampState.LIVE,
                         stateLabel = planLabel,
                         detail = "What the cloud adds around the board, and what each plan costs",
-                        icon = SafeShadeIcons.Info,
+                        icon = SafeShadeIcons.Crown,
                         onClick = onOpenPlan
                     )
                 }
@@ -201,7 +201,7 @@ fun AccountScreen(
                         state = LampState.LIVE,
                         stateLabel = "Synced",
                         detail = "Wearers, medical IDs, emergency contacts, paired wearables, alerts, messages, safe zones, your name",
-                        icon = SafeShadeIcons.NavbarCircle
+                        icon = SafeShadeIcons.CloudUpload
                     )
                     Hairline()
                     Way(
@@ -209,7 +209,7 @@ fun AccountScreen(
                         state = LampState.OFF,
                         stateLabel = "Local",
                         detail = "The parental PIN, the SMS allowlist, the wearable's SIM number, and photos used as faces",
-                        icon = SafeShadeIcons.Info
+                        icon = SafeShadeIcons.PadlockLocked
                     )
                     Hairline()
                     Way(
@@ -217,7 +217,7 @@ fun AccountScreen(
                         state = LampState.LIVE,
                         stateLabel = "Circle",
                         detail = "Only members of your Circle. Every table is row-locked to the Circle on the server; a viewer can read and not write.",
-                        icon = SafeShadeIcons.SafeZone
+                        icon = SafeShadeIcons.UserGroup
                     )
                     Hairline()
                     Way(
@@ -225,7 +225,7 @@ fun AccountScreen(
                         state = LampState.LIVE,
                         stateLabel = "Singapore",
                         detail = "Supabase, region ap-southeast-1. Deleting the account removes every row.",
-                        icon = SafeShadeIcons.Info
+                        icon = SafeShadeIcons.Internet
                     )
                 }
             }

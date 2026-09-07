@@ -7,12 +7,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Brightness4
-import androidx.compose.material.icons.outlined.DarkMode
-import androidx.compose.material.icons.outlined.LightMode
-import androidx.compose.material.icons.outlined.Code
-import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -69,9 +63,9 @@ internal val DarkModePreference.blurb: String
 
 internal val DarkModePreference.icon: ImageVector
     get() = when (this) {
-        DarkModePreference.SYSTEM -> Icons.Outlined.Brightness4
-        DarkModePreference.LIGHT -> Icons.Outlined.LightMode
-        DarkModePreference.DARK -> Icons.Outlined.DarkMode
+        DarkModePreference.SYSTEM -> SafeShadeIcons.SunMoon
+        DarkModePreference.LIGHT -> SafeShadeIcons.Sun
+        DarkModePreference.DARK -> SafeShadeIcons.Moon
     }
 
 /** How a dark-mode preference reads on a nameplate. */

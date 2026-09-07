@@ -100,7 +100,7 @@ fun PrivacyScreen(
                     share == true -> "An alert's place goes up with it, rounded to about a kilometre and only drawn once five alerts share a cell"
                     else -> "Alerts still sync, without their place. Places sent before this was turned off stay sent."
                 },
-                icon = SafeShadeIcons.SafeZone,
+                icon = SafeShadeIcons.RadarBroadcast,
                 checked = share == true,
                 onCheckedChange = if (state.signedIn && share != null) onSharePlacesChange else null,
                 // The whole row is the target, as on every other rocker row.
@@ -144,7 +144,7 @@ fun PrivacyScreen(
                 state = LampState.OFF,
                 stateLabel = "Local",
                 detail = "Copied into the app's own folder on this phone and nowhere else",
-                icon = SafeShadeIcons.Info
+                icon = SafeShadeIcons.ImageAdd
             )
         }
 
@@ -179,7 +179,7 @@ fun PrivacyScreen(
                 state = if (state.signedIn) LampState.LIVE else LampState.OFF,
                 stateLabel = if (state.voiceNoteCount > 0) "${state.voiceNoteCount}" else "None",
                 detail = "The recording goes to a private bucket only the Circle can open",
-                icon = SafeShadeIcons.SendMessage
+                icon = SafeShadeIcons.Microphone
             )
         }
 
@@ -209,7 +209,7 @@ fun PrivacyScreen(
                 state = LampState.OFF,
                 stateLabel = "Account",
                 detail = "Supabase, Singapore. Deleting the account removes every row and every recording.",
-                icon = SafeShadeIcons.NavbarCircle,
+                icon = SafeShadeIcons.UserCircle,
                 onClick = onOpenAccount
             )
         }

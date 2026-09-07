@@ -11,8 +11,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -187,7 +185,7 @@ fun TripDetailScreen(
 
         BoardButton(
             label = "Share as Text",
-            icon = Icons.Outlined.Share,
+            icon = SafeShadeIcons.Share,
             onClick = {
                 failure = when (val result = shareText(context, account, "Share this trip")) {
                     is ActionResult.Failed -> result.reason

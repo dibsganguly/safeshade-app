@@ -15,8 +15,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.PersonAdd
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -40,6 +38,7 @@ import com.safeshade.ui.board.LampState
 import com.safeshade.ui.board.RELATIONSHIP_SUGGESTIONS
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.Way
+import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.board
@@ -217,7 +216,7 @@ private fun ContactList(
             item("add") {
                 BoardButton(
                     label = "Add a contact",
-                    icon = Icons.Outlined.PersonAdd,
+                    icon = SafeShadeIcons.UserAdd,
                     onClick = onStartAdd,
                     weight = ButtonWeight.SECONDARY,
                     modifier = Modifier.fillMaxWidth()

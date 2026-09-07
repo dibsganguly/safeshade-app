@@ -12,9 +12,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Login
-import androidx.compose.material.icons.outlined.Logout
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
@@ -211,7 +208,7 @@ fun ZoneEditorScreen(
                             UserRole.GUARDIAN -> "A notification when $subject crosses out of this circle"
                             UserRole.COMPANION -> "Your guardian is told when you cross out of this circle"
                         },
-                        icon = Icons.Outlined.Logout,
+                        icon = SafeShadeIcons.LeaveAPlace,
                         checked = state.alertOnExit,
                         onCheckedChange = onAlertOnExitChange
                     )
@@ -224,7 +221,7 @@ fun ZoneEditorScreen(
                             UserRole.GUARDIAN -> "A notification when $subject reaches this circle"
                             UserRole.COMPANION -> "Your guardian is told when you reach this circle"
                         },
-                        icon = Icons.Outlined.Login,
+                        icon = SafeShadeIcons.EnterAPlace,
                         checked = state.alertOnEnter,
                         onCheckedChange = onAlertOnEnterChange
                     )

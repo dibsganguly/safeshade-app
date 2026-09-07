@@ -144,7 +144,7 @@ fun EscalationScreen(
                     name = "Add a contact",
                     state = LampState.OFF,
                     stateLabel = "Go",
-                    icon = SafeShadeIcons.EmergencyContacts,
+                    icon = SafeShadeIcons.UserAdd,
                     onClick = onOpenContacts
                 )
             }
@@ -230,7 +230,7 @@ fun EscalationScreen(
                 } else {
                     "The ladder stops after the last contact"
                 },
-                icon = SafeShadeIcons.Police,
+                icon = SafeShadeIcons.TelephoneCall,
                 checked = settings.thenEmergency,
                 onCheckedChange = { onChange(settings.copy(thenEmergency = it)) }
             )

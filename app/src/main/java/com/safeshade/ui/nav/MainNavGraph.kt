@@ -15,9 +15,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.DirectionsWalk
-import androidx.compose.material.icons.outlined.History
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -2437,7 +2434,7 @@ private fun boardWays(state: AppState.Ready): List<BoardWay> {
             name = "Journey",
             state = if (journeyRunning) LampState.LIVE else LampState.OFF,
             stateLabel = if (journeyRunning) "Running" else "None",
-            icon = Icons.Outlined.DirectionsWalk,
+            icon = SafeShadeIcons.WalkingPerson,
             route = Routes.CIRCLE_JOURNEY
         ),
         BoardWay(
@@ -2453,7 +2450,7 @@ private fun boardWays(state: AppState.Ready): List<BoardWay> {
                 state.tripHistory.isEmpty() -> "Nothing logged"
                 else -> "${state.tripHistory.size} logged"
             },
-            icon = Icons.Outlined.History,
+            icon = SafeShadeIcons.History,
             route = Routes.SAFETY_TRIPS
         ),
         BoardWay(

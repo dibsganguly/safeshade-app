@@ -232,7 +232,7 @@ fun WearerEditorScreen(
                             state = LampState.LIVE,
                             stateLabel = "Remove",
                             detail = if (contact.name.isBlank()) null else contact.phone,
-                            icon = SafeShadeIcons.NavbarCircle,
+                            icon = SafeShadeIcons.User,
                             onClick = { contacts = contacts.filterIndexed { i, _ -> i != index } }
                         )
                     }

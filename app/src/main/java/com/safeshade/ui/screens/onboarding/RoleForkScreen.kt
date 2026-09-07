@@ -110,7 +110,7 @@ fun RoleForkScreen(
             Spacer(Modifier.height(Spacing.md))
 
             RoleCard(
-                icon = SafeShadeIcons.NavbarCircle,
+                icon = SafeShadeIcons.User,
                 title = "Me",
                 body = "You wear it and carry this phone. Alerts go to the contacts you choose, and you can reply from the wearable.",
                 examples = "Personal safety · Commuting · Cycling",

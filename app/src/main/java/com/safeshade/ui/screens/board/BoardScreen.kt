@@ -25,9 +25,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -337,10 +334,10 @@ fun BoardScreen(
                                 // dashed arc reads as *offline* on a screen
                                 // whose whole job is saying whether things are
                                 // connected - and the loop is what a person
-                                // already reads as "do it again". This is one
-                                // of the Material glyphs the set still has no
-                                // answer for; see handoff5 section 1.
-                                Icons.Outlined.Sync,
+                                // already reads as "do it again"; see handoff5
+                                // section 1. The set has its own loop now, so
+                                // this is `refresh` rather than Material's.
+                                SafeShadeIcons.Refresh,
                                 contentDescription = "Sync weather and location",
                                 tint = if (state.isSyncing) colors.inkFaint else colors.inkMuted,
                                 modifier = Modifier

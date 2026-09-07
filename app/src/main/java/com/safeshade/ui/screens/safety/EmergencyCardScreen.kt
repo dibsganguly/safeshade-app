@@ -20,8 +20,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -50,6 +48,7 @@ import com.safeshade.ui.board.BoardButton
 import com.safeshade.ui.board.BoardPlate
 import com.safeshade.ui.board.ButtonWeight
 import com.safeshade.ui.board.EmptyBay
+import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.theme.Radius
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
@@ -160,7 +159,7 @@ fun EmergencyCardScreen(
 
         BoardButton(
             label = "Share This Card",
-            icon = Icons.Outlined.Share,
+            icon = SafeShadeIcons.Share,
             onClick = {
                 shareFailure = when (val result = shareText(context, cardText, "Emergency card")) {
                     is ActionResult.Failed -> result.reason

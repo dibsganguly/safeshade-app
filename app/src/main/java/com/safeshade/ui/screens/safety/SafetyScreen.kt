@@ -15,9 +15,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.History
-import androidx.compose.material.icons.outlined.QrCode2
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -196,7 +193,7 @@ fun SafetyScreen(
                         state = LampState.TRIP,
                         stateLabel = "Open",
                         detail = state.lastTripLabel,
-                        icon = Icons.Outlined.History,
+                        icon = SafeShadeIcons.History,
                         onClick = onOpenTrips
                     )
                 }
@@ -314,7 +311,7 @@ fun SafetyScreen(
                     name = "Emergency card",
                     state = if (state.medicalId.isUsable) LampState.LIVE else LampState.OFF,
                     stateLabel = if (state.medicalId.isUsable) "Ready" else "Empty",
-                    icon = Icons.Outlined.QrCode2,
+                    icon = SafeShadeIcons.QrCode,
                     onClick = onOpenEmergencyCard
                 )
             }
@@ -365,7 +362,7 @@ fun SafetyScreen(
                     state = if (state.unresolvedTripCount > 0) LampState.TRIP else LampState.OFF,
                     stateLabel = if (state.unresolvedTripCount > 0) "Open" else "Clear",
                     detail = state.lastTripLabel ?: "Nothing recorded yet.",
-                    icon = Icons.Outlined.History,
+                    icon = SafeShadeIcons.History,
                     onClick = onOpenTrips
                 )
             }

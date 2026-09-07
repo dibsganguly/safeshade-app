@@ -7,8 +7,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
@@ -200,7 +198,7 @@ internal val TripKind.icon: ImageVector
         TripKind.PHONE_SOS -> SafeShadeIcons.SilentSos
         TripKind.MISSED_CHECKIN -> SafeShadeIcons.CheckIn
         TripKind.ZONE_EXIT -> SafeShadeIcons.SafeZone
-        TripKind.JOURNEY_OVERDUE -> Icons.Outlined.Timer
+        TripKind.JOURNEY_OVERDUE -> SafeShadeIcons.HourglassTimer
     }
 
 // ============================================

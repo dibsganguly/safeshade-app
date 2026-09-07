@@ -14,8 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.QrCode2
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -39,6 +37,7 @@ import com.safeshade.ui.board.LampState
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.Way
 import com.safeshade.ui.board.WhyDisclosure
+import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.Stroke
@@ -349,7 +348,7 @@ fun MedicalIdScreen(
 
         BoardButton(
             label = "Show the emergency card",
-            icon = Icons.Outlined.QrCode2,
+            icon = SafeShadeIcons.QrCode,
             onClick = onOpenCard,
             enabled = id.isUsable,
             weight = ButtonWeight.SECONDARY,

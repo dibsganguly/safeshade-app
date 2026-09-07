@@ -17,11 +17,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Bolt
-import androidx.compose.material.icons.outlined.Fullscreen
-import androidx.compose.material.icons.outlined.Notifications
-import androidx.compose.material.icons.outlined.RestartAlt
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -150,7 +145,7 @@ fun ReliabilityScreen(
                     status = state.statusOf(ReliabilityCheck.NOTIFICATIONS),
                     name = "Notifications",
                     consequence = "Without this, nothing appears when a fall is detected.",
-                    icon = Icons.Outlined.Notifications,
+                    icon = SafeShadeIcons.NotificationBell,
                     onOpen = { context.openNotificationSettings() }
                 )
                 if (state.showFullScreenIntent) {
@@ -163,7 +158,7 @@ fun ReliabilityScreen(
                         // the alert they can plainly see arriving.
                         consequence = "Without this, a fall alert still arrives but as " +
                             "a banner rather than taking over the lock screen.",
-                        icon = Icons.Outlined.Fullscreen,
+                        icon = SafeShadeIcons.FullScreen,
                         onOpen = { context.openFullScreenIntentSettings() }
                     )
                 }
@@ -195,7 +190,7 @@ fun ReliabilityScreen(
                     name = "Battery optimisation",
                     consequence = "With optimisation on, Android drops the Bluetooth " +
                         "link within minutes of the screen going off.",
-                    icon = Icons.Outlined.Bolt,
+                    icon = SafeShadeIcons.BatteryOptimisationOn,
                     onOpen = { context.openBatteryOptimisationSettings() }
                 )
                 if (state.showOemAutostart) {
@@ -207,7 +202,7 @@ fun ReliabilityScreen(
                             "the system stops the app after a reboot unless autostart " +
                             "is allowed. There is no way to check this from inside the " +
                             "app, so it has to be confirmed by hand.",
-                        icon = Icons.Outlined.RestartAlt,
+                        icon = SafeShadeIcons.Restart,
                         onOpen = { context.openAutostartSettings() }
                     )
                 }

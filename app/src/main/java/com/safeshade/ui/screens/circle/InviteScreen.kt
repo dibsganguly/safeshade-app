@@ -114,7 +114,7 @@ fun GuardiansScreen(
                     state = LampState.OFF,
                     stateLabel = "Off",
                     detail = "Sign in to share the Circle with another phone",
-                    icon = SafeShadeIcons.NavbarCircle,
+                    icon = SafeShadeIcons.LogSignIn,
                     onClick = onOpenSignIn
                 )
             }
@@ -144,7 +144,7 @@ fun GuardiansScreen(
                     state = LampState.LIVE,
                     stateLabel = member.role.label,
                     detail = member.email?.takeIf { !self && !member.name.isNullOrBlank() } ?: member.role.blurb,
-                    icon = SafeShadeIcons.NavbarCircle
+                    icon = SafeShadeIcons.User
                 )
             }
         }
@@ -160,7 +160,7 @@ fun GuardiansScreen(
                         state = lamp,
                         stateLabel = word,
                         detail = line,
-                        icon = SafeShadeIcons.NavbarCircle
+                        icon = SafeShadeIcons.MailSendInvite
                     )
                 }
             }
@@ -190,7 +190,7 @@ fun GuardiansScreen(
                             state = if (role == option) LampState.LIVE else LampState.OFF,
                             stateLabel = if (role == option) "In use" else "Not chosen",
                             detail = option.blurb,
-                            icon = SafeShadeIcons.NavbarCircle,
+                            icon = SafeShadeIcons.UserGroup,
                             onClick = { role = option }
                         )
                     }

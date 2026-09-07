@@ -18,8 +18,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.DirectionsWalk
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -389,7 +387,7 @@ fun CircleScreen(
                     state = state.journey.state,
                     stateLabel = state.journey.stateLabel,
                     detail = state.journey.detail,
-                    icon = Icons.Outlined.DirectionsWalk,
+                    icon = SafeShadeIcons.WalkingPerson,
                     onClick = onOpenJourney
                 )
                 Hairline()
@@ -407,7 +405,7 @@ fun CircleScreen(
                     state = state.guardians.state,
                     stateLabel = state.guardians.stateLabel,
                     detail = state.guardians.detail,
-                    icon = SafeShadeIcons.NavbarCircle,
+                    icon = SafeShadeIcons.UserGroup,
                     onClick = onOpenGuardians
                 )
                 Hairline()
@@ -416,7 +414,7 @@ fun CircleScreen(
                     state = state.talk.state,
                     stateLabel = state.talk.stateLabel,
                     detail = state.talk.detail,
-                    icon = SafeShadeIcons.SendMessage,
+                    icon = SafeShadeIcons.WalkieTalkie,
                     onClick = onOpenTalk
                 )
                 Hairline()
@@ -425,7 +423,7 @@ fun CircleScreen(
                     state = LampState.OFF,
                     stateLabel = "Map",
                     detail = "Your household's places, and the community's",
-                    icon = SafeShadeIcons.SafeZone,
+                    icon = SafeShadeIcons.RadarBroadcast,
                     onClick = onOpenHeatmap
                 )
                 Hairline()
