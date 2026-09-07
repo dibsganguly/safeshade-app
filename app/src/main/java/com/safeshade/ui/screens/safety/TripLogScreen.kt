@@ -10,6 +10,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.Alignment
+import com.safeshade.cloud.sync.SyncState
+import com.safeshade.ui.board.SyncDot
+import com.safeshade.ui.board.syncKey
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -41,7 +47,9 @@ data class TripLogUiState(
      * Injected rather than read from the clock inside the composable so that
      * "Today" is stable across a recomposition and deterministic in a preview.
      */
-    val today: LocalDate = LocalDate.now()
+    val today: LocalDate = LocalDate.now(),
+    /** Per-record cloud state by outbox key, for the dot in each row's corner. */
+    val syncStates: Map<String, SyncState> = emptyMap()
 )
 
 /**
@@ -117,14 +125,23 @@ fun TripLogScreen(
                 BoardPlate(modifier = Modifier.fillMaxWidth()) {
                     trips.forEachIndexed { index, trip ->
                         if (index > 0) Hairline()
-                        Way(
-                            name = trip.kind.label,
-                            state = trip.outcome.lamp,
-                            stateLabel = trip.outcome.shortLabel,
-                            detail = tripDetail(trip),
-                            icon = trip.kind.icon,
-                            onClick = { onOpenTrip(trip.id) }
-                        )
+                        Box {
+                            Way(
+                                name = trip.kind.label,
+                                state = trip.outcome.lamp,
+                                stateLabel = trip.outcome.shortLabel,
+                                detail = tripDetail(trip),
+                                icon = trip.kind.icon,
+                                onClick = { onOpenTrip(trip.id) }
+                            )
+                            // The cloud dot in the corner, outside the way's
+                            // own grammar: it reports the row's copy, not the
+                            // trip.
+                            SyncDot(
+                                state = state.syncStates[syncKey("alerts", trip.id)],
+                                modifier = Modifier.align(Alignment.TopEnd).padding(top = Spacing.sm, end = Spacing.sm)
+                            )
+                        }
                     }
                 }
             }

@@ -104,6 +104,7 @@ import com.safeshade.repo.SyncStatus
 import com.safeshade.ui.board.BoardPlate
 import com.safeshade.ui.board.KitGallery
 import com.safeshade.ui.board.LampState
+import com.safeshade.ui.board.syncKey
 import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.screens.board.BoardScreen
 import com.safeshade.ui.screens.board.BoardUiState
@@ -548,6 +549,8 @@ fun MainNavGraph(
             // the button stayed pressable and its "Sending" label had never
             // once appeared. It is real state now.
             var sending by remember { mutableStateOf(false) }
+            val threadCloudVm: CloudViewModel = viewModel(factory = CloudViewModel.Factory)
+            val threadSync by threadCloudVm.outboxStates.collectAsStateWithLifecycle()
 
             MessagesScreen(
                 state = MessagesUiState(
@@ -570,7 +573,8 @@ fun MainNavGraph(
                                 // nesting it here would draw the same words
                                 // twice — once under the question, once in
                                 // sequence.
-                                replyText = null
+                                replyText = null,
+                                syncState = threadSync[syncKey("messages", message.id)]
                             )
                         },
                     quickReplies = quickPhrases(state.role),
@@ -1236,11 +1240,14 @@ fun MainNavGraph(
 
         composable(Routes.SAFETY_TRIPS) {
             val state = liveState.value
+            val tripCloudVm: CloudViewModel = viewModel(factory = CloudViewModel.Factory)
+            val tripSync by tripCloudVm.outboxStates.collectAsStateWithLifecycle()
             TripLogScreen(
                 state = TripLogUiState(
                     trips = state.tripHistory.sortedByDescending { it.timestamp },
                     wearerName = state.wearerName,
-                    today = LocalDate.now()
+                    today = LocalDate.now(),
+                    syncStates = tripSync
                 ),
                 onBack = { navController.popBackStack() },
                 onOpenTrip = { id -> navController.navigate(Routes.tripDetail(id)) },

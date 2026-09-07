@@ -9,6 +9,7 @@ import androidx.credentials.exceptions.GetCredentialException
 import androidx.credentials.exceptions.GetCredentialProviderConfigurationException
 import androidx.credentials.exceptions.NoCredentialException
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import java.security.MessageDigest
 import java.security.SecureRandom
@@ -58,8 +59,27 @@ class GoogleSignInHelper(context: Context) {
             .addCredentialOption(googleIdOption)
             .build()
 
+        // The button flow, for when One Tap has nothing to offer. One Tap
+        // goes into a cool-down after its sheet is dismissed a few times and
+        // then answers NoCredentialException without showing anything at all,
+        // on a phone with a perfectly good Google account. The Sign in with
+        // Google option is not subject to that cool-down: it always opens the
+        // account chooser, and it takes the same nonce.
+        val buttonRequest = GetCredentialRequest.Builder()
+            .addCredentialOption(
+                GetSignInWithGoogleOption.Builder(webClientId)
+                    .setNonce(hashedNonce)
+                    .build()
+            )
+            .build()
+
         return try {
-            val response = credentialManager.getCredential(activityContext, request)
+            val response = try {
+                credentialManager.getCredential(activityContext, request)
+            } catch (e: NoCredentialException) {
+                android.util.Log.w("SafeShadeAuth", "One Tap had no credential (" + e.message + "); opening the account chooser")
+                credentialManager.getCredential(activityContext, buttonRequest)
+            }
             val credential = response.credential
             if (credential is CustomCredential &&
                 credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
@@ -72,6 +92,7 @@ class GoogleSignInHelper(context: Context) {
         } catch (e: GetCredentialCancellationException) {
             GoogleSignInResult.Cancelled
         } catch (e: NoCredentialException) {
+            android.util.Log.w("SafeShadeAuth", "Sign in with Google had no credential: " + e.message)
             GoogleSignInResult.Failed("No Google account on this phone, or Google Play services is unavailable")
         } catch (e: GetCredentialProviderConfigurationException) {
             GoogleSignInResult.Failed("Google Play services is missing or out of date on this phone")

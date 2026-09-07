@@ -16,6 +16,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.width
+import com.safeshade.cloud.sync.SyncState
+import com.safeshade.ui.board.SyncDot
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
@@ -51,7 +54,9 @@ data class ThreadMessage(
     /** A reply the wearer sent back to this specific message, if any. */
     val replyText: String? = null,
     /** False while a send is still in flight or after it failed outright. */
-    val delivered: Boolean = true
+    val delivered: Boolean = true,
+    /** Whether this message's copy reached SafeShade Cloud; null draws nothing. */
+    val syncState: SyncState? = null
 )
 
 /** Everything the thread draws. */
@@ -269,11 +274,17 @@ private fun MessageBubble(
                     color = colors.ink
                 )
                 Spacer(Modifier.height(Spacing.xs))
-                Text(
-                    text = if (message.delivered) message.timeLabel else "${message.timeLabel} · not delivered yet",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colors.inkFaint
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = if (message.delivered) message.timeLabel else "${message.timeLabel} · not delivered yet",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colors.inkFaint
+                    )
+                    if (message.syncState != null) {
+                        Spacer(Modifier.width(Spacing.sm))
+                        SyncDot(state = message.syncState)
+                    }
+                }
                 if (smsNote != null) {
                     Spacer(Modifier.height(Spacing.sm))
                     Text(

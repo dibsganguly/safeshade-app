@@ -493,6 +493,10 @@ The Device page's top-right control is the person holding the phone — their fa
 
 A person as a way: bus tick, their face at 44dp, their name, one line, and on the right a state word or a chevron. `Way` carries an icon; a person carries a face, and a face is what a guardian scans a list for. Everything else is the way's grammar, so a bank of people reads like a bank of circuits and is spoken as one node, "name, state, detail". It lives in the kit (`ui/board/PersonRow.kt`) because the Profile page and the People page both draw it and had each grown their own.
 
+### Sync dot
+
+Whether one record has reached SafeShade Cloud, as a 6dp lamp in the row's top-right corner (`ui/board/SyncDot.kt`). Teal once the row landed, amber while it is queued or in flight, trip red when the outbox gave up with a reason; drawn only when there is something to say, so a record with no cloud history, or a phone that is not signed in, draws nothing rather than a grey "not synced". It sits outside the way's own grammar because it reports the row's copy, not the trip, and the spoken description carries the same word as the colour ("On SafeShade Cloud", "Sending to SafeShade Cloud", "Not on SafeShade Cloud: reason"). The trip log and the message thread draw it; the Account page's Sync plate is the same fact for the whole queue, and its Sync Now button greys only while a drain is actually in flight, never merely because something is queued.
+
 ### People I look after
 
 The Profile's section is a list: one person row per wearer, then an "Add a person" way. The People page is the same list with a state word per person for the link to their wearable (Live, Off, No wearable) and one commit-weight button to add. A Companion is their own single wearer and sees themselves alone with no add.
