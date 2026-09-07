@@ -68,19 +68,22 @@ class CloudViewModel(
      * and the newest error are facts, "syncing" is a moment.
      */
     val syncSummary: StateFlow<SyncSummary> =
-        combine(cloud.outbox.entries, cloud.outbox.states) { entries, states ->
+        combine(cloud.outbox.entries, cloud.outbox.states, cloud.syncEngine.draining) { entries, states, draining ->
             val lastSynced = states.values
                 .filterIsInstance<SyncState.Synced>()
                 .maxOfOrNull { it.at }
-            val syncing = states.values.any { it is SyncState.Syncing }
             val failed = states.values.filterIsInstance<SyncState.Failed>().firstOrNull()
             SyncSummary(
                 pending = entries.size,
                 lastSyncedAt = lastSynced,
-                syncing = syncing,
+                // In flight, not merely queued. See SyncEngine.draining.
+                syncing = draining,
                 lastError = failed?.reason ?: entries.firstNotNullOfOrNull { it.lastError }
             )
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SyncSummary())
+
+    /** Per-record cloud state by outbox key, for the dots on trip and message rows. */
+    val outboxStates: StateFlow<Map<String, SyncState>> get() = cloud.outbox.states
 
     /** The Circle and the tier, as the sync layer knows them. */
     val cloudState: StateFlow<CloudState> get() = cloud.cloudState
@@ -138,6 +141,9 @@ class CloudViewModel(
      * truth still comes from the outbox states, never from this call.
      */
     suspend fun syncNow(): CloudResult<Int> {
+        // The tap clears every backoff first: a person asking is not the
+        // unattended retry the backoff was written for.
+        cloud.outbox.retryNow()
         val r = cloud.circleActions.enqueueAll()
         cloud.syncEngine.kick()
         return r

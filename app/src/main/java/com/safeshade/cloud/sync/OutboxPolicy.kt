@@ -40,6 +40,11 @@ enum class OutboxOp {
  *   across re-enqueues on purpose — see [OutboxPolicy.enqueue].
  * @param nextAttemptAt epoch millis before which this entry must not be tried
  *   again. Zero means "as soon as possible".
+ * @param skips how many drains have looked at this entry and found no row body
+ *   to send. Counted separately from [attempts] because a skip is not a
+ *   failure - nothing was attempted - but an entry that is skipped forever is
+ *   not "syncing" either, and saying so was a lie the UI told for minutes at a
+ *   time. See [OutboxPolicy.MAX_SKIPS].
  */
 data class OutboxEntry(
     val table: String,
@@ -48,7 +53,8 @@ data class OutboxEntry(
     val attempts: Int = 0,
     val lastError: String? = null,
     val enqueuedAt: Long = 0L,
-    val nextAttemptAt: Long = 0L
+    val nextAttemptAt: Long = 0L,
+    val skips: Int = 0
 ) {
     /** Identity for dedupe. One pending write per record, never two. */
     val key: String get() = "$table/$recordId"
@@ -90,6 +96,26 @@ object OutboxPolicy {
 
     /** Backoff ceiling. Fifteen minutes. */
     const val MAX_BACKOFF_SECONDS = 15 * 60L
+
+    /**
+     * Drains that may find nothing to send for an entry before it is abandoned.
+     *
+     * A skip means the drain asked the repositories for the record and they had
+     * nothing: the id names something the phone no longer holds, or a key was
+     * written in a shape the resolver does not read. Neither of those gets
+     * better by waiting, and while it waits the record reads as
+     * [SyncState.Syncing] - which told one user "12 changes are still on this
+     * phone only" for several minutes about records that were never going to be
+     * sent at all.
+     *
+     * Three, not one, because a skip can also be a race: a drain that runs in
+     * the same instant a record is being written finds the repository
+     * mid-update. Three consecutive drains is not a race.
+     *
+     * Note that this is only reached when the payload source says it is *ready*
+     * - see [PayloadSource.isReady]. Not being signed in is not a skip.
+     */
+    const val MAX_SKIPS = 3
 
     /**
      * Seconds to wait before the next attempt, given [attempts] failures so far.
@@ -158,6 +184,35 @@ object OutboxPolicy {
         }
     }
 
+    /**
+     * Every entry made due again, for a person's own "Sync Now".
+     *
+     * Backoff exists so an unattended phone does not hammer a server that just
+     * said no. A tap is not unattended: somebody is looking at the page and
+     * asked. So the clock is cleared and the attempt count with it - an entry
+     * that had used up its five tries gets five more, because the person may
+     * well have fixed what was wrong (signed in again, found Wi-Fi). What is
+     * kept is [OutboxEntry.lastError], so the page can still say what happened
+     * last time until this time answers. Abandoned entries (see [MAX_SKIPS])
+     * are left alone: there is nothing on the phone to send for them, and a
+     * tap does not change that.
+     *
+     * @return the updated list, and how many entries were touched.
+     */
+    fun retryAll(current: List<OutboxEntry>): List<OutboxEntry> =
+        current.map { entry ->
+            if (isAbandoned(entry)) entry else entry.copy(attempts = 0, nextAttemptAt = 0L)
+        }
+
+    /**
+     * When the soonest backed-off entry becomes due, or null when nothing is
+     * waiting on the clock. Terminal and abandoned entries do not count: they
+     * will never be due.
+     */
+    fun nextDueAt(current: List<OutboxEntry>, now: Long): Long? =
+        current.filter { !isTerminal(it) && !isAbandoned(it) && it.nextAttemptAt > now }
+            .minOfOrNull { it.nextAttemptAt }
+
     /** Removes an entry by key, after a successful send. */
     fun remove(current: List<OutboxEntry>, table: String, recordId: String): List<OutboxEntry> =
         current.filterNot { it.table == table && it.recordId == recordId }
@@ -180,8 +235,19 @@ object OutboxPolicy {
         )
     }
 
+    /**
+     * Records a drain that found no row body for this entry.
+     *
+     * No backoff and no attempt: nothing was sent, so there is nothing to back
+     * off from. Only the counter moves.
+     */
+    fun onSkipped(entry: OutboxEntry): OutboxEntry = entry.copy(skips = entry.skips + 1)
+
     /** True when [entry] has exhausted [MAX_ATTEMPTS] and must be reported. */
     fun isTerminal(entry: OutboxEntry): Boolean = entry.attempts >= MAX_ATTEMPTS
+
+    /** True when nothing could be found to send for [entry], repeatedly. */
+    fun isAbandoned(entry: OutboxEntry): Boolean = entry.skips >= MAX_SKIPS
 
     /**
      * The entries eligible to be sent at [now], oldest first.
@@ -191,7 +257,7 @@ object OutboxPolicy {
      * "syncing" with no prospect of it changing.
      */
     fun due(current: List<OutboxEntry>, now: Long): List<OutboxEntry> =
-        current.filter { !isTerminal(it) && it.nextAttemptAt <= now }
+        current.filter { !isTerminal(it) && !isAbandoned(it) && it.nextAttemptAt <= now }
             .sortedBy { it.enqueuedAt }
 
     /**
@@ -206,11 +272,22 @@ object OutboxPolicy {
     fun batches(current: List<OutboxEntry>, now: Long): Map<String, List<OutboxEntry>> =
         due(current, now).groupBy { it.table }
 
-    /** The [SyncState] an entry currently implies, for the side map. */
-    fun stateFor(entry: OutboxEntry): SyncState =
-        if (isTerminal(entry)) {
+    /**
+     * The [SyncState] an entry currently implies, for the side map.
+     *
+     * An abandoned entry reports [SyncState.Failed] rather than staying
+     * [SyncState.Syncing] forever. "Still syncing" about something that will
+     * never be sent is the same class of lie as a tick before a result.
+     */
+    fun stateFor(entry: OutboxEntry): SyncState = when {
+        isTerminal(entry) ->
             SyncState.Failed(entry.lastError ?: "This did not reach SafeShade Cloud.")
-        } else {
-            SyncState.Syncing
-        }
+
+        isAbandoned(entry) -> SyncState.Failed(ABANDONED_REASON)
+
+        else -> SyncState.Syncing
+    }
+
+    /** Shown to a person, so it says what happened rather than naming a counter. */
+    const val ABANDONED_REASON = "There was nothing left on this phone to send for this."
 }

@@ -104,6 +104,16 @@ class CircleManager(
      */
     var onRealtimeRow: (suspend (String, List<JsonObject>) -> Unit)? = null
 
+    /**
+     * Queues everything this phone already holds. Set by `CloudContainer` to
+     * `SyncBackfill.enqueueAll`.
+     *
+     * A lambda rather than a constructor parameter for the same reason
+     * [onRealtimeRow] is one: this class is built before the payload source,
+     * because the payload source has to be able to ask it for the circle id.
+     */
+    var onBackfill: (suspend () -> Int?)? = null
+
     /** The four things a person can do to their Circle. */
     val actions: CircleActions = CircleActions()
 
@@ -133,7 +143,12 @@ class CircleManager(
                 }
             }
         }
-        scope.launch { restoreDevTier() }
+        scope.launch {
+            restoreDevTier()
+            // Before the first pull lands, so a cold start draws yesterday's
+            // Circle rather than an empty page.
+            restoreCircleState()
+        }
     }
 
     private suspend fun onSignedIn(session: CloudSession.SignedIn, syncEngine: SyncEngine) {
@@ -142,9 +157,15 @@ class CircleManager(
         if (session.userId.isBlank()) return
         val circle = ensureCircle()
         _state.value = _state.value.copy(circleId = circle)
+        if (circle != null) {
+            // The records that existed before anybody signed in were never
+            // queued, because the hooks only fire on a write. Without this the
+            // Account page reads "Nothing yet" against a phone full of data.
+            backfillOnce(session.userId, circle, force = false)
+            startRealtime(circle)
+        }
         // Everything queued while signed out has a circle to go to now.
         syncEngine.kick()
-        if (circle != null) startRealtime(circle)
     }
 
     private suspend fun onSignedOut() {
@@ -155,8 +176,43 @@ class CircleManager(
         }
         outbox.clearPullCursors()
         deliveryOutcomes.clear()
+        clearCircleState()
         _state.value = CloudState(devTierOverride = _state.value.devTierOverride)
     }
+
+    /**
+     * The one-off backfill for this `(account, circle)` pair.
+     *
+     * Idempotent through a marker in the cloud DataStore, and the marker is
+     * written **after** the queueing rather than before. Written first, a
+     * process killed mid-backfill would leave the pair marked done with half
+     * its records never queued and nothing that would ever queue them again;
+     * written after, the worst case is that a few already-queued records are
+     * queued a second time, which the outbox deduplicates by `(table, id)`
+     * anyway.
+     *
+     * @param force skips the marker. That is "Sync Now": a person who has been
+     *   told their data is not there and has pressed the button is entitled to
+     *   have it tried again, whatever a flag on disk says.
+     */
+    private suspend fun backfillOnce(
+        userId: String,
+        circleId: String,
+        force: Boolean
+    ): Int? = backfillLock.withLock {
+        val marker = "$userId:$circleId"
+        val done = context.cloudDataStore.data.map { it[CloudKeys.BACKFILL_DONE] }.first()
+            .orEmpty()
+        if (!force && marker in done) return@withLock 0
+
+        val queued = onBackfill?.invoke() ?: return@withLock null
+        context.cloudDataStore.edit { prefs ->
+            prefs[CloudKeys.BACKFILL_DONE] = done + marker
+        }
+        queued
+    }
+
+    private val backfillLock = Mutex()
 
     // ============================================
     // THE CIRCLE ID
@@ -236,6 +292,11 @@ class CircleManager(
      * member's name was edited.
      */
     suspend fun onSideRows(table: String, rows: List<JsonObject>) {
+        applySideRows(table, rows)
+        persistCircleState()
+    }
+
+    private fun applySideRows(table: String, rows: List<JsonObject>) {
         when (table) {
             CloudTables.CIRCLE_MEMBERS -> applyMembers(decode(rows, CircleMemberRow.serializer()))
             CloudTables.INVITES -> applyInvites(decode(rows, InviteRow.serializer()))
@@ -358,6 +419,80 @@ class CircleManager(
     // DEVELOPER TIER
     // ============================================
 
+    // ============================================
+    // THE CACHE
+    // ============================================
+
+    /**
+     * Writes the members, invitations and tier to disk.
+     *
+     * Deliberately *not* the circle id, which has its own key, and deliberately
+     * nothing else: this is a cache of what the server last said, so that a
+     * screen has something to draw on a cold start. It is overwritten by the
+     * first pull, and a stale copy can only ever be a few seconds old on any
+     * phone that has a network.
+     */
+    private suspend fun persistCircleState() {
+        val current = _state.value
+        val stored = StoredCircleState(
+            members = current.members.map {
+                StoredMember(it.userId, it.name, it.email, it.role.wire)
+            },
+            invites = current.invites.map {
+                StoredInvite(it.id, it.email, it.role.wire, it.sentAt, inviteStatusWire(it.status))
+            },
+            tier = current.tier.wire
+        )
+        val encoded = runCatching { json.encodeToString(StoredCircleState.serializer(), stored) }
+            .getOrNull() ?: return
+        context.cloudDataStore.edit { it[CloudKeys.CIRCLE_STATE] = encoded }
+    }
+
+    /**
+     * Reads it back, without stepping on anything a pull has already delivered.
+     *
+     * The restore runs on a launched coroutine and a pull can land first. A
+     * blanket overwrite would then replace live data with a cache, which is the
+     * one thing a cache must never do, so each list is only filled if it is
+     * empty.
+     */
+    private suspend fun restoreCircleState() {
+        val raw = context.cloudDataStore.data.map { it[CloudKeys.CIRCLE_STATE] }.first()
+        if (raw.isNullOrBlank()) return
+        val stored = runCatching {
+            json.decodeFromString(StoredCircleState.serializer(), raw)
+        }.getOrNull() ?: return
+
+        val current = _state.value
+        _state.value = current.copy(
+            members = current.members.ifEmpty {
+                stored.members.map {
+                    CircleMember(it.userId, it.name, it.email, CircleRole.fromWire(it.role))
+                }
+            },
+            invites = current.invites.ifEmpty {
+                stored.invites.map {
+                    CircleInvite(
+                        id = it.id,
+                        email = it.email,
+                        role = CircleRole.fromWire(it.role),
+                        status = inviteStatusOf(it.status),
+                        sentAt = it.sentAt
+                    )
+                }
+            },
+            tier = if (current.tier == CloudTier.FREE) {
+                CloudTier.fromWire(stored.tier)
+            } else {
+                current.tier
+            }
+        )
+    }
+
+    private suspend fun clearCircleState() {
+        context.cloudDataStore.edit { it.remove(CloudKeys.CIRCLE_STATE) }
+    }
+
     private suspend fun restoreDevTier() {
         val stored = context.cloudDataStore.data.map { it[CloudKeys.DEV_TIER] }.first()
         if (stored.isNullOrBlank()) return
@@ -471,6 +606,12 @@ class CircleManager(
                             circleId = joined,
                             devTierOverride = _state.value.devTierOverride
                         )
+                        // A different circle has never seen this phone's
+                        // records, so the pair is unmarked and backfills.
+                        val uid = (client.session.value as? CloudSession.SignedIn)?.userId
+                        if (!uid.isNullOrBlank()) {
+                            backfillOnce(uid, joined, force = false)
+                        }
                         startRealtime(joined)
                     }
                     CloudResult.Ok(Unit)
@@ -479,6 +620,36 @@ class CircleManager(
                 is CloudResult.Failed -> result
                 CloudResult.Disabled -> CloudResult.Disabled
             }
+        }
+
+        /**
+         * Queues every record this phone already holds, whatever the marker
+         * says. What "Sync Now" calls.
+         *
+         * Returns the number of records queued - which is a count of *intents*,
+         * not of rows the server has accepted. Nothing here waits on a network,
+         * so a caller must not draw a tick from it; the per-record answer is in
+         * `Outbox.states`, where it always was.
+         */
+        suspend fun enqueueAll(): CloudResult<Int> {
+            val userId = (client.session.value as? CloudSession.SignedIn)?.userId
+            if (userId.isNullOrBlank()) {
+                return CloudResult.Failed(
+                    "Sign in before syncing what is on this phone.",
+                    retryable = false
+                )
+            }
+            val circleId = ensureCircle()
+                ?: return CloudResult.Failed(
+                    "Your Circle could not be reached, so nothing was queued.",
+                    retryable = true
+                )
+            val queued = backfillOnce(userId, circleId, force = true)
+                ?: return CloudResult.Failed(
+                    "There is nothing on this phone to sync yet.",
+                    retryable = false
+                )
+            return CloudResult.Ok(queued)
         }
 
         /** Sets, or with null clears, the hand-chosen tier. See [CloudState.effectiveTier]. */
@@ -571,3 +742,68 @@ internal fun deliveryStatus(delivery: JsonObject?): InviteStatus {
 /** `JsonPrimitive.content` without the "null" string that a JsonNull yields. */
 internal fun JsonPrimitive.contentOrNullSafe(): String? =
     if (this is kotlinx.serialization.json.JsonNull) null else content
+
+// ============================================================================
+// The on-disk shape of the Circle cache
+//
+// kotlinx.serialization, because this is `cloud/` - `data/local/` is Gson and a
+// class carrying both is a review-blocker.
+//
+// A flat mirror of CloudState rather than CloudState itself, and every field a
+// primitive with a default. Serialising the domain types directly would make a
+// rename of an enum constant a silent parse failure on somebody's phone, and
+// would tie the shape a screen reads to the shape a disk holds - the two change
+// for entirely different reasons.
+//
+// A blob that fails to parse is dropped and the page waits for the pull, which
+// is what it did before this cache existed.
+// ============================================================================
+
+@kotlinx.serialization.Serializable
+internal data class StoredCircleState(
+    val members: List<StoredMember> = emptyList(),
+    val invites: List<StoredInvite> = emptyList(),
+    val tier: String = "free"
+)
+
+@kotlinx.serialization.Serializable
+internal data class StoredMember(
+    val userId: String = "",
+    val name: String? = null,
+    val email: String? = null,
+    val role: String = "guardian"
+)
+
+@kotlinx.serialization.Serializable
+internal data class StoredInvite(
+    val id: String = "",
+    val email: String = "",
+    val role: String = "guardian",
+    val sentAt: Long = 0L,
+    val status: String = "pending",
+    val reason: String? = null
+)
+
+/**
+ * An invitation status as one word plus, for a failure, its reason.
+ *
+ * The provider's message is kept: it is the only thing that tells an owner
+ * *why* the email did not arrive, and losing it across a restart would leave
+ * them with a red row and no explanation.
+ */
+internal fun inviteStatusWire(status: InviteStatus): String = when (status) {
+    InviteStatus.Pending -> "pending"
+    InviteStatus.Accepted -> "accepted"
+    InviteStatus.Expired -> "expired"
+    is InviteStatus.Failed -> "failed:" + status.reason
+}
+
+internal fun inviteStatusOf(wire: String): InviteStatus = when {
+    wire == "accepted" -> InviteStatus.Accepted
+    wire == "expired" -> InviteStatus.Expired
+    wire.startsWith("failed:") -> InviteStatus.Failed(
+        wire.removePrefix("failed:").ifBlank { "The invitation email was not accepted." }
+    )
+
+    else -> InviteStatus.Pending
+}

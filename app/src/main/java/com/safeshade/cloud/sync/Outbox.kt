@@ -67,7 +67,8 @@ private data class OutboxEntryDto(
     val attempts: Int? = null,
     val lastError: String? = null,
     val enqueuedAt: Long? = null,
-    val nextAttemptAt: Long? = null
+    val nextAttemptAt: Long? = null,
+    val skips: Int? = null
 )
 
 private fun OutboxEntry.toDto() = OutboxEntryDto(
@@ -77,7 +78,8 @@ private fun OutboxEntry.toDto() = OutboxEntryDto(
     attempts = attempts,
     lastError = lastError,
     enqueuedAt = enqueuedAt,
-    nextAttemptAt = nextAttemptAt
+    nextAttemptAt = nextAttemptAt,
+    skips = skips
 )
 
 /**
@@ -96,7 +98,8 @@ private fun OutboxEntryDto.toDomainOrNull(): OutboxEntry? {
         attempts = attempts ?: 0,
         lastError = lastError,
         enqueuedAt = enqueuedAt ?: 0L,
-        nextAttemptAt = nextAttemptAt ?: 0L
+        nextAttemptAt = nextAttemptAt ?: 0L,
+        skips = skips ?: 0
     )
 }
 
@@ -214,6 +217,39 @@ class Outbox(
             setState(entry.recordId, OutboxPolicy.stateFor(updated))
         }
     }
+
+    /**
+     * A drain found no row body for this entry.
+     *
+     * Not a failure - nothing was attempted - so no backoff and no attempt is
+     * counted. But the counter does move, and after [OutboxPolicy.MAX_SKIPS] the
+     * entry stops being due and starts reporting [SyncState.Failed]. An entry
+     * that is skipped forever must not read as "syncing" forever.
+     */
+    suspend fun markSkipped(entry: OutboxEntry) {
+        lock.withLock {
+            val updated = OutboxPolicy.onSkipped(entry)
+            val list = _entries.value.map { if (it.key == updated.key) updated else it }
+            writeEntries(list)
+            setState(entry.recordId, OutboxPolicy.stateFor(updated))
+        }
+    }
+
+    /**
+     * Makes every entry due now. See [OutboxPolicy.retryAll]; this is what a
+     * tap on "Sync Now" does before the drain it asks for.
+     */
+    suspend fun retryNow() {
+        lock.withLock {
+            val current = _entries.value.ifEmpty { readEntries() }
+            val updated = OutboxPolicy.retryAll(current)
+            writeEntries(updated)
+            updated.forEach { setState(it.recordId, OutboxPolicy.stateFor(it)) }
+        }
+    }
+
+    /** See [OutboxPolicy.nextDueAt]. */
+    fun nextDueAt(): Long? = OutboxPolicy.nextDueAt(_entries.value, now())
 
     /** Drops an entry outright. For a record the user deleted before it synced. */
     suspend fun forget(table: String, recordId: String) {

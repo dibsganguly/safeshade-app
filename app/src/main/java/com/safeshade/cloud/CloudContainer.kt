@@ -5,6 +5,7 @@ import com.safeshade.BuildConfig
 import com.safeshade.cloud.repo.CloudSyncHooks
 import com.safeshade.cloud.repo.RepositoryPayloadSource
 import com.safeshade.cloud.repo.RepositoryPullSource
+import com.safeshade.cloud.repo.SyncBackfill
 import com.safeshade.cloud.sync.Connectivity
 import com.safeshade.cloud.sync.NoPayloadSource
 import com.safeshade.cloud.sync.NoPullSource
@@ -158,7 +159,7 @@ class CloudContainer(
         )
     } ?: NoPullSource
 
-    private val payloadSource: PayloadSource = repositories?.let { repos ->
+    private val repositoryPayloads: RepositoryPayloadSource? = repositories?.let { repos ->
         RepositoryPayloadSource(
             profiles = repos.profiles,
             safety = repos.safety,
@@ -167,7 +168,9 @@ class CloudContainer(
             session = client.session,
             circleId = { circle.cachedCircleId() }
         )
-    } ?: NoPayloadSource
+    }
+
+    private val payloadSource: PayloadSource = repositoryPayloads ?: NoPayloadSource
 
     val syncEngine = SyncEngine(
         client = client,
@@ -197,6 +200,14 @@ class CloudContainer(
         // A row arriving on the Realtime socket takes the same path as a row
         // arriving in a pull. Two paths would mean two merge rules.
         circle.onRealtimeRow = { table, rows -> pullSource.onRowsPulled(table, rows) }
+
+        // The records that existed before anybody signed in. Routed through the
+        // same hooks a local write uses, so there is one definition of "queue
+        // this record" and not two.
+        repositoryPayloads?.let { payloads ->
+            val backfill = SyncBackfill(payloads, syncHooks)
+            circle.onBackfill = { backfill.enqueueAll() }
+        }
 
         scope.launch {
             outbox.load()

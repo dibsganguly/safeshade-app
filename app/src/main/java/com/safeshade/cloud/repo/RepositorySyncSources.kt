@@ -77,8 +77,38 @@ class RepositoryPayloadSource(
         return PayloadResolver.resolve(table, recordId, op, snapshot)
     }
 
+    /**
+     * True once there is a circle to stamp rows with.
+     *
+     * The difference between "this record cannot be sent" and "nothing can be
+     * sent yet" - see [PayloadSource.isReady]. Signed out, or signed in before
+     * the circle has resolved, the whole push is held rather than every queued
+     * record being skipped towards a failure it did not earn.
+     */
+    override suspend fun isReady(): Boolean = loaded() && !circleId().isNullOrBlank()
+
+    /**
+     * True once every repository has read itself off disk.
+     *
+     * Each of these flows is `stateIn(scope, Eagerly, null)`, and null means
+     * *not read yet* rather than *empty* - the same trap `AppState.Loading`
+     * exists to avoid. Without this check, a drain that runs in the first few
+     * hundred milliseconds of a cold start sees empty lists everywhere, finds no
+     * row body for anything, and counts a skip against every queued record; three
+     * of those and the whole backfill would report itself Failed to a user whose
+     * data was simply still loading.
+     */
+    private fun loaded(): Boolean =
+        profiles.profile.value != null &&
+            profiles.wearers.value != null &&
+            safety.settings.value != null &&
+            safety.history.value != null &&
+            messaging.messages.value != null &&
+            zones.zones.value != null
+
     /** Exposed for the tests; there is nothing here a test cannot construct. */
     suspend fun snapshot(): SyncSnapshot? {
+        if (!loaded()) return null
         val circle = circleId()?.takeIf { it.isNotBlank() } ?: return null
         val signedIn = session.value as? CloudSession.SignedIn
         val profile = profiles.profile.value
@@ -148,6 +178,29 @@ class RepositoryPullSource(
     override val userTables: List<String> = listOf(
         CloudTables.PROFILES,
         CloudTables.SUBSCRIPTIONS
+    )
+
+    /**
+     * The four small lists the app has to be able to *render*, not merely keep
+     * up to date.
+     *
+     * A cursored pull returns what changed, which on a fresh process against an
+     * unchanged Circle is nothing - so the Guardians page sat on "Reading the
+     * Circle..." indefinitely while the server held three members the whole
+     * time. These four have no repository and no local copy to fall back on
+     * (the persisted [com.safeshade.cloud.CloudState] is a cache, not a source),
+     * they are a handful of rows each, and they change rarely. Fetching them
+     * whole on every pull costs almost nothing and is the only way the first
+     * pull after a cold start can answer the question the screen is asking.
+     *
+     * `profiles` is here for the same reason: it is one row, and it is the
+     * account holder's own name and face.
+     */
+    override val fullPullTables: Set<String> = setOf(
+        CloudTables.CIRCLE_MEMBERS,
+        CloudTables.INVITES,
+        CloudTables.SUBSCRIPTIONS,
+        CloudTables.PROFILES
     )
 
     override suspend fun circleId(): String? = circleIdProvider()

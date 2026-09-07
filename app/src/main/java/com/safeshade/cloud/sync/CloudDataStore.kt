@@ -2,6 +2,7 @@ package com.safeshade.cloud.sync
 
 import android.content.Context
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 
 /**
@@ -63,4 +64,27 @@ internal object CloudKeys {
      * point of it.
      */
     val DEV_TIER = stringPreferencesKey("dev_tier_override_v1")
+
+    /**
+     * The `(userId, circleId)` pairs whose one-off backfill has already run.
+     *
+     * A set rather than a flag, because both halves can change on one phone: a
+     * second account can sign in, and accepting an invitation moves the same
+     * account into a different circle. Either of those is a fresh server-side
+     * world that has never seen this phone's records, and either of them has to
+     * backfill again - while a plain foreground, which happens dozens of times a
+     * day, must not.
+     */
+    val BACKFILL_DONE = stringSetPreferencesKey("backfill_done_v1")
+
+    /**
+     * The last known Circle: members, invitations and tier, as JSON.
+     *
+     * A cache of server facts, and named as one. It exists so that a cold start
+     * draws the Circle it drew yesterday instead of an empty page while the
+     * first pull is in flight - and the pull overwrites it the moment it lands.
+     * Nothing is ever *decided* from it that could not be decided again a second
+     * later.
+     */
+    val CIRCLE_STATE = stringPreferencesKey("circle_state_v1")
 }

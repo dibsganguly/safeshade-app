@@ -1,5 +1,6 @@
 package com.safeshade.cloud
 
+import android.util.Log
 import android.content.Intent
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.Auth
@@ -169,6 +170,38 @@ class SupabaseCloudClient(
         t.toCloudFailure()
     }
 
+    /**
+     * [runOrFail] for a table call, which can also meet an expired token.
+     *
+     * The access token lives an hour. supabase-kt refreshes it on a timer, and
+     * a phone in Doze overnight misses that timer; the first request in the
+     * morning then meets a 401 - three did, in one server log, in seven
+     * seconds - and the outbox backs the record off as though the server were
+     * down. The token is not the record's fault. So a 401 refreshes the
+     * session once and repeats the call; only a second 401 is reported, and
+     * that one really is "sign in again".
+     */
+    private suspend inline fun <T> runAuthedOrFail(crossinline block: suspend () -> T): CloudResult<T> =
+        try {
+            CloudResult.Ok(block())
+        } catch (c: kotlinx.coroutines.CancellationException) {
+            throw c
+        } catch (t: Throwable) {
+            if (t.rootFault().let { (fault, status, _) -> fault == CloudFault.REST && status == 401 }) {
+                Log.w(TAG, "401 from a table call; refreshing the session and retrying once")
+                try {
+                    client.auth.refreshCurrentSession()
+                    CloudResult.Ok(block())
+                } catch (c: kotlinx.coroutines.CancellationException) {
+                    throw c
+                } catch (again: Throwable) {
+                    again.toCloudFailure()
+                }
+            } else {
+                t.toCloudFailure()
+            }
+        }
+
     // ============================================
     // AUTH
     // ============================================
@@ -262,8 +295,8 @@ class SupabaseCloudClient(
         table: String,
         rows: List<T>,
         serializer: KSerializer<T>
-    ): CloudResult<Unit> = runOrFail {
-        if (rows.isEmpty()) return@runOrFail
+    ): CloudResult<Unit> = runAuthedOrFail {
+        if (rows.isEmpty()) return@runAuthedOrFail
         // Encoded to a JsonArray and sent through the JsonArray overload rather
         // than the reified one, because the caller (the outbox) knows the row
         // type only as a serializer. One request for the whole batch.
@@ -276,7 +309,7 @@ class SupabaseCloudClient(
         table: String,
         circleId: String,
         since: Instant?
-    ): CloudResult<List<JsonObject>> = runOrFail {
+    ): CloudResult<List<JsonObject>> = runAuthedOrFail {
         client.from(table).select(Columns.ALL) {
             filter {
                 eq("circle_id", circleId)
@@ -438,3 +471,5 @@ class SupabaseCloudClient(
         const val DEEP_LINK_HOST = "login-callback"
     }
 }
+
+private const val TAG = "SafeShadeSync"
