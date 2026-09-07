@@ -169,7 +169,7 @@ fun EvidenceScreen(
                 name = "An SOS is raised",
                 state = if (state.recordOnSos) LampState.LIVE else LampState.OFF,
                 stateLabel = if (state.recordOnSos) "On" else "Off",
-                detail = "Starts the moment the SOS goes out from this phone.",
+                detail = "Starts when the SOS goes out from this phone, or when the wearable's button raises one while this phone is on the alert.",
                 icon = SafeShadeIcons.Microphone,
                 checked = state.recordOnSos,
                 onCheckedChange = onRecordOnSos

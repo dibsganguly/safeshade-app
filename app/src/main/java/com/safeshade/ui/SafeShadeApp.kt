@@ -257,10 +257,23 @@ fun SafeShadeApp(viewModel: SafeShadeViewModel) {
         // here rather than the receiver because a microphone service may only
         // start while an Activity of ours is in front — which, with the
         // full-screen notification bringing this one forward, it now is.
-        val fallAlertId = ready.activeAlert?.takeIf { it.kind != TripKind.PHONE_SOS }?.id
+        // Only the two kinds the rockers name: a fall under "A fall is
+        // detected", the wearable's or the phone's SOS under "An SOS is
+        // raised". A zone exit, a missed check-in or a quiet word never opens
+        // the microphone. An alert that already has a recording (a cold start
+        // with a persisted alert) does not get a second one.
         val evidenceSettings by viewModel.evidenceSettings.collectAsStateWithLifecycle()
-        LaunchedEffect(fallAlertId) {
-            if (fallAlertId != null && evidenceSettings.recordOnFall) viewModel.startEvidence(fallAlertId)
+        val evidenceAlert = ready.activeAlert?.takeIf { alert ->
+            when (alert.kind) {
+                TripKind.FALL -> evidenceSettings.recordOnFall
+                TripKind.SOS, TripKind.PHONE_SOS -> evidenceSettings.recordOnSos
+                else -> false
+            }
+        }
+        LaunchedEffect(evidenceAlert?.id) {
+            val alert = evidenceAlert ?: return@LaunchedEffect
+            if (alert.kind == TripKind.PHONE_SOS) return@LaunchedEffect // firePhoneSos starts it itself
+            if (!viewModel.hasEvidenceFor(alert.id)) viewModel.startEvidence(alert.id)
         }
 
         AnimatedVisibility(

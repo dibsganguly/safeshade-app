@@ -46,8 +46,8 @@ only thing left is plugging it in.
 
 - **Phase 1 — done** (v2.5.0, `versionCode 8`).
 - **Phase 2 — done** (v2.6.0, `versionCode 9`). 27 commits, `4131176`..`b6ac200`.
-- **Phase 3 — done in scope, see §12** (v2.7.0, `versionCode 10`). Four
-  commits, `0767563`..`87acf95`, **not pushed** (the user authorises every
+- **Phase 3 — done in scope, see §12** (v2.7.0, `versionCode 10`). Six
+  commits, `0767563`..the review fix after `cbc16a3`, **not pushed** (the user authorises every
   push). `assembleDebug` green, **645 unit tests** pass (265 at the close of
   Phase 2). 128 files changed, 80 new.
 - **Phase 4 — next.** UI/UX enhancements, refinements, the all-screen sweep.
@@ -215,6 +215,24 @@ and was not verified; §8 collects them.
 - **Guide the wearable** on a zone row while the link is up, through the
   revived `DeviceRepository.setNavTarget`.
 
+### 3.4 Review fixes after the handoff was first written
+
+- **The microphone opens only for the kinds the rockers name.** The effect in
+  `SafeShadeApp` had started a recording for any non-phone alert under the
+  "A fall is detected" rocker: a zone exit, a missed check-in, a quiet word.
+  It now maps `FALL` to `recordOnFall`, `SOS` and `PHONE_SOS` to
+  `recordOnSos`, nothing else, skips `PHONE_SOS` there because `firePhoneSos`
+  starts it itself, and skips an alert that already has a clip (a cold start
+  with a persisted alert hours old no longer records again). The SOS rocker's
+  line now names the wearable's button as well as the phone.
+- **The widget rewrites only when its words change.** `AppContainer` mapped
+  every `AppState` emission (about one a second with telemetry) into a
+  `WidgetFeed.publish`; a `distinctUntilChanged` on the snapshot sits before
+  the publish now. Not verifiable without a wearable.
+- **The mandated-string grep was run** (it had been asserted): zero hits in
+  `ui/`. One near miss recorded in §9: `ComingSoonPlate` on `Routes.BOARD_LINK`
+  prints "Coming in this build"; nothing navigates there.
+
 ---
 
 ## 4. Architecture, as it is now
@@ -338,7 +356,8 @@ Everything in §8 "Not verified", plus:
   restart while the battery is still low produces one more `low_battery`
   firing (a repeated true statement).
 - **The mandated-string check**: grep the UI for "planned", "simulated",
-  "representative", "coming soon" before every release. Zero today.
+  "representative", "coming soon" before every release. Run at the Phase 3
+  close: zero hits.
 
 ---
 
@@ -422,8 +441,16 @@ dumps and screenshots.
 - **`tools/adb/drive.sh` could not run `tapfind.py`** under
   `MSYS_NO_PATHCONV` (python cannot open `/c/...`); `TOOLS` now resolves to a
   Windows path (`pwd -W`).
+- **Evidence recorded for the wrong alert kinds** and again on a cold start;
+  **the widget republished once a second** while telemetry flowed. Both fixed
+  in the review commit, §3.4.
 
 ### Carried debt (new this phase)
+
+- **`Routes.BOARD_LINK` still mounts `ComingSoonPlate`** ("Coming in this
+  build") in `MainNavGraph`. Nothing navigates to it (the board's own row goes
+  to `DEVICE_PAIRED` deliberately). Phase 4 should delete the route and the
+  plate rather than leave a dead page that breaks the wording rule in spirit.
 
 - **`downloadAndVerify` returns `OtaStep.Verifying` to mean verified**;
   `OtaStep` has no Verified member. Add one when `device/` is next opened.

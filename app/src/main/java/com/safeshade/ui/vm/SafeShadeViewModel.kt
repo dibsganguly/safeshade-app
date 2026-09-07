@@ -513,6 +513,7 @@ class SafeShadeViewModel(
         launchIo { container.evidenceRepository.setSettings(settings) }
 
     fun deleteEvidence(id: String) = launchIo { container.evidenceRepository.delete(id) }
+    fun hasEvidenceFor(alertId: String): Boolean = container.evidenceRepository.forAlert(alertId).isNotEmpty()
 
     /**
      * Opens the microphone for [seconds], tied to [alertId]. Only ever called

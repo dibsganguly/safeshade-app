@@ -21,6 +21,7 @@ import com.safeshade.sendSmsText
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -317,10 +318,9 @@ class AppContainer(
          * arrived, so the widget draws a dash rather than a zero.
          */
         scope.launch {
-            appStateRepository.state.collect { st ->
+            appStateRepository.state.map { st ->
                 val ready = st as? com.safeshade.repo.AppState.Ready
-                com.safeshade.platform.SosTileState.update(ready?.activeAlert != null)
-                val snapshot = com.safeshade.widget.WidgetSnapshot(
+                com.safeshade.widget.WidgetSnapshot(
                     wearerName = ready?.let { r -> r.selectedWearer?.name?.takeIf { it.isNotBlank() } ?: r.deviceSettings.wearerName.takeIf { it.isNotBlank() } },
                     linkWord = when {
                         ready == null -> "—"
@@ -332,8 +332,14 @@ class AppContainer(
                         ?: ready?.journey?.takeIf { it.state == com.safeshade.data.JourneyState.ACTIVE }?.let { "Journey to ${it.label}" },
                     alertOpen = ready?.activeAlert != null
                 )
-                runCatching { com.safeshade.widget.WidgetFeed.publish(appContext, snapshot) }
             }
+                // Telemetry lands in Ready about once a second while a wearable
+                // is connected; the widget is rewritten only when its words change.
+                .distinctUntilChanged()
+                .collect { snapshot ->
+                    com.safeshade.platform.SosTileState.update(snapshot.alertOpen)
+                    runCatching { com.safeshade.widget.WidgetFeed.publish(appContext, snapshot) }
+                }
         }
 
         // The evidence service runs in this process and hands each finished
