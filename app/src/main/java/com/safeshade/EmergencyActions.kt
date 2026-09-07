@@ -137,6 +137,28 @@ fun openInMaps(context: Context, lat: Double, lon: Double, label: String): Actio
 }
 
 /** A plain-text share sheet — used to export a trip log or a medical card. */
+/**
+ * Offers a PDF from the app's private `files/reports` directory through the
+ * share sheet, via the FileProvider declared in the manifest. Like
+ * [shareText], a started chooser proves only that the sheet opened.
+ */
+fun sharePdf(context: Context, file: java.io.File, chooserTitle: String): ActionResult {
+    val uri = runCatching {
+        androidx.core.content.FileProvider.getUriForFile(context, "${context.packageName}.files", file)
+    }.getOrElse { return ActionResult.Failed("The report could not be handed to another app.") }
+    val intent = Intent(Intent.ACTION_SEND).apply {
+        type = "application/pdf"
+        putExtra(Intent.EXTRA_STREAM, uri)
+        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    }
+    return runCatching {
+        context.startActivity(
+            Intent.createChooser(intent, chooserTitle).apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK }
+        )
+        ActionResult.Started
+    }.getOrElse { ActionResult.Failed("No app on this phone can take a PDF.") }
+}
+
 fun shareText(context: Context, text: String, chooserTitle: String): ActionResult {
     val intent = Intent(Intent.ACTION_SEND).apply {
         type = "text/plain"

@@ -86,6 +86,8 @@ fun TripDetailScreen(
     onResolve: (TripOutcome) -> Unit,
     onPlayRecording: (id: String) -> Unit = {},
     onStopRecording: () -> Unit = {},
+    /** Renders the report and opens the share sheet; returns the failure reason, or null. */
+    onSavePdf: (() -> String?)? = null,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(0.dp)
 ) {
@@ -200,6 +202,17 @@ fun TripDetailScreen(
             weight = ButtonWeight.SECONDARY,
             modifier = Modifier.fillMaxWidth()
         )
+        if (onSavePdf != null) {
+            Spacer(Modifier.height(Spacing.md))
+            BoardButton(
+                label = "Share as PDF",
+                icon = SafeShadeIcons.Pdf,
+                supporting = "One page: what happened, where, the medical ID and who was called.",
+                onClick = { failure = onSavePdf() },
+                weight = ButtonWeight.SECONDARY,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
 
         if (failure != null) {
             Spacer(Modifier.height(Spacing.sm))

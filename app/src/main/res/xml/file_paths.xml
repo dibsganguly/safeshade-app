@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Only the incident reports leave the app's private storage, and only
+     through a share sheet the person opened. Evidence recordings and voice
+     notes are deliberately not listed here. -->
+<paths>
+    <files-path name="reports" path="reports/" />
+</paths>

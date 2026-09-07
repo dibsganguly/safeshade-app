@@ -93,6 +93,8 @@ fun ZonesScreen(
     onDeleteZone: (String) -> Unit,
     onRequestBackgroundLocation: () -> Unit,
     onBack: () -> Unit,
+    /** Sends the zone to the wearable as its navigation target. Null when the link is down. */
+    onGuideTo: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val colors = MaterialTheme.board
@@ -197,6 +199,7 @@ fun ZonesScreen(
                                 zone = zone,
                                 confirmingDelete = pendingDeleteId == zone.id,
                                 onEdit = { onEditZone(zone.id) },
+                                onGuide = onGuideTo?.let { g -> { g(zone.id) } },
                                 onAskDelete = { pendingDeleteId = zone.id },
                                 onCancelDelete = { pendingDeleteId = null },
                                 onConfirmDelete = {
@@ -242,6 +245,7 @@ private fun ZoneListRow(
     zone: ZoneRow,
     confirmingDelete: Boolean,
     onEdit: () -> Unit,
+    onGuide: (() -> Unit)?,
     onAskDelete: () -> Unit,
     onCancelDelete: () -> Unit,
     onConfirmDelete: () -> Unit
@@ -259,6 +263,16 @@ private fun ZoneListRow(
                 onClick = onEdit,
                 modifier = Modifier.weight(1f)
             )
+            if (onGuide != null) {
+                IconButton(onClick = onGuide) {
+                    Icon(
+                        imageVector = SafeShadeIcons.RouteNavigation,
+                        contentDescription = "Guide the wearable to ${zone.name}",
+                        tint = colors.inkMuted,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
             IconButton(
                 onClick = onAskDelete,
                 modifier = Modifier.padding(end = Spacing.sm)

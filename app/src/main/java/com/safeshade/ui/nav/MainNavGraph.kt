@@ -805,6 +805,7 @@ fun MainNavGraph(
 
         composable(Routes.CIRCLE_ZONES) {
             val state = liveState.value
+            val zonesScope = rememberCoroutineScope()
             ZonesScreen(
                 state = ZonesUiState(
                     role = state.role,
@@ -831,6 +832,17 @@ fun MainNavGraph(
                     // the core set and cannot be requested from a dialog.
                     backgroundLocationGranted = hasBackgroundLocation(context)
                 ),
+                onGuideTo = if (state.connection.isUsable) { zoneId ->
+                    val zone = state.zones.firstOrNull { it.id == zoneId }
+                    if (zone != null) {
+                        zonesScope.launch {
+                            val ok = viewModel.guideTo(zone.lat, zone.lon, zone.name).await()
+                            snackbarHostState.showSnackbar(
+                                if (ok) "The wearable is guiding to ${zone.name}." else "The wearable did not acknowledge the destination."
+                            )
+                        }
+                    }
+                } else null,
                 onAddZone = {
                     seedZoneDraft(null)
                     navController.navigate(Routes.zoneEdit(null))
@@ -1632,11 +1644,37 @@ fun MainNavGraph(
 
         composable(Routes.SAFETY_MEDICAL_CARD) {
             val state = liveState.value
+            val nfcContext = LocalContext.current
+            val nfcState = remember { com.safeshade.platform.nfcAvailability(nfcContext) }
+            val nfcArmed by viewModel.nfcArmed.collectAsStateWithLifecycle()
+            val nfcResult by viewModel.nfcResult.collectAsStateWithLifecycle()
+            DisposableEffect(Unit) { onDispose { viewModel.armNfcWrite(false) } }
             EmergencyCardScreen(
                 state = EmergencyCardUiState(
                     medicalId = state.medicalId,
-                    wearerName = state.wearerName
+                    wearerName = state.wearerName,
+                    tagWord = when {
+                        nfcResult != null -> "Done"
+                        nfcArmed -> "Hold a tag"
+                        nfcState is com.safeshade.platform.NfcAvailability.Available -> "Ready"
+                        nfcState is com.safeshade.platform.NfcAvailability.Disabled -> "NFC is off"
+                        else -> "—"
+                    },
+                    tagLine = nfcResult ?: when (nfcState) {
+                        is com.safeshade.platform.NfcAvailability.Available -> if (nfcArmed) "Hold a blank NFC tag against the back of the phone." else "Writes this card to an NFC tag, for a Spark or a keyring."
+                        is com.safeshade.platform.NfcAvailability.Disabled -> "Turn NFC on in the phone's settings first."
+                        com.safeshade.platform.NfcAvailability.NoNfc -> "This phone has no NFC, so it cannot write a tag."
+                    },
+                    tagLamp = when {
+                        nfcResult != null && !nfcResult!!.startsWith("Written") -> LampState.TRIP
+                        nfcResult != null -> LampState.LIVE
+                        nfcArmed -> LampState.ATTENTION
+                        nfcState is com.safeshade.platform.NfcAvailability.Available -> LampState.OFF
+                        else -> LampState.UNKNOWN
+                    },
+                    tagArmed = nfcArmed
                 ),
+                onWriteTag = if (nfcState is com.safeshade.platform.NfcAvailability.Available) { armed -> viewModel.armNfcWrite(armed) } else null,
                 onBack = { navController.popBackStack() },
                 onOpenMedicalId = {
                     // Usually the card was opened *from* the editor, so going
@@ -1733,6 +1771,34 @@ fun MainNavGraph(
                     playingId = detailPlaying,
                     today = LocalDate.now()
                 ),
+                onSavePdf = {
+                    val report = com.safeshade.platform.IncidentReport(
+                        id = trip.id,
+                        wearerName = state.wearerName,
+                        kind = trip.kind.label,
+                        at = trip.timestamp,
+                        outcome = trip.outcome.label,
+                        contacted = trip.wasEmergencyContacted,
+                        lat = state.lastKnownDeviceLocation?.lat,
+                        lon = state.lastKnownDeviceLocation?.lon,
+                        medicalId = state.medicalId,
+                        contacts = state.safetySettings.emergencyContacts,
+                        timeline = buildList {
+                            add(trip.timestamp to trip.kind.label)
+                            detailRun?.takeIf { it.alertId == trip.id }?.steps?.forEach { step ->
+                                val o = step.outcome
+                                if (o is com.safeshade.service.StepOutcome.Dialled) add(o.at to "Dialled ${when (val t = step.target) { is com.safeshade.service.EscalationTarget.Contact -> t.name; is com.safeshade.service.EscalationTarget.Emergency -> t.number }}: ${o.result}")
+                            }
+                        },
+                        evidenceNote = detailClips.orEmpty().count { it.alertId == trip.id }
+                            .takeIf { it > 0 }?.let { "$it microphone recording(s) on the guardian's phone." }
+                    )
+                    when (val r = com.safeshade.platform.IncidentPdf.render(detailContext, report)) {
+                        is com.safeshade.platform.IncidentPdfResult.Written ->
+                            (com.safeshade.sharePdf(detailContext, r.file, "Share this report") as? ActionResult.Failed)?.reason
+                        is com.safeshade.platform.IncidentPdfResult.Failed -> r.reason
+                    }
+                },
                 onPlayRecording = { id ->
                     val clip = detailClips.orEmpty().firstOrNull { it.id == id } ?: return@TripDetailScreen
                     val file = java.io.File(detailContext.filesDir, "${com.safeshade.platform.EvidenceRecorder.DIR_NAME}/${clip.file}")

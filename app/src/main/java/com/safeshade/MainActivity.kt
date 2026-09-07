@@ -79,6 +79,11 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onPause() {
+        super.onPause()
+        runCatching { android.nfc.NfcAdapter.getDefaultAdapter(this)?.disableReaderMode(this) }
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
@@ -88,6 +93,20 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        // NFC reader mode is held only while the Emergency card has armed a
+        // write and the phone actually has an adapter; a phone without one
+        // (the test phone) never reaches the adapter call.
+        if (viewModel.nfcArmed.value &&
+            com.safeshade.platform.nfcAvailability(this) is com.safeshade.platform.NfcAvailability.Available
+        ) {
+            android.nfc.NfcAdapter.getDefaultAdapter(this)?.enableReaderMode(
+                this,
+                { tag -> runOnUiThread { viewModel.onNfcTag(tag) } },
+                android.nfc.NfcAdapter.FLAG_READER_NFC_A or android.nfc.NfcAdapter.FLAG_READER_NFC_B or
+                    android.nfc.NfcAdapter.FLAG_READER_NFC_F or android.nfc.NfcAdapter.FLAG_READER_NFC_V,
+                null
+            )
+        }
         // The user may have granted from system settings while we were away.
         viewModel.refreshPermissions()
     }

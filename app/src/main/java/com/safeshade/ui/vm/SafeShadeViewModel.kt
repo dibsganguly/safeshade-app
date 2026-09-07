@@ -427,6 +427,44 @@ class SafeShadeViewModel(
     }
 
     // ============================================
+    // Navigation target and NFC
+    // ============================================
+
+    /** Sends a place to the wearable's navigation screen; true when the device acknowledged. */
+    fun guideTo(lat: Double, lon: Double, label: String): Deferred<Boolean> =
+        viewModelScope.async { container.deviceRepository.setNavTarget(lat, lon, label) }
+
+    /** Whether the Activity should hold NFC reader mode open for a tag write. */
+    private val _nfcArmed = MutableStateFlow(false)
+    val nfcArmed = _nfcArmed.asStateFlow()
+    fun armNfcWrite(armed: Boolean) { _nfcArmed.value = armed; if (armed) _nfcResult.value = null }
+
+    /** The last tag write's outcome sentence, or null. */
+    private val _nfcResult = MutableStateFlow<String?>(null)
+    val nfcResult = _nfcResult.asStateFlow()
+
+    /** Called by the Activity from reader mode. Writes the emergency card and disarms. */
+    fun onNfcTag(tag: android.nfc.Tag) {
+        val ready = appState.value.readyOrNull ?: return
+        val id = ready.medicalId
+        val summary = listOfNotNull(
+            id.bloodType.takeIf { it.isNotBlank() }?.let { "Blood $it" },
+            id.allergies.takeIf { it.isNotBlank() }?.let { "Allergies: $it" },
+            id.conditions.takeIf { it.isNotBlank() }?.let { "Conditions: $it" },
+            id.medications.takeIf { it.isNotBlank() }?.let { "Medication: $it" }
+        ).joinToString(". ")
+        val name = ready.selectedWearer?.name?.takeIf { it.isNotBlank() } ?: ready.deviceSettings.wearerName
+        val message = com.safeshade.platform.NfcTagWriter.payloadFor(name, summary, id.emergencyContact.takeIf { it.isNotBlank() })
+        _nfcResult.value = when (val r = com.safeshade.platform.NfcTagWriter.write(tag, message)) {
+            is com.safeshade.platform.NfcWriteResult.Written -> "Written: ${r.bytes} bytes on the tag."
+            is com.safeshade.platform.NfcWriteResult.TooSmall -> "The tag holds ${r.capacity} bytes; the card needs ${r.needed}."
+            com.safeshade.platform.NfcWriteResult.ReadOnly -> "That tag is read-only."
+            is com.safeshade.platform.NfcWriteResult.Failed -> r.reason
+        }
+        _nfcArmed.value = false
+    }
+
+    // ============================================
     // Vitals
     // ============================================
 

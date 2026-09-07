@@ -61,7 +61,13 @@ import kotlinx.coroutines.withContext
 /** Everything the emergency card draws. */
 data class EmergencyCardUiState(
     val medicalId: MedicalId = MedicalId(),
-    val wearerName: String = ""
+    val wearerName: String = "",
+    /** The tag row's state word and line: what this phone can do about an NFC tag right now. */
+    val tagWord: String = "—",
+    val tagLine: String = "This phone has no NFC.",
+    val tagLamp: com.safeshade.ui.board.LampState = com.safeshade.ui.board.LampState.UNKNOWN,
+    /** True while the phone is waiting for a tag to be held against it. */
+    val tagArmed: Boolean = false
 )
 
 /**
@@ -91,6 +97,8 @@ fun EmergencyCardScreen(
     state: EmergencyCardUiState,
     onBack: () -> Unit,
     onOpenMedicalId: () -> Unit,
+    /** Arms or disarms writing this card to a tag. Null when the phone cannot. */
+    onWriteTag: ((Boolean) -> Unit)? = null,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(0.dp)
 ) {
@@ -173,6 +181,20 @@ fun EmergencyCardScreen(
         if (shareFailure != null) {
             Spacer(Modifier.height(Spacing.sm))
             FailureNote(text = shareFailure.orEmpty())
+        }
+
+        Spacer(Modifier.height(Spacing.lg))
+
+        com.safeshade.ui.board.BoardPlate(modifier = Modifier.fillMaxWidth()) {
+            com.safeshade.ui.board.Way(
+                name = "Write to a tag",
+                state = state.tagLamp,
+                stateLabel = state.tagWord,
+                detail = state.tagLine,
+                icon = SafeShadeIcons.Nfc,
+                checked = if (onWriteTag != null) state.tagArmed else null,
+                onCheckedChange = onWriteTag
+            )
         }
 
         Spacer(Modifier.height(Spacing.lg))
