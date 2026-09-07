@@ -666,6 +666,13 @@ SMS). Added this pass:
 
 ## 11. What the user still has to do
 
+> Decided by the user at the close of Phase 2 (2026-09-07): the auth
+> templates are being pasted now, alongside the Phase 3 session start. The
+> Vault secrets, the leaked-password toggle and the ladder default are
+> deferred to Phase 5, and all of the emails are tested there. The Redmi's
+> sleep timeout is 30 minutes; the unlock pattern and the adb steps are in
+> the assistant's memory directory, outside this repo, at the user's request.
+
 - **Push.** Ten v2.5.0 and 27 v2.6.0 commits are local. Ask before
   pushing.
 - **A second account** (a throwaway user in the Supabase dashboard, or any
