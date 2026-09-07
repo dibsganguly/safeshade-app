@@ -1,6 +1,6 @@
 # SafeShade — Session Handoff #7
 
-**Written at the end of Phase 1 of the v2.5.0 pass (2026-09-07).** Like
+**Rewritten at the end of Phase 2 (v2.6.0) of the v2.5→v2.7 pass, 2026-09-07.** Like
 handoff6 it is **self-contained**: a fresh session with no memory should be
 able to start Phase 2 from this file, `DESIGN.md` and the code. Handoff6 is
 still the record of everything that led here; where this file and handoff6
@@ -20,6 +20,7 @@ differ, this file wins.
 - [9. Known bugs, debt and firmware owes](#9-known-bugs-debt-and-firmware-owes)
 - [10. Traps, and the tools that route around them](#10-traps-and-the-tools-that-route-around-them)
 - [11. What the user still has to do](#11-what-the-user-still-has-to-do)
+- [12. Phase 2 close: what shipped, what was not verified, and whether to continue](#12-phase-2-close)
 
 ---
 
@@ -42,26 +43,20 @@ differ, this file wins.
 
 ## 1. The pass, and where it stands
 
-The user's brief for this pass (their words, from handoff6 §1 and the plan
-review) is to **finish the app**: mimic the production deployment so that when
-the hardware lands the only thing left is plugging it in. It was planned as
-three phases, each ending green and committed, each writing this file.
+The user's brief for this pass is to **finish the app**: mimic the production
+deployment so that when the hardware lands the only thing left is plugging it
+in. Three phases, each ending green and committed, each writing this file.
 
-- **Phase 1 (this) — done.** `versionCode 8`, `versionName 2.5.0`. Nine
-  commits from `0b963f1` to `a3e54cb` on `master` (this file's own commit
-  included), **not pushed** (the user
-  authorises every push explicitly). `assembleDebug` green, **74 unit tests**
-  pass (28 before, 46 new in `cloud/`). About 46,000 lines of Kotlin.
-- **Phase 2 — next.** Accounts, wearers, Circle as a family dashboard, sync,
-  email, tiers, heatmap, nearest services, walkie-talkie. §6.
-- **Phase 3 — after.** Vitals, evidence, smart home, mesh, OTA, Spark and
+- **Phase 1 — done** (v2.5.0, `versionCode 8`). Ten commits, `0b963f1` to
+  `a3e54cb`, local by the user's choice.
+- **Phase 2 — done in scope, see §12 for what was not verified** (v2.6.0,
+  `versionCode 9`). Nineteen commits, `4131176` to `ecc8b27`, **not pushed**
+  (the user authorises every push explicitly). `assembleDebug` green,
+  **265 unit tests** pass (74 at the end of Phase 1).
+- **Phase 3 — next.** Vitals, evidence, smart home, mesh, OTA, Spark and
   pairing, the picked recommendations. §7.
-- **Phase 4 — the all-screen polish sweep.** Moved here by the user on
-  2026-09-07: "not that important right now, however it is a big pass … a lot
-  of pages are too text heavy." It is a redesign pass, not a touch-up.
-
-The user's own UI/UX list, when it arrives, **jumps the queue** in whatever
-phase is live.
+- **Phase 4 — the all-screen polish sweep.** The user's own UI/UX list and
+  the custom icon drop land here; both jump the queue when they arrive.
 
 ### Model allocation (a standing instruction)
 
@@ -69,9 +64,8 @@ Fable 5.1 orchestrates and does all UI/UX, all Shady, the hardest tasks. Opus 5
 for backend, schema, sync, protocol, data model, migrations; Sonnet 5 for
 ordinary implementation; Haiku 4.5 for greps, inventories, sweeps. Every
 sub-agent gets a hard file scope and "no writing git command". `fork` ignores
-`model`. The user asked whether to drop effort from high to medium: the answer
-given was keep high for UI-heavy work, medium for Phase 2's orchestration, high
-again for the Phase 4 sweep.
+`model`. Opus hit the account's session limit twice this phase and each time
+died mid-edit; the orchestrator recovered the tree both times (§10).
 
 ### File ownership
 
@@ -119,6 +113,14 @@ All settled. Do not re-litigate.
   the Profile page, which took over the `settings` route.
 - **Walkie-talkie / emergency calling** is in scope (the device will have
   independent calling, a microphone and a speaker). Phase 2.
+- **Resend's verified domain `eisfoundation.com` belongs to an unrelated
+  project and is never used for SafeShade** (user, 2026-09-07). The sender
+  stays `onboarding@resend.dev`. The account owner is dibsganguly@gmail.com.
+- **The escalation ladder is off until a person switches it on**, and the
+  emergency rung never places a call by itself: the dialer opens with the
+  number ready. Decided by the orchestrator on the advisor's finding and
+  recorded in `EscalationRunner` and `EscalationSettings`; the user has
+  not been asked and may reverse the default.
 - **Battery in telemetry is fabricated by the firmware** (starts 85, −1 every
   180 s). Every surface showing it is faithfully showing a synthetic number;
   no label says so in the UI (rule above); it is recorded here.
@@ -315,92 +317,70 @@ inlined at 3 KB; otp, magic-link, invite, alert, digest; `render.ts`,
 `resend.ts`, `emblem.ts`). No `supabase/config.toml` yet (an unrecognised key
 breaks every CLI command; the README carries the snippet).
 
+### Added in Phase 2
+
+- Migrations `0004` (realtime publication: alerts, messages), `0005`
+  (`bootstrap_circle_for`, `ensure_own_circle`), `0006` (messages `kind`,
+  `audio_path`, `duration_ms`, `waveform`; the voice bucket's missing UPDATE
+  policy). All applied through the MCP and saved under `supabase/migrations/`.
+- `CloudContainer` wires `RepositoryPayloadSource` / `RepositoryPullSource`
+  over the repositories plus `VoiceNoteRepository`; `CircleManager` holds the
+  circle id, members, invites, tier, the dev override, the backfill marker and
+  `share_alert_places`; `VoiceCloud` uploads and downloads recordings.
+- `PayloadSource.resolve` answers Row, Skip or Failed(reason); a skip is
+  counted (three abandon the entry with a plain reason); a failed upload is an
+  ordinary failure carrying the real reason.
+- `SyncEngine` conflates drains requested mid-drain, arms a timer for the
+  soonest backed-off entry, exposes `draining`, pulls `circle_members` and
+  `subscriptions` whole, and logs under `SafeShadeSync` (`Log.w`, no PII).
+
 ---
 
-## 6. Phase 2 — the brief
+## 6. Phase 2 — the brief, as shipped
 
-Version **2.6.0**, bumped in the phase's **first** commit. Opus owns the data
-layer; the orchestrator owns screens; sequence data → VM → accessor → screens.
+Every numbered item of the original brief landed; the item numbers are kept so
+the plan file and this list line up. Commits are on `master`, `v2.6.0:` prefixed.
 
-1. **Resend.** Trigger `mcp__resend__authenticate` at the start; the user
-   completes it. Create the API key, `supabase secrets set RESEND_API_KEY`,
-   point Auth SMTP at Resend (dashboard, by hand), paste `otp.html` /
-   `magic-link.html` into Auth → Email Templates. Deploy both functions.
-2. **Multi-wearer model (Opus).** `Wearer(id, name, avatarId, medicalId,
-   activeMode, iconType, deviceAddresses, contacts, isSelf)`; GUARDIAN ⇒ N,
-   COMPANION ⇒ one with `isSelf`. **Device↔wearer binding is by BLE address**,
-   never `DeviceSettings.id`. The connected wearer ≠ the selected wearer:
-   `pushHealthIfReady` resolves the wearer whose `deviceAddresses` contains
-   `link.deviceAddress`, falling back to the primary — unit-test it. DataStore
-   **v2→v3** with `wearers_json_v1`, `selected_wearer_id`,
-   `CURRENT_SCHEMA_VERSION = 3`; the `wearers` flow **synthesises wearer #1
-   from `profile` + `safetySettings` when the key is absent**; migration body
-   as `internal fun migrateV2ToV3(prefs: MutablePreferences, gson)` tested
-   with `mutablePreferencesOf()`; legacy keys kept and mirrored for wearer #1;
-   six DTOs gain nullable `wearerId`. `SafetySettings.emergencyContacts` stays
-   global and is the SOS source; `Wearer.contacts` supplements via one
-   `SafetySettings.contactsFor(wearer)` routed through the five synchronous
-   call sites (VM `canFireSos/sosBlocker/firePhoneSos`,
-   `AlertActionReceiver.handleCallNow/handleCallAll`). `parentalPin`,
-   `smsAllowlist`, `devicePhoneNumber` never enter a Wearer, never sync.
-   `MainNavGraph.kt`'s `wearerName` accessor (search for `private val
-   AppState.Ready.wearerName`) is the choke point for ~20 call sites.
-   The owner fields from Phase 1 (`ownerName/ownerAvatarId`) are the account
-   holder; build on them.
-3. **`DeviceCapabilities.awaitingFirmware`** — a third static bucket, no UI
-   difference; move the §9 ledger into it.
-4. **Sign-in** (`ui/screens/profile/SignInScreen.kt`): OTP code in-app,
-   password, Google via Credential Manager + `signInWithIdToken` (needs
-   `GOOGLE_WEB_CLIENT_ID`), Apple button reporting its reason. Account and
-   Cloud plates on the Profile page: session, last sync, pending count, last
-   error verbatim, sign out, delete account. Guest reads "Saved on this phone
-   only". Call `SupabaseCloudClient.handleDeepLink` from `MainActivity`
-   `onCreate`/`onNewIntent`.
-5. **Sync wiring.** Implement `PayloadSource`/`PullSource` from the
-   repositories; enqueue on repository writes; pull on sign-in/foreground;
-   Realtime on `alerts` and `messages` only; pulled rows re-enter through the
-   repositories' `mutate` locks; LWW on `updated_at` except `alerts.outcome`
-   never regresses to pending and contacts merge by phone-number union.
-   `firePhoneSos()` enqueues **after** `_sosOutcome` is set. `SyncDot` in
-   `ui/board/` on trip and message rows.
-6. **Circle → family dashboard.** `CircleScreen` rebuilt: one plate per wearer
-   (face, lamp, battery — fabricated by firmware, no label — last location +
-   age, mode, last alert, quick actions), invites by email with per-recipient
-   status, guardian roles. `circle/PeopleScreen.kt` + `WearerEditorScreen.kt`
-   for "People I look after" (the Profile's section becomes a list).
-7. **Cloud tiers** (`profile/PlanScreen.kt`): Free / Plus ₹99 / Pro ₹299
-   from `subscriptions`; gating real; checkout reports Play Billing's actual
-   result (there is no Console listing, so it fails with the billing error);
-   a developer override sets the tier.
-8. **Heatmap** (`circle/HeatmapScreen.kt`): osmdroid overlay from local trips
-   + `heatmap_in(bbox)`; Plus-gated; community toggle.
-9. **Nearest emergency services** (`safety/ServicesScreen.kt` rebuilt):
-   Overpass (OpenStreetMap, no key, real `User-Agent`, cached with `fetchedAt`,
-   no polling) around current and home locations — hospital, police, fire,
-   pharmacy — with distance, call, directions; offline shows the cached list
-   with its age. `IndiaEmergencyServices` stays the offline, permission-free
-   primary and is never regressed. Device-side caching (`EXT ERS`) designed in
-   `DeviceProtocol`, unit-tested, `awaitingFirmware`.
-10. **Walkie-talkie and calling the wearable.** A **Talk** entry on the
-    Circle thread: push-to-talk voice notes between Circle phones
-    (`MediaRecorder` AAC ≤ 20 s, `messages` kind `voice`, private `voice`
-    bucket, inline playback with an amplitude waveform, per-note state, no
-    tick before the upload completes); **Call the wearable** dials the stored
-    `devicePhoneNumber` through `dialNumber` (real today); device push-to-talk
-    (8 kHz ADPCM chunks over a designed `VOICE` path, `awaitingFirmware`).
-11. **Escalation ladder** (contact 1 → 2 → 112 with `DialControl` delays,
-    live plate of who was reached by which channel), **offline-too-long and
-    low-battery guardian alerts**, **privacy dashboard** on the Profile.
-12. `DESIGN.md` for every new kit member and pattern; this file rewritten at
-    the close with the not-verified list.
+1. **Resend.** Authorised, API key created, Auth SMTP pointed at Resend by the
+   user, branded OTP/magic-link templates pasted, both edge functions
+   deployed. The invite email was received, branded, at the owner's address.
+   (`cc48ea9`)
+2. **Multi-wearer model.** `Wearer`, DataStore v2→v3, address-bound devices,
+   `contactsFor`, `resolveWearerForDevice`, all tested. (`0cc7868`, `64fdb99`)
+3. **`DeviceCapabilities.awaitingFirmware`** holds the ledger. (`0cc7868`)
+4. **Sign-in.** OTP, password, **Google end to end** (verified: `auth.users`
+   provider google), Apple front-end. One Tap's cool-down falls back to the
+   Sign in with Google chooser. Account page with the sync plate and "What
+   leaves this phone". (`1ae5e11`, `9a0c1b5`, `2394597`)
+5. **Sync.** Push from the repositories, pull with merge rules, realtime on
+   alerts and messages, the Circle and tier from the server, backfill on first
+   sign-in, skips counted, backoff retried on a timer, Sync Now that clears
+   backoff, a 401 that refreshes the session once, every push logged under
+   `SafeShadeSync`. `SyncDot` on trip and message rows. (`e8d3c9a`, `b7b7a9f`,
+   `2394597`)
+6. **Circle as a family dashboard**, People I look after, the wearer editor,
+   Guardians and invitations with each recipient's real status. (`14af211`,
+   `64fdb99`, `42e7f77`)
+7. **Plans** Free / Plus / Pro from `subscriptions`, Play Billing's real
+   answer, the developer override. (`efc9b66`, `0ccf810`)
+8. **Heat map** with the community layer from `heatmap_in`, Plus-gated.
+   (`efc9b66`, `0ccf810`)
+9. **Nearest emergency services** from Overpass, cached with age, under the
+   offline directory. `EXT ERS` designed and tested. (`4eb37b8`)
+10. **Talk**: push-to-talk voice notes, `messages` kind `voice`, private
+    `voice` bucket, waveform, per-note state; **Call the wearable** on the
+    Circle plate. The device `VOICE` chunk path is designed and tested,
+    `awaitingFirmware`. (`6879b98`, `284f4fc`, `ecc8b27`)
+11. **Escalation ladder** with its page and the live plate on the trip;
+    **out-of-reach and low-battery notices** with their page; **Privacy** on
+    the Profile with the heat-map place switch. (`6879b98`, `0fce91d`,
+    `284f4fc`, `ecc8b27`)
+12. `DESIGN.md` carries every new kit member and pattern: Person row, Sync
+    dot, Waveform, the ladder plate, and the pages.
 
-Verification: sign-in on the device against SafeShade App; Google end to end
-once the client ID exists; a wearer added and surviving cold start; sync state
-observed LocalOnly → Synced and → Failed in airplane mode; OTP and invite mail
-received **at the account owner's address** (any other is expected to fail with
-Resend's reason); RLS proven with a second account seeing nothing; a voice note
-between two phones or a phone and the emulator; a call to the wearable's SIM;
-`get_advisors` clean.
+**Not done from the brief's verification line**, carried to §12: RLS proven
+with a second account; a voice note between two phones; the call to the
+wearable's SIM; sync observed going to Failed in airplane mode.
 
 ---
 
@@ -439,60 +419,81 @@ once the SVGs land and `material-icons-extended` dropped.
 ## 8. Verified on the device, and not
 
 Test device: Redmi Note 10S, MIUI 14, Android 13 (API 33), 1.0× font scale.
-**Nothing was connected to a wearable at any point in this pass** (Bluetooth
-was off on the phone for most of it).
+**No wearable was connected at any point in Phase 1 or Phase 2.** Everything
+below was driven over adb with `tools/adb/tapfind.py` (exact text first, then
+contains) and read back from uiautomator dumps and screenshots.
 
-### Verified this pass
+### Verified in Phase 2
 
-- Shady: shading bands, contact shadow, a mid-turn frame, the cat scene end to
-  end, the plant scene with the leaf, the ball, tap reactions — from ~130
-  stills of the stage in light theme.
-- Adaptive mode: the list, the Elderly detail at four scroll positions, the
-  compare page, the seal dialog, "Sending" → "Stored for the Device" with no
-  wearable, Elderly current on return, surviving a cold start.
-- Cloud: three migrations applied; `list_tables` 19 with RLS; pg_cron and
-  pgcrypto present; advisors down to the intentional six; 74 tests.
-- Onboarding: every step from welcome to the Board, the fork bringing the
-  chosen side forward, a name typed and a preset chosen, the customiser's live
-  faces, permissions all lit, the pair step's rings and "Do This Later", the
-  card's fields, Finish; a replay from the Developer row.
-- Profile: the face in the Device header, editing "You" and the wearer, both
-  surviving back-navigation, "Baba · Not connected", "Protecting Baba" on the
-  Board and on the Device page's own bay, a photo picked through the system
-  picker and shown as the avatar, then a preset restored.
+- **Google sign-in** end to end: `auth.users` row with provider google; the
+  session survives a reinstall; the Account page reads the address.
+- **Sync on the wire**: a wearer push (wearers + medical_ids rows), pulls, the
+  realtime websocket (101), `heatmap_in` 200, `send-invite` 200 with the
+  branded mail delivered to the owner's address. After the backfill and
+  Sync Now fixes: profiles, wearers ×2, medical_ids, emergency_contacts ×2,
+  devices, zones, alerts ×5 pushed in eight seconds, the outbox empty, the
+  server row's `updated_at` moved, `circle_state` on disk holding the owner.
+- **Sync dots**: five "On SafeShade Cloud" rows on the trip log.
+- **The Safety hub** with "If nobody answers" (reads Off after the mapper fix)
+  and "Out of reach"; both pages open and render; the ladder preview shows
+  the contact then 112 with the right gaps.
+- **Talk**: the permission sheet on the first hold; a two-second note
+  recorded, its waveform drawn, uploaded (`storage.objects` has the path) and
+  its `messages` row written (kind voice, 40 bars, 2763 ms) in one drain;
+  Play marks it Heard.
+- **Privacy**: the share switch flips Off and On, the line changes each way,
+  `share_alert_places_v1` lands in the store.
+- People, the wearer editor, the family dashboard, Guardians, Plans, the heat
+  map's own layer, nearest services — each opened and photographed earlier in
+  the phase (see the commit messages for what each one saw).
 
 ### Not verified — say this to the user, plainly, every time
 
-- **Anything that only exists while a wearable is connected**, including a
-  live mode ack (CONFIRMED / NO_RESPONSE branches), Ring Device, Disconnect,
-  the pair step with a device in range. Carried for four passes.
-- **The phone, kettle and umbrella prop scenes** (did not come up in the
-  bursts; the umbrella cannot without rain in the weather state) and **the box
-  after its front-pass fix**.
-- **Dark theme** on every screen touched this pass (MIUI ignores
-  `cmd uimode`; the app's own Appearance setting is the route and was not
-  driven).
-- **1.3× text** on every screen touched this pass.
-- **Frame timing** of the turn and the antenna lag, and the stage's frame cost
-  with a prop present (stills cannot show it; `screenrecord` + frame
-  extraction needs ffmpeg or opencv, neither installed).
-- **The permission dialogs** in onboarding (all three were already granted).
-- **`SupabaseCloudClient`** — never executed; edge functions not deployed;
-  Auth SMTP not configured; the heat-map cron's first run.
-- **TalkBack** on the new screens.
-- **API 34+ paths**, a second density, the map pinch, quick-message success,
-  the phone SOS end to end — all carried from handoff6 §8.
-- The Silent SOS and About screens after the label removal were not
-  re-photographed.
-- **Tapping a feature row on the mode detail** into its linked screen
-  (medication reminders, navigation, virtual leash): the rows draw, the
-  routes exist, the tap was never driven.
+- **Anything that needs a wearable**: the out-of-reach and low-battery notices
+  firing, the ladder against a real alert, the wearer bound by address, the
+  trip-detail ladder plate (needs a run to draw), Call the wearable.
+- **RLS with a second account.** The user offered to create a throwaway user;
+  nobody has signed in with one. Accept-invite has not been exercised.
+- **A voice note arriving on a second phone**, the download path, the
+  twenty-second cap, the voice bucket's UPDATE policy under a retry.
+- **The 401 retry.** The stuck entry's last error was the I/O sentence, not
+  the session one, so the observed 401 may not have surfaced as a
+  `RestException`; the hook compiles and is untested live. See §9.
+- **Sync going to Failed in airplane mode** was not driven this phase.
+- **OTP mail branding**: the 02:53 OTP was not in Resend's sent list (likely
+  Supabase's built-in SMTP at that moment); ask the user whether the later
+  ones arrived branded.
+- **The Google One Tap fallback** compiled and installed; the phone turned out
+  to be signed in already, so the chooser was never opened.
+- **Dark theme**, **1.3× text**, **TalkBack** on every page added this phase.
+- Everything carried from Phase 1's list (frame timing, permission dialogs in
+  onboarding, API 34+ paths, a second density, the map pinch).
 
 ---
 
 ## 9. Known bugs, debt and firmware owes
 
-### Fixed this pass (recorded so nobody re-diagnoses them)
+### Fixed in Phase 2 (recorded so nobody re-diagnoses them)
+
+- **Twelve records at "Syncing" with no POST in the server log.** Drains
+  requested during a drain were dropped; on a cold start every backfill request
+  arrived during the foreground drain's pulls. Conflated now.
+- **"Reading the Circle…" forever.** `circle_members` was pulled with a cursor;
+  a fresh process got nothing. Whole-table pull now.
+- **A medical ID stuck for an afternoon.** Overnight the token expired, three
+  requests met 401 in seven seconds, the entry backed off, no timer re-tried
+  it, and the Sync Now button was greyed on "anything queued". Timer, real
+  in-flight flag, Sync Now clears backoff.
+- **Sync dots never lit.** The lookup key was `table/id`; the state map is
+  keyed by record id.
+- **The ladder was armed by default and would have placed a direct 112 call**
+  with "Call after a fall" on. Off by default, emergency rung dialer-only.
+- **A voice note would have read "nothing left to send"** after three skips;
+  the resolver now answers Failed with the upload's reason instead.
+- **One Tap NoCredential on a phone with an account**: the cool-down; the
+  helper falls back to the Sign in with Google chooser.
+
+### Fixed in Phase 1
 
 - **Mode selection never persisted** (§3.2).
 - **Two consecutive `launchIo` setters lose the first write:** each reads
@@ -505,6 +506,19 @@ was off on the phone for most of it).
   nav state restoration and is fine, but a fresh install starts at welcome.
 
 ### Carried debt
+
+- `PayloadResolver.message()` writes `author_id = userId` on every push, so
+  re-pushing a pulled row (text or voice) reattributes it. Pre-existing for
+  text; now reachable for voice via Sync Now. Opus flagged it; not changed.
+- `FallAlertEvent` has no coordinates, so `alerts.lat/lon` are never sent and
+  the heat map has only ever seen the community's other apps. The place switch
+  is written for the day the model gains them.
+- `runAuthedOrFail` keys on `RestException` 401; if supabase-kt surfaces the
+  expired token as an I/O error instead, the hook never fires. Verify with a
+  token allowed to expire on purpose.
+- `WearableWatchMarks.lastConnectedAt` only starts counting from this build,
+  so "has not connected yet" reads on a phone that paired months ago.
+- `syncKey(table, id)` ignores its table argument by design; see its KDoc.
 
 - `ui/navigation/` is empty; `ONBOARDING_RELIABILITY` is a route constant
   nothing registers (a `ReliabilityScreen` exists — decide, then act). Phase 4.
@@ -583,12 +597,37 @@ SMS). Added this pass:
 
 ## 11. What the user still has to do
 
-- **Push.** Nine v2.5.0 commits are local. Ask before pushing.
-- **Resend authorisation** at the start of Phase 2 (the MCP exposes only
-  `authenticate`), then the dashboard steps in `supabase/README.md`.
-- **Google Web OAuth client ID** via `docs/wizards/google-signin.md`, into
-  `local.properties` as `GOOGLE_WEB_CLIENT_ID` and into Supabase Auth →
-  Providers → Google.
-- **Icons** from `docs/icons-wanted.md` into `docs/Icons/`.
+- **Push.** Ten v2.5.0 and nineteen v2.6.0 commits are local. Ask before
+  pushing.
+- **A second account** (a throwaway user in the Supabase dashboard, or any
+  second Google account on another phone) to prove RLS and the accept-invite
+  path. The invite email can only be delivered to the owner's address until
+  SafeShade has a sending domain, so the second account will need the link
+  forwarded.
+- **Say whether the OTP emails arrive branded**, and whether to enable
+  Supabase's leaked-password protection (an advisor finding, one toggle).
+- **Decide the ladder's default** (off now; §2).
+- **Icons** from `docs/icons-wanted.md` into `docs/Icons/`. Thirty SVGs have
+  appeared there; the swap waits for the user's word.
 - **The eleven-digit emergency contact** on the test phone.
 - **Their UI/UX list**, which jumps the queue.
+
+---
+
+## 12. Phase 2 close
+
+**What shipped** is §6, item by item; **what was not verified** is §8. The
+single decision taken without the user is the ladder's off-by-default (§2);
+everything else in §2 was theirs.
+
+**Context.** This session was compacted once during the phase and ran to
+roughly a third of its window after that; the working state that matters is in
+the commits, this file, `DESIGN.md` and the memory directory. Nothing is held
+only in the conversation.
+
+**Continue or hand over.** Hand over. Phase 3 is a different shape of work
+(vitals, evidence, mesh, OTA, pairing) and starts from §7 with a fresh
+session reading this file first; the sub-agent allocation in §1 still holds.
+Before Phase 3 opens, the cheapest high-value hour is the §11 second-account
+check, because RLS is the one claim in this phase that has been made and never
+tested.
