@@ -56,8 +56,11 @@ in. Three phases, each ending green and committed, each writing this file.
   **265 unit tests** pass (74 at the end of Phase 1).
 - **Phase 3 — next.** Vitals, evidence, smart home, mesh, OTA, Spark and
   pairing, the picked recommendations. §7.
-- **Phase 4 — the all-screen polish sweep.** The user's own UI/UX list and
-  the custom icon drop land here; both jump the queue when they arrive.
+- **Phase 4 — UI/UX** enhancements, refinements, improvements and the
+  all-screen sweep. The user's own UI/UX list lands here and jumps the queue.
+- **Phase 5 — testing, vulnerability and bug fixing only** (user, 2026-09-07).
+  Everything in §8's not-verified list that needs a wearable, a second
+  account or a second phone is tested here, not re-verified in Phase 3.
 
 ### Model allocation (a standing instruction)
 
@@ -615,8 +618,14 @@ SMS). Added this pass:
   path. The invite email can only be delivered to the owner's address until
   SafeShade has a sending domain, so the second account will need the link
   forwarded.
-- **Say whether the OTP emails arrive branded**, and whether to enable
-  Supabase's leaked-password protection (an advisor finding, one toggle).
+- **Paste the auth email templates' contents, not their paths.** The one
+  code email delivered through Resend (10:33 UTC, 2026-09-07) had the body
+  `supabase/auth-templates/magic-link-otp.html`, the file name, because the
+  path was pasted into the dashboard. Resend and the SafeShade sender work.
+  Steps in `supabase/README.md` §6. Then request a code from the app's Sign
+  in page and confirm the mail shows the layout and a six-digit code.
+- **Enable Supabase's leaked-password protection** (an advisor finding, one
+  toggle in Authentication → Providers → Email).
 - **Decide the ladder's default** (off now; §2).
 - **Icons** from `docs/icons-wanted.md` into `docs/Icons/`. Thirty SVGs have
   appeared there; the swap waits for the user's word.

@@ -246,6 +246,16 @@ Go to **Authentication -> Email Templates** and paste each file whole.
 | **Magic Link** (alternative) | `auth-templates/magic-link.html` | `{{ .ConfirmationURL }}` -- a link instead, for reading mail on a laptop |
 | **Confirm signup** | `auth-templates/confirm-signup.html` | `{{ .Token }}` -- a code, not a link. Read the next paragraph before "correcting" this. |
 
+**Paste the file's contents, not its path.** On 2026-09-07 the first code
+email delivered through Resend arrived with a body that read, in full,
+`supabase/auth-templates/magic-link-otp.html`: the path had been pasted into
+the dashboard's template body. Open the file, select everything, copy, and
+paste that into **Message body**. The dashboard's **Subject** field is separate
+and is not read from the file; set it to the file's `<title>` ("Your SafeShade
+sign-in code" for Magic Link, "Confirm your email for SafeShade" for Confirm
+signup). Check with a real request: the delivered mail in Resend's log should
+show the SafeShade layout and a six-digit code, not a file name.
+
 **Confirm signup carries a code, and that is not a mistake.** GoTrue's
 `SendMagicLink` sends the **Confirm signup** template, not the Magic Link one,
 when the address has no account yet -- one call, two templates, chosen by
