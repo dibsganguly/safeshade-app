@@ -314,6 +314,20 @@ class SafeShadeViewModel(
     /** What the wearable watch believes this minute. */
     val watchState: StateFlow<com.safeshade.service.WatchState> = container.wearableWatch.state
 
+    /** Records a finished voice note. See VoiceNoteRepository.add. */
+    fun addVoiceNote(
+        fileName: String,
+        durationMs: Int,
+        waveform: List<Float>,
+        wearerId: String?,
+        fromGuardian: Boolean,
+        authorName: String
+    ) = launchIo {
+        container.voiceNoteRepository.add(fileName, durationMs, waveform, wearerId, fromGuardian, authorName)
+    }
+
+    fun markVoiceNoteListened(id: String) = launchIo { container.voiceNoteRepository.markListened(id) }
+
     fun setEscalation(settings: com.safeshade.data.EscalationSettings) =
         launchIo { container.safetyRepository.setEscalation(settings) }
 

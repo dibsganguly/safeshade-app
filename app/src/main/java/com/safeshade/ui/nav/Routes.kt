@@ -50,6 +50,8 @@ object Routes {
     /** Bottom destination 2 — the people on either end of the link. */
     const val CIRCLE = "circle"
     const val CIRCLE_THREAD = "circle/thread"
+    /** Talk: push-to-talk voice notes between the Circle's phones. */
+    const val CIRCLE_TALK = "circle/talk"
     const val CIRCLE_ZONES = "circle/zones"
     const val CIRCLE_ZONE_EDIT = "circle/zones/edit"
     const val CIRCLE_ZONE_PICK = "circle/zones/pick"
@@ -105,6 +107,8 @@ object Routes {
 
     /** SafeShade Cloud: who is signed in, the sync plate, sign out, delete. */
     const val SETTINGS_ACCOUNT = "settings/account"
+    /** Privacy: what this phone knows and where each thing goes. */
+    const val SETTINGS_PRIVACY = "settings/privacy"
     /** The four ways into an account. Pops itself when the session flips to signed in. */
     const val SETTINGS_SIGN_IN = "settings/account/signin"
 

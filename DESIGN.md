@@ -519,6 +519,14 @@ Three plates, one per tier, the current one carrying a lit lamp and the line "Yo
 
 One map with two layers. The household's own places (alerts with a fix, safe zones, the last fix) are small ink rings. The community layer is SafeShade Cloud's 1 km cells with at least five alerts each, drawn as three flat amber wash steps by count, never a ramp, so the layer reads in greyscale and nobody's home is visible in it. The layer is a rocker on a way that says what it is and that it is part of Plus; on the Free plan the row's state word is "Plus" and tapping it opens the plans.
 
+### Privacy
+
+A page of facts on the Profile, under This phone: what this phone knows and where each thing goes, one way per record, with the state word saying Local, Synced, Held or a count. The one control is the community map: "Share where alerts happen", a rocker that withholds an alert's place while the alert itself still syncs, with the row saying that places already sent stay sent. The page names the region and the delete path rather than reassuring; every row can be checked against the code.
+
+### Talk
+
+Push-to-talk voice notes between the Circle's phones, as a walkie-talkie rather than a voicemail: one control, a plate held to speak and let go to send, up to twenty seconds, its edge brass at rest and trip red while recording with the elapsed time written on it. Each note is a plate: author and time, the note's own **waveform** (`ui/board/Waveform.kt`, one flat bar per sampled amplitude, played bars in brass, the rest in faint ink, no gradient, no cursor), a play control, the duration, and a lamp with a state word the note can stand behind, On this phone, Sending, On SafeShade Cloud, or Not sent with the reason. No tick is drawn before the upload has completed, because until then nobody else can hear it. The microphone permission is asked for at the first hold and a refusal is printed as the reason the control did nothing. The Circle hub's Talk way counts notes not yet heard.
+
 ### If nobody answers
 
 The ladder of calls behind an open alert, as one page: a "Keep calling" rocker at the top (off until a person throws it, because a phone that rings people on a timer must be told to), the ladder itself as a bank of numbered ways built by the same planner the runner uses from the real contacts and the real settings, two dials for the timing, and the end of the ladder as a rocker plus the number. Two facts are printed on the page rather than left to be found: the emergency number is never called by itself (the dialer opens with it ready), and a phone with no contact stored dials nothing at all, including that number. The Safety hub's "If nobody answers" way carries the chain as a sentence, "Calls Meera, then Arun, then 112".

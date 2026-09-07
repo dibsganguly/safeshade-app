@@ -94,6 +94,8 @@ class CloudViewModel(
     suspend fun acceptInvite(token: String): CloudResult<Unit> =
         cloud.circleActions.acceptInvite(token)
 
+    suspend fun setShareAlertPlaces(on: Boolean) = cloud.circleActions.setShareAlertPlaces(on)
+
     suspend fun setDevTierOverride(tier: CloudTier?) =
         cloud.circleActions.setDevTierOverride(tier)
 

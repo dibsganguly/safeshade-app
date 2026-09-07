@@ -43,9 +43,19 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.safeshade.cloud.CloudResult
 import com.safeshade.cloud.CloudTier
 import com.safeshade.cloud.InviteStatus
+import com.safeshade.ui.screens.circle.TalkNote
+import com.safeshade.ui.screens.circle.TalkScreen
+import com.safeshade.ui.screens.circle.TalkUiState
+import com.safeshade.platform.VoiceNoteResult
+import com.safeshade.platform.VoicePlayer
+import com.safeshade.platform.VoiceRecorder
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import com.safeshade.ui.screens.circle.GuardiansScreen
 import com.safeshade.ui.screens.circle.GuardiansUiState
 import com.safeshade.cloud.CloudSession
+import com.safeshade.ui.screens.profile.PrivacyScreen
+import com.safeshade.ui.screens.profile.PrivacyUiState
 import com.safeshade.ui.screens.profile.AccountScreen
 import com.safeshade.ui.screens.profile.AccountWay
 import com.safeshade.ui.screens.profile.ProfilePerson
@@ -440,6 +450,14 @@ fun MainNavGraph(
             CircleScreen(
                 state = CircleUiState(
                     wearers = if (state.role == UserRole.GUARDIAN) state.wearers.map { w -> wearerCard(state, w, connectedAddress, lastFix) } else emptyList(),
+                    talk = state.voiceNotes.let { notes ->
+                        val unheard = notes.count { !it.listened && it.fromGuardian != (state.role == UserRole.GUARDIAN) }
+                        when {
+                            notes.isEmpty() -> CircleWay(LampState.OFF, "None", "Hold to talk, let go to send")
+                            unheard > 0 -> CircleWay(LampState.ATTENTION, "$unheard new", "Voice notes not heard yet")
+                            else -> CircleWay(LampState.LIVE, "${notes.size}", "Last at ${clockLabel(notes.maxOf { it.createdAt })}")
+                        }
+                    },
                     guardians = when {
                         circleSession !is CloudSession.SignedIn -> CircleWay(LampState.OFF, "Only you", "Sign in to share the board with another phone")
                         circleCloud.members.size <= 1 -> CircleWay(LampState.OFF, "Only you", "Invite a guardian by email")
@@ -528,6 +546,7 @@ fun MainNavGraph(
                 onOpenPeople = { navController.navigate(Routes.CIRCLE_PEOPLE) },
                 onOpenHeatmap = { navController.navigate(Routes.CIRCLE_HEATMAP) },
                 onOpenGuardians = { navController.navigate(Routes.CIRCLE_GUARDIANS) },
+                onOpenTalk = { navController.navigate(Routes.CIRCLE_TALK) },
                 onOpenPerson = { id -> navController.navigate(Routes.personEdit(id)) },
                 onLocate = { navController.navigate(Routes.DEVICE_LOCATE) },
                 onCallWearable = {
@@ -541,6 +560,117 @@ fun MainNavGraph(
                     }
                 },
                 listState = circleListState
+            )
+        }
+
+        composable(Routes.CIRCLE_TALK) {
+            val state = liveState.value
+            val context = LocalContext.current
+            val talkScope = rememberCoroutineScope()
+            val talkCloudVm: CloudViewModel = viewModel(factory = CloudViewModel.Factory)
+            val talkSession by talkCloudVm.session.collectAsStateWithLifecycle()
+            val recorder = remember { VoiceRecorder(context.applicationContext) }
+            val player = remember { VoicePlayer() }
+            var recording by remember { mutableStateOf(false) }
+            var recordStart by remember { mutableStateOf(0L) }
+            var elapsed by remember { mutableStateOf(0) }
+            var playingId by remember { mutableStateOf<String?>(null) }
+            var progress by remember { mutableStateOf(0f) }
+            var error by remember { mutableStateOf<String?>(null) }
+
+            val askMic = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+                error = if (granted) null else "Microphone permission not granted. Allow it in Settings to record."
+            }
+            DisposableEffect(Unit) { onDispose { player.stop() } }
+            LaunchedEffect(recording) {
+                while (recording) {
+                    elapsed = (System.currentTimeMillis() - recordStart).toInt()
+                    kotlinx.coroutines.delay(100)
+                }
+            }
+
+            fun stopRecording() {
+                if (!recording) return
+                recording = false
+                talkScope.launch {
+                    when (val r = recorder.stop()) {
+                        is VoiceNoteResult.Ok -> {
+                            error = null
+                            viewModel.addVoiceNote(
+                                fileName = r.file.name,
+                                durationMs = r.durationMs,
+                                waveform = r.waveform,
+                                wearerId = state.selectedWearerId,
+                                fromGuardian = state.role == UserRole.GUARDIAN,
+                                authorName = if (state.role == UserRole.GUARDIAN) state.ownerName else state.wearerName
+                            )
+                        }
+                        is VoiceNoteResult.Failed -> error = r.reason
+                    }
+                }
+            }
+
+            TalkScreen(
+                state = TalkUiState(
+                    role = state.role,
+                    wearerName = state.wearerName,
+                    guardianName = state.guardianName,
+                    notes = state.voiceNotes.sortedBy { it.createdAt }.map { n ->
+                        TalkNote(
+                            id = n.id,
+                            fromGuardian = n.fromGuardian,
+                            authorName = n.authorName,
+                            timeLabel = clockLabel(n.createdAt),
+                            durationMs = n.durationMs,
+                            waveform = n.waveform,
+                            uploadState = n.uploadState,
+                            listened = n.listened,
+                            onThisPhone = n.file.isNotBlank() && java.io.File(java.io.File(context.filesDir, "voice"), n.file).exists()
+                        )
+                    },
+                    recording = recording,
+                    recordingMs = elapsed,
+                    playingId = playingId,
+                    progress = progress,
+                    signedIn = talkSession is CloudSession.SignedIn,
+                    error = error
+                ),
+                onHoldStart = {
+                    if (recording) return@TalkScreen
+                    val granted = ContextCompat.checkSelfPermission(context, android.Manifest.permission.RECORD_AUDIO) ==
+                        android.content.pm.PackageManager.PERMISSION_GRANTED
+                    if (!granted) {
+                        askMic.launch(android.Manifest.permission.RECORD_AUDIO)
+                        return@TalkScreen
+                    }
+                    player.stop(); playingId = null; progress = 0f
+                    val file = recorder.start()
+                    if (file == null) {
+                        error = "The microphone could not be started. Another app may be using it."
+                    } else {
+                        error = null
+                        recordStart = System.currentTimeMillis()
+                        elapsed = 0
+                        recording = true
+                    }
+                },
+                onHoldEnd = { stopRecording() },
+                onPlay = { id ->
+                    val note = state.voiceNotes.firstOrNull { it.id == id } ?: return@TalkScreen
+                    val file = java.io.File(java.io.File(context.filesDir, "voice"), note.file)
+                    if (note.file.isBlank() || !file.exists()) {
+                        error = "This note is not on this phone yet."
+                        return@TalkScreen
+                    }
+                    error = null
+                    playingId = id
+                    progress = 0f
+                    player.play(file, onProgress = { progress = it }, onDone = { playingId = null; progress = 0f })
+                    if (!note.listened) viewModel.markVoiceNoteListened(id)
+                },
+                onStop = { player.stop(); playingId = null; progress = 0f },
+                onOpenSignIn = { navController.navigate(Routes.SETTINGS_SIGN_IN) },
+                onBack = { navController.popBackStack() }
             )
         }
 
@@ -1986,6 +2116,26 @@ fun MainNavGraph(
                 onSetOverride = { tier ->
                     planScope.launch { cloudVm.setDevTierOverride(tier?.let { CloudTier.fromWire(it.key) }) }
                 },
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Routes.SETTINGS_PRIVACY) {
+            val state = liveState.value
+            val cloudVm: CloudViewModel = viewModel(factory = CloudViewModel.Factory)
+            val session by cloudVm.session.collectAsStateWithLifecycle()
+            val cloudState by cloudVm.cloudState.collectAsStateWithLifecycle()
+            val privacyScope = rememberCoroutineScope()
+            PrivacyScreen(
+                state = PrivacyUiState(
+                    signedIn = session is CloudSession.SignedIn,
+                    sharePlaces = cloudState.shareAlertPlaces,
+                    simStored = state.devicePhoneNumber.isNotBlank(),
+                    zoneCount = state.zones.size,
+                    voiceNoteCount = state.voiceNotes.size
+                ),
+                onSharePlacesChange = { on -> privacyScope.launch { cloudVm.setShareAlertPlaces(on) } },
+                onOpenAccount = { navController.navigate(Routes.SETTINGS_ACCOUNT) },
                 onBack = { navController.popBackStack() }
             )
         }

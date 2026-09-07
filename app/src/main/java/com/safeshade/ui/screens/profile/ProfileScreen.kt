@@ -223,6 +223,15 @@ fun ProfileScreen(
                     icon = SafeShadeIcons.Alert02,
                     onClick = { onOpenWay(Routes.SETTINGS_RELIABILITY) }
                 )
+                Hairline()
+                Way(
+                    name = "Privacy",
+                    state = LampState.OFF,
+                    stateLabel = "Facts",
+                    detail = "What this phone knows, and where each thing goes",
+                    icon = SafeShadeIcons.Info,
+                    onClick = { onOpenWay(Routes.SETTINGS_PRIVACY) }
+                )
             }
         }
 
