@@ -50,7 +50,8 @@ in. Three phases, each ending green and committed, each writing this file.
 - **Phase 1 — done** (v2.5.0, `versionCode 8`). Ten commits, `0b963f1` to
   `a3e54cb`, local by the user's choice.
 - **Phase 2 — done in scope, see §12 for what was not verified** (v2.6.0,
-  `versionCode 9`). Nineteen commits, `4131176` to `ecc8b27`, **not pushed**
+  `versionCode 9`). Twenty-one commits, `4131176` onward, this file's own
+  two included, **not pushed**
   (the user authorises every push explicitly). `assembleDebug` green,
   **265 unit tests** pass (74 at the end of Phase 1).
 - **Phase 3 — next.** Vitals, evidence, smart home, mesh, OTA, Spark and
@@ -519,6 +520,16 @@ contains) and read back from uiautomator dumps and screenshots.
 - `WearableWatchMarks.lastConnectedAt` only starts counting from this build,
   so "has not connected yet" reads on a phone that paired months ago.
 - `syncKey(table, id)` ignores its table argument by design; see its KDoc.
+- **A ladder rung's "Asked the dialer to open" is all `ActionResult.Started`
+  proves**: `startActivity` did not throw. From `AlertActionReceiver` with the
+  app in the background, API 33's background-activity restriction can refuse
+  the start silently; the full-screen notification path exists for the alert
+  itself, not for a rung. Phase 3's first live alert test must watch for a
+  rung that reads Dialled with no dialer on screen.
+- **The twenty-second cap on a voice note**: `MediaRecorder` stops itself at
+  `MAX_DURATION_MS`, and the release then calls `stop()` on a recorder that
+  has already stopped, which throws and reports Failed while the file sits on
+  disk. Not driven; the specific failure to look for.
 
 - `ui/navigation/` is empty; `ONBOARDING_RELIABILITY` is a route constant
   nothing registers (a `ReliabilityScreen` exists — decide, then act). Phase 4.
@@ -597,7 +608,7 @@ SMS). Added this pass:
 
 ## 11. What the user still has to do
 
-- **Push.** Ten v2.5.0 and nineteen v2.6.0 commits are local. Ask before
+- **Push.** Ten v2.5.0 and twenty-one v2.6.0 commits are local. Ask before
   pushing.
 - **A second account** (a throwaway user in the Supabase dashboard, or any
   second Google account on another phone) to prove RLS and the accept-invite
@@ -620,10 +631,9 @@ SMS). Added this pass:
 single decision taken without the user is the ladder's off-by-default (§2);
 everything else in §2 was theirs.
 
-**Context.** This session was compacted once during the phase and ran to
-roughly a third of its window after that; the working state that matters is in
-the commits, this file, `DESIGN.md` and the memory directory. Nothing is held
-only in the conversation.
+**Context.** This session was compacted once during the phase. The working
+state that matters is in the commits, this file, `DESIGN.md` and the memory
+directory; nothing is held only in the conversation.
 
 **Continue or hand over.** Hand over. Phase 3 is a different shape of work
 (vitals, evidence, mesh, OTA, pairing) and starts from §7 with a fresh

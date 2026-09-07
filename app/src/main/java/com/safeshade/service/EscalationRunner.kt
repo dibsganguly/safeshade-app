@@ -242,8 +242,12 @@ class EscalationRunner(
     }
 
     /** The dial result, in the words the plate shows. */
+    // "Asked", not "opened": Started means startActivity did not throw. From
+    // an alarm receiver with the app in the background, API 33 may refuse the
+    // start silently, and nothing here can see that. The plate says what the
+    // phone did, which is ask.
     private fun describe(result: ActionResult): String = when (result) {
-        is ActionResult.Started -> "Dialer opened"
+        is ActionResult.Started -> "Asked the dialer to open"
         is ActionResult.Sent -> "Sent"
         is ActionResult.PermissionMissing -> "Permission not granted: ${result.permission}"
         is ActionResult.Failed -> result.reason
