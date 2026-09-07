@@ -1,6 +1,7 @@
 package com.safeshade.cloud.sync
 
 import android.content.Context
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -76,6 +77,19 @@ internal object CloudKeys {
      * day, must not.
      */
     val BACKFILL_DONE = stringSetPreferencesKey("backfill_done_v1")
+
+    /**
+     * Whether an alert this phone pushes may carry **where** it happened.
+     *
+     * Absent means true. The default has to be the permissive one because the
+     * key is written only when somebody changes it, and reading an absent key
+     * as false would silently stop sharing the place with the person's own
+     * Circle - the guardians who are the whole reason the location is recorded.
+     *
+     * Per account and per phone, not per circle: it is a statement by the
+     * person holding this handset about what leaves it.
+     */
+    val SHARE_ALERT_PLACES = booleanPreferencesKey("share_alert_places_v1")
 
     /**
      * The last known Circle: members, invitations and tier, as JSON.

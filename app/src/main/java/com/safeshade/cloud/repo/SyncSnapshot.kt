@@ -6,6 +6,7 @@ import com.safeshade.data.GeofenceZone
 import com.safeshade.data.PairedDevice
 import com.safeshade.data.QuickMessage
 import com.safeshade.data.UserRole
+import com.safeshade.data.VoiceNote
 import com.safeshade.data.Wearer
 
 /**
@@ -68,7 +69,30 @@ data class SyncSnapshot(
 
     val messages: List<QuickMessage> = emptyList(),
 
-    val zones: List<GeofenceZone> = emptyList()
+    /**
+     * The Talk thread's push-to-talk notes.
+     *
+     * They share the `messages` table with [messages] - a voice note is a
+     * message on the same conversation - so a record id queued against
+     * `messages` may name either. [PayloadResolver] looks in both, and a voice
+     * note that is not yet [com.safeshade.data.VoiceUpload.Uploaded] resolves
+     * to nothing: the row must never exist before the audio it points at does.
+     */
+    val voiceNotes: List<VoiceNote> = emptyList(),
+
+    val zones: List<GeofenceZone> = emptyList(),
+
+    /**
+     * Whether an alert may carry **where** it happened.
+     *
+     * The account holder's switch, off the Privacy plate. False strips `lat`,
+     * `lon` and `location_label` from every alert this phone pushes from that
+     * moment on; the row itself still syncs, so the trip log agrees across the
+     * Circle and only the place is withheld.
+     *
+     * Client-side, and only forward-looking. See [PayloadResolver.alert].
+     */
+    val shareAlertPlaces: Boolean = true
 ) {
 
     /** The wearer bound to [address], if any. Devices bind by BLE address. */

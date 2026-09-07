@@ -4,6 +4,7 @@ import com.safeshade.cloud.CloudSession
 import com.safeshade.cloud.dto.AlertRow
 import com.safeshade.cloud.dto.CloudTables
 import com.safeshade.cloud.dto.EmergencyContactRow
+import com.safeshade.cloud.dto.KIND_VOICE
 import com.safeshade.cloud.dto.MedicalIdRow
 import com.safeshade.cloud.dto.MessageRow
 import com.safeshade.cloud.dto.ProfileRow
@@ -11,15 +12,19 @@ import com.safeshade.cloud.dto.WearerRow
 import com.safeshade.cloud.dto.ZoneRow
 import com.safeshade.cloud.sync.Outbox
 import com.safeshade.cloud.sync.OutboxOp
+import com.safeshade.cloud.sync.PayloadResolution
 import com.safeshade.cloud.sync.PayloadSource
 import com.safeshade.cloud.sync.PullSource
+import com.safeshade.cloud.sync.VoiceCloud
 import com.safeshade.data.SafetySettings
 import com.safeshade.data.UserRole
+import com.safeshade.data.VoiceUpload
 import com.safeshade.data.Wearer
 import com.safeshade.repo.MessagingRepository
 import com.safeshade.repo.ProfileRepository
 import com.safeshade.repo.SafetyRepository
 import com.safeshade.repo.SyncKeys
+import com.safeshade.repo.VoiceNoteRepository
 import com.safeshade.repo.ZoneRepository
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.serialization.KSerializer
@@ -65,7 +70,28 @@ class RepositoryPayloadSource(
     private val messaging: MessagingRepository,
     private val zones: ZoneRepository,
     private val session: StateFlow<CloudSession>,
-    private val circleId: suspend () -> String?
+    private val circleId: suspend () -> String?,
+    /**
+     * The Talk thread's voice notes, or null on a graph built without them.
+     *
+     * Null is not a hypothetical: `CloudContainer.Repositories` carries this as
+     * a defaulted parameter, so a build that has not wired it hands over null
+     * and every voice-note id resolves to nothing here - which is the bug this
+     * whole seam exists to fix, and is why the wiring is worth checking rather
+     * than assuming.
+     */
+    private val voice: VoiceNoteRepository? = null,
+    /** Gets a note's audio into the bucket before its row is built. */
+    private val voiceCloud: VoiceCloud? = null,
+    /**
+     * The account holder's "share where alerts happened" switch.
+     *
+     * A lambda for the same reason [circleId] is one: it lives in
+     * `CloudState`, which is built by `CircleManager`, which is constructed
+     * before this. Defaulted to true so a graph without it behaves as the app
+     * did before the switch existed.
+     */
+    private val shareAlertPlaces: suspend () -> Boolean = { true }
 ) : PayloadSource {
 
     override suspend fun payloadFor(
@@ -75,6 +101,93 @@ class RepositoryPayloadSource(
     ): JsonElement? {
         val snapshot = snapshot() ?: return null
         return PayloadResolver.resolve(table, recordId, op, snapshot)
+    }
+
+    /**
+     * The row, a skip, or a reason - and the one place a voice note's audio is
+     * uploaded.
+     *
+     * ### Why the upload happens here and not on a track of its own
+     *
+     * A background uploader would be a second schedule with its own retries,
+     * its own backoff and its own idea of when the phone has a network,
+     * fighting the one `SyncEngine` already owns. This codebase has that note
+     * written down twice already (see `CloudClient.changes`). Instead the
+     * upload happens at exactly the moment the row is wanted, inside the push,
+     * under the drain lock - so it inherits the engine's triggers, its
+     * single-flight rule and its backoff, and there is one schedule.
+     *
+     * ### What a person sees when it fails
+     *
+     * Both places agree, and both say the same thing. The note itself goes to
+     * [com.safeshade.data.VoiceUpload.Failed] carrying the real reason -
+     * "You are not connected to the internet", or whatever storage said - and
+     * that is what the Talk thread draws against the note. The outbox entry is
+     * marked failed with the *same* string, so the sync dot and the Account
+     * page's last error say it too.
+     *
+     * This is the reason `PayloadResolution.Failed` exists. Returning null
+     * would have made the outbox count a skip, and three skips report
+     * "there was nothing left on this phone to send for this" about a recording
+     * that is sitting on the phone and simply has not got out yet.
+     *
+     * A DELETE never uploads: a tombstone needs no audio, and re-uploading the
+     * file of a note somebody has just deleted would be the opposite of what
+     * they asked for.
+     */
+    override suspend fun resolve(
+        table: String,
+        recordId: String,
+        op: OutboxOp
+    ): PayloadResolution {
+        val snapshot = snapshot() ?: return PayloadResolution.Skip
+
+        if (table == CloudTables.MESSAGES && op == OutboxOp.UPSERT) {
+            val note = snapshot.voiceNotes.firstOrNull { it.id == recordId }
+            if (note != null) {
+                // No uploader means no way to get the audio up, so no row may
+                // be built. A skip, not a failure: nothing was attempted.
+                val cloud = voiceCloud ?: return PayloadResolution.Skip
+                val held = cloud.ensureUploaded(note, snapshot.circleId)
+                if (held != null) return held
+
+                // The upload returned OK. The note's persisted state has been
+                // written for the Talk thread to draw, but `notes` is a
+                // DataStore-backed flow and may not have emitted yet - so the
+                // snapshot is patched here rather than re-read. The path is
+                // derived, not remembered, so the two cannot disagree; re-
+                // reading would risk resolving against a stale LocalOnly and
+                // counting a skip against an upload that had just succeeded.
+                val ready = snapshot.copy(
+                    voiceNotes = snapshot.voiceNotes.map { current ->
+                        // Only a note that was *not* already uploaded is
+                        // patched. A note pulled from another phone is queued
+                        // by the backfill too, and it already carries the path
+                        // its own row named - re-deriving one over the top
+                        // would rewrite somebody else's `audio_path` from this
+                        // phone's arithmetic.
+                        if (current.id != note.id ||
+                            current.uploadState is VoiceUpload.Uploaded
+                        ) {
+                            current
+                        } else {
+                            current.copy(
+                                uploadState = VoiceUpload.Uploaded(
+                                    PayloadResolver.voicePath(current.id, snapshot.circleId)
+                                )
+                            )
+                        }
+                    }
+                )
+                return PayloadResolver.resolve(table, recordId, op, ready)
+                    ?.let { PayloadResolution.Row(it) }
+                    ?: PayloadResolution.Skip
+            }
+        }
+
+        return PayloadResolver.resolve(table, recordId, op, snapshot)
+            ?.let { PayloadResolution.Row(it) }
+            ?: PayloadResolution.Skip
     }
 
     /**
@@ -104,7 +217,11 @@ class RepositoryPayloadSource(
             safety.settings.value != null &&
             safety.history.value != null &&
             messaging.messages.value != null &&
-            zones.zones.value != null
+            zones.zones.value != null &&
+            // Only when there is one. A graph without a voice repository is not
+            // waiting for it, and blocking every push on a flow that will never
+            // arrive would hold the whole queue forever.
+            (voice == null || voice.notes.value != null)
 
     /** Exposed for the tests; there is nothing here a test cannot construct. */
     suspend fun snapshot(): SyncSnapshot? {
@@ -124,7 +241,9 @@ class RepositoryPayloadSource(
             pairedDevices = profiles.pairedDevices.value.orEmpty(),
             alerts = safety.history.value.orEmpty(),
             messages = messaging.messages.value.orEmpty(),
-            zones = zones.zones.value.orEmpty()
+            voiceNotes = voice?.notes?.value.orEmpty(),
+            zones = zones.zones.value.orEmpty(),
+            shareAlertPlaces = shareAlertPlaces()
         )
     }
 }
@@ -150,6 +269,8 @@ class RepositoryPullSource(
     private val safety: SafetyRepository,
     private val messaging: MessagingRepository,
     private val zones: ZoneRepository,
+    /** Null on a graph built without the Talk thread. See [applyMessages]. */
+    private val voice: VoiceNoteRepository?,
     private val outbox: Outbox,
     private val session: StateFlow<CloudSession>,
     private val circleIdProvider: suspend () -> String?,
@@ -318,12 +439,38 @@ class RepositoryPullSource(
         }
     }
 
+    /**
+     * One table, two threads.
+     *
+     * `messages` carries both the typed quick messages and the push-to-talk
+     * voice notes, because they are one conversation - so the rows are split by
+     * `kind` here and handed to the repository that owns each. A row with no
+     * `kind` is text: every row written before migration 0006 was, and the
+     * column defaults to `text` for exactly that reason.
+     *
+     * Routing matters more than it looks. `MergeRules.messages` drops a row
+     * with blank text, so before this split a voice note pulled from another
+     * phone was decoded, examined, and silently discarded - the recording
+     * existed on the server and simply never appeared on the second phone,
+     * with nothing anywhere saying why.
+     */
     private suspend fun applyMessages(rows: List<JsonObject>, circleId: String) {
         val remote = decode(rows, MessageRow.serializer())
         val queued = pending(CloudTables.MESSAGES)
         val ids = wearerIds(circleId)
-        messaging.applyRemoteMessages { current ->
-            MergeRules.messages(current, remote, circleId, queued, ids)
+
+        val (spoken, typed) = remote.partition { it.kind == KIND_VOICE }
+
+        if (typed.isNotEmpty()) {
+            messaging.applyRemoteMessages { current ->
+                MergeRules.messages(current, typed, circleId, queued, ids)
+            }
+        }
+
+        if (spoken.isNotEmpty()) {
+            voice?.applyRemote { current ->
+                MergeRules.voiceNotes(current, spoken, circleId, queued, ids)
+            }
         }
     }
 

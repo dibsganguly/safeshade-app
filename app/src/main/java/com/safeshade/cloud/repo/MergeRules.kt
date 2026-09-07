@@ -16,6 +16,8 @@ import com.safeshade.data.MessageChannel
 import com.safeshade.data.PersonaMode
 import com.safeshade.data.QuickMessage
 import com.safeshade.data.TripOutcome
+import com.safeshade.data.VoiceNote
+import com.safeshade.data.VoiceUpload
 import com.safeshade.data.Wearer
 import com.safeshade.platform.PhoneNumbers
 
@@ -384,6 +386,93 @@ internal object MergeRules {
         // synthesised from the profile when the key is absent anyway.
         val kept = result.filterNot { it.id in removed }
         return kept.ifEmpty { local }
+    }
+
+    /**
+     * Voice notes, from `messages` rows with `kind = 'voice'`.
+     *
+     * ### What is taken from the row, and what never is
+     *
+     * The row is the authority on the things a recording *is* - who spoke,
+     * which way, when, how long, and what the waveform looks like. It is never
+     * the authority on two things that are facts about **this** phone:
+     *
+     *  * [VoiceNote.file] and [VoiceNote.uploadState] on a note this phone
+     *    recorded. A row echoing back this phone's own push must not reset a
+     *    note to "not downloaded"; the `.m4a` is right here.
+     *  * [VoiceNote.listened]. Whether somebody has played it is a fact about
+     *    one reader, and syncing it would mark a note heard for the whole
+     *    Circle because one guardian opened the thread.
+     *
+     * A note that is genuinely new here arrives with an empty [VoiceNote.file]
+     * and [VoiceUpload.Uploaded] pointing at the storage path - which is the
+     * honest pair: the audio is on the server and not yet on this phone.
+     * `VoiceCloud.downloadVoice` is what fills the file in, when somebody asks
+     * to hear it.
+     *
+     * [VoiceNote.authorName] is blank on an incoming note when the row does not
+     * say. `messages` carries `author_id`, a uuid, and one Circle member cannot
+     * read another's profile - so a name that this phone has not been told is
+     * left blank rather than guessed at. A screen resolves it from
+     * `CloudState.members` or shows nothing.
+     *
+     * @param pending local ids with an unsent write queued. They win, for the
+     *   reason given in this class's KDoc.
+     */
+    fun voiceNotes(
+        local: List<VoiceNote>,
+        remote: List<MessageRow>,
+        circleId: String,
+        pending: Set<String> = emptySet(),
+        wearerIds: Map<String, String> = emptyMap()
+    ): List<VoiceNote> {
+        val byServerId = local.associateBy { CloudIds.cloudId(it.id, circleId) }
+        val result = local.toMutableList()
+        val removed = mutableSetOf<String>()
+
+        for (row in remote) {
+            val serverId = row.id ?: continue
+            val existing = byServerId[serverId]
+
+            if (deleted(row.deletedAt)) {
+                if (existing != null) removed += existing.id
+                continue
+            }
+            if (existing != null && existing.id in pending) continue
+
+            // A voice row with no object behind it is not playable and not
+            // fetchable; there is nothing this phone could do with it.
+            val path = row.audioPath?.takeIf { it.isNotBlank() } ?: continue
+
+            val incoming = VoiceNote(
+                id = existing?.id ?: serverId,
+                wearerId = localWearer(row.wearerId, wearerIds) ?: existing?.wearerId,
+                fromGuardian = row.fromGuardian ?: existing?.fromGuardian ?: true,
+                authorName = existing?.authorName.orEmpty(),
+                // Empty until downloaded, and kept as it stands for a note this
+                // phone already holds the audio for.
+                file = existing?.file.orEmpty(),
+                durationMs = row.durationMs ?: existing?.durationMs ?: 0,
+                waveform = row.waveform ?: existing?.waveform.orEmpty(),
+                createdAt = row.sentAt.isoToEpochMillis(
+                    fallback = existing?.createdAt ?: System.currentTimeMillis()
+                ),
+                // The audio is in the bucket - the row exists, and this app
+                // never writes the row before the object. For a note this phone
+                // recorded, whatever state it already had is kept, so a local
+                // Failed is not quietly promoted to Uploaded by its own echo.
+                uploadState = existing?.uploadState ?: VoiceUpload.Uploaded(path),
+                listened = existing?.listened ?: false
+            )
+
+            if (existing == null) {
+                result += incoming
+            } else {
+                result[result.indexOfFirst { it.id == existing.id }] = incoming
+            }
+        }
+
+        return result.filterNot { it.id in removed }.sortedBy { it.createdAt }
     }
 
     /**

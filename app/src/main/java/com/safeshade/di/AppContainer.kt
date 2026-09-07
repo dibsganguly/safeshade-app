@@ -164,7 +164,8 @@ class AppContainer(
             profiles = profileRepository,
             safety = safetyRepository,
             messaging = messagingRepository,
-            zones = zoneRepository
+            zones = zoneRepository,
+            voice = voiceNoteRepository
         )
     )
 

@@ -98,11 +98,18 @@ internal object BackfillPlan {
         // oldest; then reversed, so the newest are enqueued last and survive
         // any eviction that a concurrent write might still cause.
         val alerts = snapshot.alerts.sortedByDescending { it.timestamp }
-        val messages = snapshot.messages.sortedByDescending { it.timestamp }
+        // Typed messages and voice notes are one thread and one table, so they
+        // compete for one budget by age rather than each getting half. A
+        // guardian who sent five voice notes this morning and nothing typed
+        // should get the five notes, not two of them and three empty slots.
+        val thread: List<Pair<Long, Pair<String, String>>> =
+            snapshot.messages.map { it.timestamp to (CloudTables.MESSAGES to it.id) } +
+                snapshot.voiceNotes.map { it.createdAt to (CloudTables.MESSAGES to it.id) }
+        val messages = thread.sortedByDescending { it.first }.map { it.second }
         val perTable = budget / 2
 
         history += alerts.take(perTable).map { CloudTables.ALERTS to it.id }
-        history += messages.take(budget - history.size).map { CloudTables.MESSAGES to it.id }
+        history += messages.take(budget - history.size)
 
         return identity.distinct() + history.reversed().distinct()
     }

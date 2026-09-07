@@ -22,6 +22,52 @@ import kotlinx.serialization.json.put
 import java.time.Instant
 
 /**
+ * What a [PayloadSource] has to say about one queued record.
+ *
+ * Three answers, not two, and the third one was added in blood.
+ *
+ * The original contract was "a row body, or null, and null is a skip". That
+ * reads well until a source has to do I/O before it can build a row - which is
+ * exactly what a voice note needs, since its `messages` row is a pointer to an
+ * object that has to be in storage first. With only two answers, an upload that
+ * failed because the phone was in a lift came back as null, and null is a skip:
+ * [OutboxPolicy.MAX_SKIPS] is three, a foreground and a reconnect landing
+ * together can spend all three in one burst, and the entry is then *abandoned* -
+ * reported with [OutboxPolicy.ABANDONED_REASON], "there was nothing left on
+ * this phone to send for this", about a recording sitting on the phone. Worse,
+ * `retryAll` deliberately leaves abandoned entries alone, so "Sync Now" could
+ * not revive it either.
+ *
+ * So a source that *knows why* says so, and the engine treats that as an
+ * ordinary failure: attempts, backoff, and the real reason on the entry.
+ */
+sealed interface PayloadResolution {
+
+    /** Send this. */
+    data class Row(val body: JsonElement) : PayloadResolution
+
+    /**
+     * Nothing to send for this record, and no reason worth reporting.
+     *
+     * The record names something the phone no longer holds, or a key written in
+     * a shape the resolver does not read. Counted by [OutboxPolicy.MAX_SKIPS],
+     * never as an attempt.
+     */
+    data object Skip : PayloadResolution
+
+    /**
+     * The source tried to prepare this record and could not, and can say why.
+     *
+     * @param reason user-facing, verbatim, from whatever refused. It becomes
+     *   [OutboxEntry.lastError] and is what the row eventually reports.
+     * @param retryable currently informational: the outbox backs every failure
+     *   off the same way. Kept because the distinction is real and a source
+     *   that knows it should not have to throw the knowledge away.
+     */
+    data class Failed(val reason: String, val retryable: Boolean = true) : PayloadResolution
+}
+
+/**
  * Where a row's current contents come from, at the moment it is about to be
  * sent.
  *
@@ -46,6 +92,20 @@ interface PayloadSource {
      * SafeShade Cloud" failures that never happened.
      */
     suspend fun payloadFor(table: String, recordId: String, op: OutboxOp): JsonElement?
+
+    /**
+     * The same question, with room for a reason. What the engine actually
+     * calls.
+     *
+     * Defaulted over [payloadFor] so that a source with nothing to say - the
+     * no-op, a test fake - keeps the two-answer contract it was written
+     * against and cannot accidentally start reporting failures it never had.
+     * See [PayloadResolution].
+     */
+    suspend fun resolve(table: String, recordId: String, op: OutboxOp): PayloadResolution =
+        payloadFor(table, recordId, op)
+            ?.let { PayloadResolution.Row(it) }
+            ?: PayloadResolution.Skip
 
     /**
      * Whether this source is in a position to resolve anything at all.
@@ -325,16 +385,34 @@ class SyncEngine(
 
         for ((table, entries) in batches) {
             val resolved = entries.mapNotNull { entry ->
-                val body = bodyFor(entry)
-                if (body == null) {
+                when (val body = bodyFor(entry)) {
+                    is PayloadResolution.Row -> {
+                        val row = body.body as? JsonObject ?: return@mapNotNull null
+                        entry to row
+                    }
+
                     // Diagnosable from logcat. There was nothing in the log at
                     // all the first time this went wrong, which is why finding
                     // it took a server-side API trace.
-                    Log.w(TAG, "skip " + entry.table + "/" + entry.recordId + " (no row body)")
-                    outbox.markSkipped(entry)
-                    return@mapNotNull null
+                    PayloadResolution.Skip -> {
+                        Log.w(TAG, "skip " + entry.table + "/" + entry.recordId + " (no row body)")
+                        outbox.markSkipped(entry)
+                        null
+                    }
+
+                    // The source tried and could not, and knows why. An
+                    // ordinary failure: backoff, five attempts, and the real
+                    // reason on the entry rather than a skip counted towards
+                    // "there was nothing left on this phone to send for this".
+                    is PayloadResolution.Failed -> {
+                        Log.w(
+                            TAG,
+                            "hold " + entry.table + "/" + entry.recordId + ": " + body.reason
+                        )
+                        outbox.markFailed(entry, body.reason)
+                        null
+                    }
                 }
-                entry to body
             }
             if (resolved.isEmpty()) continue
             Log.w(TAG, "push " + table + " x" + resolved.size)
@@ -362,20 +440,30 @@ class SyncEngine(
     }
 
     /**
-     * The JSON body for one entry, or null to skip it.
+     * The [PayloadResolution] for one entry, with the tombstone stamp applied.
      *
      * A [OutboxOp.DELETE] is sent as an upsert carrying `deleted_at`, because
      * the schema soft-deletes — see [OutboxOp.DELETE] for why a row that simply
      * stops existing is invisible to every other phone in the circle.
      */
-    private suspend fun bodyFor(entry: OutboxEntry): JsonObject? {
-        val element = payloadSource.payloadFor(entry.table, entry.recordId, entry.op) ?: return null
-        val row = element as? JsonObject ?: return null
-        if (entry.op == OutboxOp.UPSERT) return row
-        return buildJsonObject {
-            row.forEach { (k, v) -> put(k, v) }
-            put("deleted_at", Instant.ofEpochMilli(now()).toString())
-        }
+    private suspend fun bodyFor(entry: OutboxEntry): PayloadResolution {
+        val resolution = payloadSource.resolve(entry.table, entry.recordId, entry.op)
+        val row = (resolution as? PayloadResolution.Row)?.body as? JsonObject
+            ?: return if (resolution is PayloadResolution.Row) {
+                // A body that is not an object cannot be a row. Treated as a
+                // skip rather than a failure: nothing was attempted, and the
+                // source is wrong rather than the network.
+                PayloadResolution.Skip
+            } else {
+                resolution
+            }
+        if (entry.op == OutboxOp.UPSERT) return PayloadResolution.Row(row)
+        return PayloadResolution.Row(
+            buildJsonObject {
+                row.forEach { (k, v) -> put(k, v) }
+                put("deleted_at", Instant.ofEpochMilli(now()).toString())
+            }
+        )
     }
 
     // ============================================

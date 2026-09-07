@@ -317,6 +317,25 @@ class FakeCloudClient(
         storage.getOrPut(bucket) { mutableMapOf() }[path] = bytes
     }
 
+    override suspend fun downloadPrivate(
+        bucket: String,
+        path: String
+    ): CloudResult<ByteArray> {
+        // `guarded` first, always: disabled and failNext outrank the contents
+        // of the fake bucket, or a build with no project would report a missing
+        // file instead of reporting that there is no cloud.
+        return when (val guard = guarded { storage[bucket]?.get(path) }) {
+            is CloudResult.Ok -> guard.value?.let { CloudResult.Ok(it) }
+                ?: CloudResult.Failed(
+                    "That recording is no longer on SafeShade Cloud.",
+                    retryable = false
+                )
+
+            is CloudResult.Failed -> guard
+            CloudResult.Disabled -> CloudResult.Disabled
+        }
+    }
+
     override suspend fun signedUrl(
         bucket: String,
         path: String,

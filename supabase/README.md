@@ -22,7 +22,11 @@ addition to it, never a dependency of it.**
 | `migrations/0001_init.sql` | The whole schema: 19 tables, RLS on every one, the heat-map materialized view, the storage buckets, `handle_new_user`, `delete_account`. |
 | `functions/send-alert-email/` | Emails a Circle when an alert is raised. Takes `{ alert_id }` and nothing else. |
 | `functions/send-invite/` | Creates an invite row and emails the link. |
+| `migrations/0002_advisor_fixes.sql` | The security advisor's findings from `0001`, fixed. |
+| `migrations/0003_function_grants.sql` | Execute grants on the `security definer` functions, revoked from `public` first. Its header lists the six advisor lines that are intentional. |
 | `migrations/0004_realtime_publication.sql` | Puts `alerts` and `messages` in the `supabase_realtime` publication. Without it a Postgres-changes subscription reports SUBSCRIBED and then delivers nothing, forever, with no error. |
+| `migrations/0005_bootstrap_circle.sql` | Every account owns exactly one Circle, from the moment it exists. See § "Every account owns exactly one Circle". |
+| `migrations/0006_voice_messages.sql` | Voice notes on the Circle thread: `messages` gains `kind` (`text` or `voice`, `not null default 'text'`), `audio_path`, `duration_ms` and `waveform`. Re-states the private `voice` bucket and its circle-scoped policies idempotently, and **adds the UPDATE policy** they were missing — the app uploads with `upsert`, which is an UPDATE on a retry and was denied without it. |
 | `functions/_shared/email/` | The branded templates (`.html`, the source of truth), the renderer, the Resend transport, and the generated `templates.ts`. |
 | `auth-templates/` | **Generated.** The three sign-in emails, ready to paste into the dashboard, with every placeholder already a Supabase `{{ .X }}`. See §6. |
 | `../tools/gen_email_templates.py` | Regenerates `templates.ts` and `auth-templates/` from the `.html` files. Run it after editing any of them. |

@@ -38,6 +38,23 @@ data class CloudState(
     val devTierOverride: CloudTier? = null,
 
     /**
+     * Whether an alert pushed from this phone carries the place it happened.
+     *
+     * True by default, and true is the right default: the guardians in the
+     * Circle are the reason a location is recorded at all, and a trip log that
+     * says only "a fall, at some point, somewhere" helps nobody.
+     *
+     * Turning it off strips `lat`, `lon` and `location_label` from every alert
+     * pushed **from then on** - see `PayloadResolver.alert`. The alert itself
+     * still syncs, so the trip log stays consistent across the Circle; only the
+     * place is withheld. It is a client-side rule and it is not retroactive:
+     * rows already on the server keep the place they were sent with, including
+     * in the community heat map built over them. Copy describing this switch
+     * has to say so rather than implying an erasure it does not perform.
+     */
+    val shareAlertPlaces: Boolean = true,
+
+    /**
      * The last thing that went wrong while talking to the Circle, in plain
      * English, or null.
      *

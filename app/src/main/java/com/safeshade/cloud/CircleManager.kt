@@ -48,8 +48,8 @@ import java.time.Instant
  *    [CloudState], because those three have no repository - see that class.
  *  * Holding the Realtime subscriptions for `alerts` and `messages` while
  *    somebody is signed in, and tearing them down when they are not.
- *  * The four actions: invite, accept an invitation, set the developer tier,
- *    read the heat map.
+ *  * The actions: invite, accept an invitation, set the developer tier, read
+ *    the heat map, and set whether alerts carry the place they happened.
  *
  * ### What it is not
  *
@@ -114,7 +114,7 @@ class CircleManager(
      */
     var onBackfill: (suspend () -> Int?)? = null
 
-    /** The four things a person can do to their Circle. */
+    /** The things a person can do to their Circle. */
     val actions: CircleActions = CircleActions()
 
     // ============================================
@@ -145,6 +145,7 @@ class CircleManager(
         }
         scope.launch {
             restoreDevTier()
+            restoreSharePlaces()
             // Before the first pull lands, so a cold start draws yesterday's
             // Circle rather than an empty page.
             restoreCircleState()
@@ -177,7 +178,14 @@ class CircleManager(
         outbox.clearPullCursors()
         deliveryOutcomes.clear()
         clearCircleState()
-        _state.value = CloudState(devTierOverride = _state.value.devTierOverride)
+        // The two things that survive a sign-out, and for the same reason: both
+        // are settings on this handset rather than facts about an account. A
+        // privacy switch that quietly turned itself back on when somebody
+        // signed out would be the worst possible time for it to do so.
+        _state.value = CloudState(
+            devTierOverride = _state.value.devTierOverride,
+            shareAlertPlaces = _state.value.shareAlertPlaces
+        )
     }
 
     /**
@@ -499,13 +507,28 @@ class CircleManager(
         _state.value = _state.value.copy(devTierOverride = CloudTier.fromWire(stored))
     }
 
+    /**
+     * Reads the "share where alerts happened" switch back off disk.
+     *
+     * An absent key is true - see [CloudKeys.SHARE_ALERT_PLACES]. This runs
+     * before the first push can resolve an alert, because it runs in the same
+     * `start` block the circle id is restored in and the push holds until there
+     * is a circle.
+     */
+    private suspend fun restoreSharePlaces() {
+        val stored = context.cloudDataStore.data
+            .map { it[CloudKeys.SHARE_ALERT_PLACES] }
+            .first() ?: return
+        _state.value = _state.value.copy(shareAlertPlaces = stored)
+    }
+
     private fun <T> decode(rows: List<JsonObject>, serializer: KSerializer<T>): List<T> =
         rows.mapNotNull { runCatching { json.decodeFromJsonElement(serializer, it) }.getOrNull() }
 
     /**
-     * The four things a person can do to their Circle.
+     * The things a person can do to their Circle.
      *
-     * An inner class rather than four methods on [CircleManager] so a screen can
+     * An inner class rather than loose methods on [CircleManager] so a screen can
      * be handed the verbs without also being handed the Realtime jobs, the
      * cached circle id and the pull plumbing. Same reason `CloudAuth` exists.
      */
@@ -604,7 +627,8 @@ class CircleManager(
                         outbox.clearPullCursors()
                         _state.value = CloudState(
                             circleId = joined,
-                            devTierOverride = _state.value.devTierOverride
+                            devTierOverride = _state.value.devTierOverride,
+                            shareAlertPlaces = _state.value.shareAlertPlaces
                         )
                         // A different circle has never seen this phone's
                         // records, so the pair is unmarked and backfills.
@@ -650,6 +674,21 @@ class CircleManager(
                     retryable = false
                 )
             return CloudResult.Ok(queued)
+        }
+
+        /**
+         * Sets whether alerts pushed from this phone carry their place.
+         *
+         * Persisted, because a privacy choice that forgets itself on the next
+         * cold start is not a privacy choice. Forward-looking only: see
+         * [CloudState.shareAlertPlaces] for what it does and, just as
+         * importantly, what it does not undo.
+         */
+        suspend fun setShareAlertPlaces(share: Boolean) {
+            context.cloudDataStore.edit { prefs ->
+                prefs[CloudKeys.SHARE_ALERT_PLACES] = share
+            }
+            _state.value = _state.value.copy(shareAlertPlaces = share)
         }
 
         /** Sets, or with null clears, the hand-chosen tier. See [CloudState.effectiveTier]. */

@@ -4,6 +4,8 @@ import com.safeshade.cloud.dto.AlertRow
 import com.safeshade.cloud.dto.CloudTables
 import com.safeshade.cloud.dto.DeviceRow
 import com.safeshade.cloud.dto.EmergencyContactRow
+import com.safeshade.cloud.dto.KIND_TEXT
+import com.safeshade.cloud.dto.KIND_VOICE
 import com.safeshade.cloud.dto.MedicalIdRow
 import com.safeshade.cloud.dto.MessageRow
 import com.safeshade.cloud.dto.ProfileRow
@@ -13,6 +15,8 @@ import com.safeshade.cloud.dto.toIsoOrNull
 import com.safeshade.cloud.sync.OutboxOp
 import com.safeshade.data.EmergencyContact
 import com.safeshade.data.UserRole
+import com.safeshade.data.VoiceNote
+import com.safeshade.data.VoiceUpload
 import com.safeshade.platform.PhoneNumbers
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.json.Json
@@ -235,8 +239,37 @@ internal object PayloadResolver {
         )
     }
 
+    /**
+     * A trip-log entry, with or without the place it happened.
+     *
+     * ### The place is withheld, not the row
+     *
+     * [SyncSnapshot.shareAlertPlaces] is the account holder's switch. With it
+     * off, `lat`, `lon` and `location_label` go as **null** - not as absent
+     * keys, which would break the identical-key-set rule this class exists to
+     * enforce - and everything else about the alert still syncs. That is the
+     * whole design: a guardian in the Circle must still see that a fall
+     * happened, when it happened and how it ended, because a trip log that
+     * silently loses entries is worse than one that says "somewhere".
+     *
+     * ### Two honest limits, stated here so nobody rediscovers them
+     *
+     *  1. **This is a client-side rule.** It stops this phone sending the
+     *     place; it removes nothing already sent. Rows pushed while the switch
+     *     was on keep their place, in the row and in the heat-map view built
+     *     over it. The switch is forward-looking, and any copy describing it
+     *     has to say so.
+     *  2. **`lat` and `lon` are null on every alert this app pushes anyway.**
+     *     `FallAlertEvent` in `data/Models.kt` carries a human-readable
+     *     location string and no coordinates at all, so today the switch has an
+     *     effect on `location_label` alone - which also means the community
+     *     heat map is fed nothing by this app yet. Both coordinates are
+     *     stripped regardless, so the rule is already correct on the day the
+     *     model gains them rather than being a bug waiting for that commit.
+     */
     private fun alert(recordId: String, s: SyncSnapshot): JsonObject? {
         val event = s.alerts.firstOrNull { it.id == recordId } ?: return null
+        val place = s.shareAlertPlaces
         return encode(
             AlertRow.serializer(),
             AlertRow(
@@ -246,7 +279,9 @@ internal object PayloadResolver {
                 kind = event.kind.name,
                 outcome = event.outcome.name,
                 occurredAt = event.timestamp.toIsoOrNull(),
-                locationLabel = event.location,
+                lat = null,
+                lon = null,
+                locationLabel = if (place) event.location else null,
                 note = event.note,
                 wasEmergencyContacted = event.wasEmergencyContacted
             ),
@@ -254,8 +289,24 @@ internal object PayloadResolver {
         )
     }
 
+    /**
+     * A row on the Circle thread - typed, or spoken.
+     *
+     * One record id, two possible sources: `MessagingRepository`'s quick
+     * messages and `VoiceNoteRepository`'s push-to-talk notes both queue
+     * against `messages`, because they are one conversation. Text is looked for
+     * first only because it is the commoner case; both id spaces are UUIDs and
+     * do not collide.
+     *
+     * Before this looked in both, a voice note's id resolved to null here - and
+     * a null is a *skip*, so three drains later `OutboxPolicy.isAbandoned`
+     * reported the note as "There was nothing left on this phone to send for
+     * this" about a recording that had been sitting on the phone the whole
+     * time.
+     */
     private fun message(recordId: String, s: SyncSnapshot): JsonObject? {
-        val m = s.messages.firstOrNull { it.id == recordId } ?: return null
+        val m = s.messages.firstOrNull { it.id == recordId }
+            ?: return voiceNote(recordId, s)
         return encode(
             MessageRow.serializer(),
             MessageRow(
@@ -266,7 +317,60 @@ internal object PayloadResolver {
                 text = m.text,
                 fromGuardian = m.fromGuardian,
                 channel = m.channel.name,
-                sentAt = m.timestamp.toIsoOrNull()
+                sentAt = m.timestamp.toIsoOrNull(),
+                kind = KIND_TEXT
+            ),
+            CloudTables.MESSAGES
+        )
+    }
+
+    /**
+     * A voice note, **only once its audio is in the bucket**.
+     *
+     * This is the invariant that keeps the outcome rule true for the Talk
+     * thread. The row is a pointer to a storage object, so a row that exists
+     * before the object does is a note every other phone in the Circle can see,
+     * tap, and fail to play. Anything short of [VoiceUpload.Uploaded] therefore
+     * resolves to null and no row is sent.
+     *
+     * Getting a note *to* Uploaded is the I/O layer's job and not this one's -
+     * see `VoiceCloud` and `RepositoryPayloadSource.payloadFor`. This function
+     * stays pure, and by construction cannot emit a row for audio that is not
+     * there.
+     *
+     * `text` is null rather than a caption. A spoken note has no words on this
+     * phone, and writing "Voice note" into the column would put a string on the
+     * server that a real transcription would later have to be distinguished
+     * from.
+     */
+    private fun voiceNote(recordId: String, s: SyncSnapshot): JsonObject? {
+        val note: VoiceNote = s.voiceNotes.firstOrNull { it.id == recordId } ?: return null
+        val uploaded = note.uploadState as? VoiceUpload.Uploaded ?: return null
+        return encode(
+            MessageRow.serializer(),
+            MessageRow(
+                id = CloudIds.cloudId(note.id, s.circleId),
+                circleId = s.circleId,
+                wearerId = note.wearerId?.let { CloudIds.cloudId(it, s.circleId) },
+                authorId = s.userId,
+                text = null,
+                fromGuardian = note.fromGuardian,
+                // CLOUD, not BLE. `channel` records how the thing actually
+                // travelled, and this one genuinely went through the server.
+                // The column's CHECK allows it; `MessageChannel` does not,
+                // which is why voice rows are routed away from
+                // `MergeRules.messages` on the way back rather than parsed by
+                // it.
+                channel = VOICE_CHANNEL,
+                sentAt = note.createdAt.toIsoOrNull(),
+                kind = KIND_VOICE,
+                // What the upload actually returned, or what the row this note
+                // was pulled from said - never a fresh derivation. They agree
+                // today, and if they ever stop, the object's real name is the
+                // one that can be fetched.
+                audioPath = uploaded.location.ifBlank { voicePath(note.id, s.circleId) },
+                durationMs = note.durationMs,
+                waveform = note.waveform
             ),
             CloudTables.MESSAGES
         )
@@ -336,6 +440,21 @@ internal object PayloadResolver {
     }
 
     /**
+     * Where a voice note's audio lives in the `voice` bucket.
+     *
+     * `<circle_id>/<note_id>.m4a`, and the first segment is not decoration: the
+     * storage policies in `0001_init.sql` and `0006_voice_messages.sql` read
+     * the circle id straight out of it with `path_circle_id(name)`, so an
+     * object filed anywhere else is unreadable by the Circle it belongs to and
+     * unwritable by everyone.
+     *
+     * The note id rather than a random name so the path is derivable on any
+     * phone that holds the row - a pull can find the object without the row
+     * having to be trusted about where it put it.
+     */
+    fun voicePath(noteId: String, circleId: String): String = "$circleId/$noteId.m4a"
+
+    /**
      * The uuid the server stores for a local record id.
      *
      * Public because a tombstone has to name a row the phone no longer holds,
@@ -385,6 +504,15 @@ internal object PayloadResolver {
         avatarId.takeIf { it.isNotBlank() && !it.startsWith(PHOTO_PREFIX) }
 
     private const val PHOTO_PREFIX = "photo:"
+
+    /**
+     * `messages.channel` for a voice note.
+     *
+     * The schema allows `BLE | SMS | CLOUD` and `MessageChannel` has only
+     * the first two - the app has two transports and the schema anticipated
+     * a third. A voice note is the third.
+     */
+    private const val VOICE_CHANNEL = "CLOUD"
 
     private fun digitsOf(raw: String): String = PhoneNumbers.digitsOf(raw)
 }

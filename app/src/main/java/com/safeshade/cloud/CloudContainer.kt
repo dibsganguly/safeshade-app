@@ -13,14 +13,17 @@ import com.safeshade.cloud.sync.Outbox
 import com.safeshade.cloud.sync.PayloadSource
 import com.safeshade.cloud.sync.PullSource
 import com.safeshade.cloud.sync.SyncEngine
+import com.safeshade.cloud.sync.VoiceCloud
 import com.safeshade.repo.MessagingRepository
 import com.safeshade.repo.ProfileRepository
 import com.safeshade.repo.SafetyRepository
 import com.safeshade.repo.SyncHooks
+import com.safeshade.repo.VoiceNoteRepository
 import com.safeshade.repo.ZoneRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import java.io.File
 
 /**
  * The cloud half of the object graph: client, auth, outbox, sync engine.
@@ -77,7 +80,20 @@ class CloudContainer(
         val profiles: ProfileRepository,
         val safety: SafetyRepository,
         val messaging: MessagingRepository,
-        val zones: ZoneRepository
+        val zones: ZoneRepository,
+        /**
+         * The Talk thread's voice notes.
+         *
+         * **Defaulted to null, and null is not the intended wiring.** A voice
+         * note queues itself against `messages` when it is recorded
+         * (`VoiceNoteRepository.add`), so with this absent the drain finds no
+         * row body for that id, counts three skips and reports the note as
+         * "There was nothing left on this phone to send for this" - about a
+         * recording that never left the phone because nothing here could reach
+         * it. `AppContainer` passes `voice = voiceNoteRepository`; the default
+         * exists only for the graphs that have no repositories at all.
+         */
+        val voice: VoiceNoteRepository? = null
     )
 
     private val context: Context = appContext.applicationContext
@@ -143,8 +159,27 @@ class CloudContainer(
     /** What the Circle and Plan screens read. See [CloudState]. */
     val cloudState: StateFlow<CloudState> get() = circle.state
 
-    /** Invite, accept an invitation, set the developer tier, read the heat map. */
+    /**
+     * Invite, accept an invitation, set the developer tier, read the heat map,
+     * and turn the sharing of an alert's place on or off.
+     */
     val circleActions: CircleManager.CircleActions get() = circle.actions
+
+    /**
+     * The bytes behind a voice note, both ways.
+     *
+     * Built here rather than in `AppContainer` because it needs the same
+     * `filesDir/voice` directory the repository was given and nothing else -
+     * and because the upload has to happen inside the push, which is this
+     * container's business. The directory is named in exactly two places and
+     * this is the second; a mismatch would show up as every upload reporting
+     * "That recording is no longer on this phone."
+     */
+    val voiceCloud: VoiceCloud = VoiceCloud(
+        client = client,
+        notes = repositories?.voice,
+        voiceDir = File(context.filesDir, VOICE_DIR)
+    )
 
     private val pullSource: PullSource = repositories?.let { repos ->
         RepositoryPullSource(
@@ -152,6 +187,7 @@ class CloudContainer(
             safety = repos.safety,
             messaging = repos.messaging,
             zones = repos.zones,
+            voice = repos.voice,
             outbox = outbox,
             session = client.session,
             circleIdProvider = { circle.cachedCircleId() },
@@ -166,7 +202,12 @@ class CloudContainer(
             messaging = repos.messaging,
             zones = repos.zones,
             session = client.session,
-            circleId = { circle.cachedCircleId() }
+            circleId = { circle.cachedCircleId() },
+            voice = repos.voice,
+            voiceCloud = voiceCloud,
+            // Read at resolve time rather than captured, so turning the switch
+            // off takes effect on the very next alert this phone pushes.
+            shareAlertPlaces = { circle.state.value.shareAlertPlaces }
         )
     }
 
@@ -195,6 +236,14 @@ class CloudContainer(
         syncEngine = syncEngine,
         session = { client.session.value }
     )
+
+    private companion object {
+        /**
+         * `filesDir/voice`, matching what `AppContainer` hands
+         * `VoiceNoteRepository`. One name, spelled the same in both places.
+         */
+        const val VOICE_DIR = "voice"
+    }
 
     init {
         // A row arriving on the Realtime socket takes the same path as a row

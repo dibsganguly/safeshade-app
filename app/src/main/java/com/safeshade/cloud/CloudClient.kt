@@ -284,6 +284,23 @@ interface CloudClient {
     ): CloudResult<Unit>
 
     /**
+     * Reads one private object back, as bytes.
+     *
+     * Deliberately **not** [signedUrl] plus an HTTP GET. A signed URL is bearer
+     * authority over the object for its whole life and is meant for handing to
+     * something outside the app - a share sheet, a notification, a browser.
+     * Fetching a voice note the app is about to play needs none of that: the
+     * session already carries the authority, this goes straight through it, and
+     * no URL that would still work if it leaked is ever minted.
+     *
+     * Bytes rather than a stream because the one caller is a voice note capped
+     * at twenty seconds of AAC - tens of kilobytes - and a stream would push
+     * lifecycle management of a half-read body out to a caller that has no
+     * reason to think about it.
+     */
+    suspend fun downloadPrivate(bucket: String, path: String): CloudResult<ByteArray>
+
+    /**
      * A time-limited URL for one private object.
      *
      * @param expiresSec keep it short. This URL is bearer authority over the

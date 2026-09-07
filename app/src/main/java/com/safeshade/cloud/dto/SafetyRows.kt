@@ -156,6 +156,21 @@ data class AlertDeliveryRow(
  * buzz at its own wearer with their own reply, which this app has shipped once.
  * Keeping the direction as an explicit field here means a message replayed out
  * of the cloud onto a fresh phone cannot lose which way it was going.
+ *
+ * ### One table, two kinds
+ *
+ * A push-to-talk voice note is a `messages` row with [kind] `voice`, and the
+ * audio is an object in the private `voice` bucket named by [audioPath]. A
+ * table of its own would mean two orderings to reconcile for one conversation,
+ * and the thread would be free to show a reply above the question it answers.
+ *
+ * [kind] is the only field here that is **not** nullable, and that is
+ * deliberate: the column is `not null default 'text'`, and `PayloadResolver`
+ * encodes with explicit nulls - so a nullable `kind` would go on the wire as a
+ * literal null on every push and be rejected by the constraint. Defaulting it
+ * to `"text"` also means a tombstone (`MessageRow(id, circleId)`) carries a
+ * legal value, and a pulled row written before migration 0006 decodes as text
+ * rather than as nothing.
  */
 @Serializable
 data class MessageRow(
@@ -168,10 +183,29 @@ data class MessageRow(
     /** `BLE` | `SMS` | `CLOUD`. How it actually travelled. */
     @SerialName("channel") val channel: String? = null,
     @SerialName("sent_at") val sentAt: String? = null,
+    /** `text` | `voice`. See the class note; never null on the wire. */
+    @SerialName("kind") val kind: String = KIND_TEXT,
+    /** `<circle_id>/<message_id>.m4a` in the `voice` bucket. Null for text. */
+    @SerialName("audio_path") val audioPath: String? = null,
+    @SerialName("duration_ms") val durationMs: Int? = null,
+    /**
+     * Normalised 0..1 amplitudes, one per bar, as `jsonb`.
+     *
+     * Captured while recording rather than derived afterwards - the phone keeps
+     * only the encoded `.m4a` and never the raw PCM - so if the picture does
+     * not travel with the row it does not exist anywhere else.
+     */
+    @SerialName("waveform") val waveform: List<Float>? = null,
     @SerialName("created_at") val createdAt: String? = null,
     @SerialName("updated_at") val updatedAt: String? = null,
     @SerialName("deleted_at") val deletedAt: String? = null
 )
+
+/** The two values `messages.kind` allows. Constrained in SQL by 0006. */
+const val KIND_TEXT: String = "text"
+
+/** See [KIND_TEXT]. A row with this kind carries audio, not words. */
+const val KIND_VOICE: String = "voice"
 
 /** A safe zone. Mirrors `GeofenceZone`. */
 @Serializable

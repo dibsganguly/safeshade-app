@@ -1,6 +1,7 @@
 package com.safeshade.repo
 
 import com.safeshade.cloud.dto.CloudTables
+import com.safeshade.cloud.sync.VoiceNoteStore
 import com.safeshade.data.PrefsLimits
 import com.safeshade.data.SafeShadePreferences
 import com.safeshade.data.VoiceNote
@@ -48,7 +49,7 @@ class VoiceNoteRepository(
     private val voiceDir: File? = null,
     /** See [SyncHooks]. Nothing is queued for the cloud without one. */
     private val hooks: SyncHooks = SyncHooks.None
-) {
+) : VoiceNoteStore {
 
     /** Null until the first DataStore read completes. See [ProfileRepository]. */
     val notes: StateFlow<List<VoiceNote>?> =
@@ -131,7 +132,7 @@ class VoiceNoteRepository(
      * the reason whatever refused it gave - which is the only thing the row can
      * honestly show instead of a tick.
      */
-    suspend fun setUploadState(id: String, state: VoiceUpload) = mutate { notes ->
+    override suspend fun setUploadState(id: String, state: VoiceUpload) = mutate { notes ->
         notes.map { if (it.id == id) it.copy(uploadState = state) else it }
     }
 
@@ -142,11 +143,20 @@ class VoiceNoteRepository(
      * `SafetyRepository.applyRemoteHistory`: a pulled row that queued its own
      * push would be echoed back, re-pulled, and never settle.
      */
-    suspend fun applyRemote(transform: (List<VoiceNote>) -> List<VoiceNote>) {
+    override suspend fun applyRemote(transform: (List<VoiceNote>) -> List<VoiceNote>) {
         lock.withLock {
             val current = prefs.voiceNotes.first()
             val updated = transform(current)
-            if (updated != current) prefs.setVoiceNotes(updated)
+            if (updated == current) return@withLock
+            // Same rule as [remove] and [trimmed], and it has to be here too: a
+            // note deleted on another phone arrives as a tombstone and leaves
+            // through this method, so without the sweep its `.m4a` would stay
+            // in `filesDir/voice` forever with nothing left pointing at it -
+            // exactly the invisible, unreachable, permanent file this class
+            // says it does not leave behind.
+            val keptIds = updated.mapTo(mutableSetOf()) { it.id }
+            current.filterNot { it.id in keptIds }.forEach { deleteFileOf(it) }
+            prefs.setVoiceNotes(updated)
         }
     }
 

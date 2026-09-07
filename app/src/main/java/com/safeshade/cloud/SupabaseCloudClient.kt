@@ -457,6 +457,16 @@ class SupabaseCloudClient(
         Unit
     }
 
+    override suspend fun downloadPrivate(
+        bucket: String,
+        path: String
+    ): CloudResult<ByteArray> = runOrFail {
+        // Authenticated, not public: the `voice` and `evidence` buckets are
+        // private and the read is authorised by the session and the storage
+        // RLS policy, never by a URL anybody could hold on to.
+        client.storage[bucket].downloadAuthenticated(path)
+    }
+
     override suspend fun signedUrl(
         bucket: String,
         path: String,
