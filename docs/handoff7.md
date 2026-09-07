@@ -565,6 +565,21 @@ contains) and read back from uiautomator dumps and screenshots.
   the start silently; the full-screen notification path exists for the alert
   itself, not for a rung. Phase 3's first live alert test must watch for a
   rung that reads Dialled with no dialer on screen.
+- **The 12:28 UTC 401 burst has a better explanation than an expired
+  token, and \`ensureFreshSession\` may not cover it.** The gateway shows one
+  \`wearers\` GET at :33 returning 200, then every pull from :34 returning
+  401, with no \`/auth/v1/token\` call between them; the retries' own refresh
+  threw because the library was already refreshing. That is the shape of a
+  drain running while the stored session is still loading: the first call
+  goes out without a bearer, the rest on the stale one. The new guard
+  returns early when \`currentSessionOrNull()\` is null, which is exactly that
+  window. Phase 5 test: gate \`drainOnce\` on \`client.session\` leaving
+  Loading (with a timeout), cold-start the app with a stale session, and
+  look for the 12:28 pattern in the gateway log.
+- **Weekly report caption**: the day cells count alerts plus messages, so
+  they can sum to more than the strip's alert count (7 against 5 in the
+  first delivered report). The legend explains the colours, not the number.
+  A caption tweak for Phase 4.
 - **An alert email can be lost in a crash window**: the row is pushed, the
   phone dies before `send-alert-email` is invoked, and `notified_at` stays
   null with nothing retrying. The index `alerts_circle_notified_idx` exists
