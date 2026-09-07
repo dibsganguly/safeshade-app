@@ -251,7 +251,9 @@ data class EscalationSettingsDto(
     val emergencyNumber: String? = null
 ) {
     fun toDomain(): EscalationSettings = EscalationSettings(
-        enabled = enabled ?: true,
+        // Off when absent: an install upgraded from before the ladder existed
+        // must not start ringing people on a timer. See EscalationSettings.
+        enabled = enabled ?: false,
         firstDelaySec = (firstDelaySec ?: 30).coerceIn(MIN_DELAY_SEC, MAX_DELAY_SEC),
         secondDelaySec = (secondDelaySec ?: 60).coerceIn(MIN_DELAY_SEC, MAX_DELAY_SEC),
         thenEmergency = thenEmergency ?: true,

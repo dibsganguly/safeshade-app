@@ -70,6 +70,10 @@ object Routes {
     /** Bottom destination 3 — everything that fires in an emergency. */
     const val SAFETY = "safety"
     const val SAFETY_FALL = "safety/fall"
+    /** If nobody answers: the ladder of calls behind an open alert. */
+    const val SAFETY_ESCALATION = "safety/escalation"
+    /** Out of reach: the wearable's own offline and low-battery notices. */
+    const val SAFETY_WATCH = "safety/watch"
     const val SAFETY_CONTACTS = "safety/contacts"
     const val SAFETY_MEDICAL = "safety/medical"
     const val SAFETY_MEDICAL_CARD = "safety/medical/card"

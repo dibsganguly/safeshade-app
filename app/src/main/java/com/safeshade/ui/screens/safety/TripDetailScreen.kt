@@ -60,6 +60,8 @@ data class TripDetailUiState(
     val sensor: LiveSensorData? = null,
     /** Who was called, when anybody was. */
     val contactedName: String? = null,
+    /** The ladder the phone climbed for this trip, when one ran. */
+    val escalation: com.safeshade.service.EscalationRun? = null,
     val today: LocalDate = LocalDate.now()
 )
 
@@ -199,6 +201,14 @@ fun TripDetailScreen(
         if (failure != null) {
             Spacer(Modifier.height(Spacing.sm))
             FailureNote(text = failure.orEmpty())
+        }
+
+        val ladder = state.escalation
+        if (ladder != null) {
+            Spacer(Modifier.height(Spacing.xl))
+            SectionPlate(title = "What the phone did")
+            Spacer(Modifier.height(Spacing.sm))
+            EscalationPlate(run = ladder)
         }
 
         if (trip.outcome == TripOutcome.PENDING) {

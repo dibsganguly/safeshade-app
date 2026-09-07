@@ -158,6 +158,10 @@ import com.safeshade.ui.screens.safety.ContactsScreen
 import com.safeshade.ui.screens.safety.ContactsUiState
 import com.safeshade.ui.screens.safety.EmergencyCardScreen
 import com.safeshade.ui.screens.safety.EmergencyCardUiState
+import com.safeshade.ui.screens.safety.EscalationScreen
+import com.safeshade.ui.screens.safety.EscalationUiState
+import com.safeshade.ui.screens.safety.WatchSettingsScreen
+import com.safeshade.ui.screens.safety.WatchUiState
 import com.safeshade.ui.screens.safety.FallSettingsScreen
 import com.safeshade.ui.screens.safety.FallSettingsUiState
 import com.safeshade.ui.screens.safety.MedicalIdScreen
@@ -977,6 +981,8 @@ fun MainNavGraph(
         composable(Routes.SAFETY) {
             val state = liveState.value
             val lastTrip = state.tripHistory.maxByOrNull { it.timestamp }
+            val hubRun by viewModel.escalationRun.collectAsStateWithLifecycle()
+            val hubWatch by viewModel.watchState.collectAsStateWithLifecycle()
 
             SafetyScreen(
                 state = SafetyUiState(
@@ -991,9 +997,14 @@ fun MainNavGraph(
                     insideSafeZone = state.lastZoneTransition?.isInside,
                     unresolvedTripCount = state.tripHistory.count { it.outcome == TripOutcome.PENDING },
                     lastTripLabel = lastTrip?.let { "${it.kind.label} · ${agoLabel(it.timestamp)}" },
-                    silentSosEnabled = silentSosEnabled
+                    silentSosEnabled = silentSosEnabled,
+                    wearableOfflineSince = hubWatch.offlineSince,
+                    wearableOfflineAlerted = hubWatch.offlineAlerted,
+                    escalationRunning = hubRun?.let { !it.isFinished } == true
                 ),
                 onOpenFallSettings = { navController.navigate(Routes.SAFETY_FALL) },
+                onOpenEscalation = { navController.navigate(Routes.SAFETY_ESCALATION) },
+                onOpenWatch = { navController.navigate(Routes.SAFETY_WATCH) },
                 onOpenContacts = { navController.navigate(Routes.SAFETY_CONTACTS) },
                 onOpenMedicalId = { navController.navigate(Routes.SAFETY_MEDICAL) },
                 onOpenEmergencyCard = { navController.navigate(Routes.SAFETY_MEDICAL_CARD) },
@@ -1008,6 +1019,42 @@ fun MainNavGraph(
                     viewModel.setSafetySettings(state.safetySettings.copy(smsFallbackEnabled = it))
                 },
                 listState = safetyListState
+            )
+        }
+
+        composable(Routes.SAFETY_ESCALATION) {
+            val state = liveState.value
+            val run by viewModel.escalationRun.collectAsStateWithLifecycle()
+            EscalationScreen(
+                state = EscalationUiState(
+                    settings = state.safetySettings.escalation,
+                    contacts = state.safetySettings.emergencyContacts,
+                    wearerName = state.wearerName,
+                    directCallsAllowed = state.safetySettings.autoCallEmergency,
+                    run = run?.takeIf { !it.isFinished }
+                ),
+                onChange = { viewModel.setEscalation(it) },
+                onOpenContacts = { navController.navigate(Routes.SAFETY_CONTACTS) },
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Routes.SAFETY_WATCH) {
+            val state = liveState.value
+            val watch by viewModel.watchState.collectAsStateWithLifecycle()
+            WatchSettingsScreen(
+                state = WatchUiState(
+                    offlineAlertMinutes = state.safetySettings.offlineAlertMinutes,
+                    lowBatteryPercent = state.safetySettings.lowBatteryPercent,
+                    wearerName = state.wearerName,
+                    connected = state.connection.isUsable,
+                    offlineSince = watch.offlineSince,
+                    offlineAlerted = watch.offlineAlerted,
+                    lowBatteryAlerted = watch.lowBatteryAlerted,
+                    batteryPercent = state.telemetry.takeIf { it.isRealData }?.batteryLevel
+                ),
+                onChange = { minutes, percent -> viewModel.setWatchThresholds(minutes, percent) },
+                onBack = { navController.popBackStack() }
             )
         }
 
@@ -1263,6 +1310,7 @@ fun MainNavGraph(
             val tripId = entry.arguments?.getString(Routes.Args.TRIP_ID)
             val trip = state.tripHistory.firstOrNull { it.id == tripId }
                 ?: state.activeAlert?.takeIf { it.id == tripId }
+            val detailRun by viewModel.escalationRun.collectAsStateWithLifecycle()
 
             if (trip == null) {
                 // The history was cleared, or the id is stale. Leaving rather
@@ -1284,6 +1332,7 @@ fun MainNavGraph(
                     },
                     contactedName = state.safetySettings.primaryContact?.name
                         ?.takeIf { trip.wasEmergencyContacted },
+                    escalation = detailRun?.takeIf { it.alertId == trip.id },
                     today = LocalDate.now()
                 ),
                 onBack = { navController.popBackStack() },

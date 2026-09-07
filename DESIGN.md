@@ -519,6 +519,16 @@ Three plates, one per tier, the current one carrying a lit lamp and the line "Yo
 
 One map with two layers. The household's own places (alerts with a fix, safe zones, the last fix) are small ink rings. The community layer is SafeShade Cloud's 1 km cells with at least five alerts each, drawn as three flat amber wash steps by count, never a ramp, so the layer reads in greyscale and nobody's home is visible in it. The layer is a rocker on a way that says what it is and that it is part of Plus; on the Free plan the row's state word is "Plus" and tapping it opens the plans.
 
+### If nobody answers
+
+The ladder of calls behind an open alert, as one page: a "Keep calling" rocker at the top (off until a person throws it, because a phone that rings people on a timer must be told to), the ladder itself as a bank of numbered ways built by the same planner the runner uses from the real contacts and the real settings, two dials for the timing, and the end of the ladder as a rocker plus the number. Two facts are printed on the page rather than left to be found: the emergency number is never called by itself (the dialer opens with it ready), and a phone with no contact stored dials nothing at all, including that number. The Safety hub's "If nobody answers" way carries the chain as a sentence, "Calls Meera, then Arun, then 112".
+
+**The ladder plate** (`safety/EscalationPlate.kt`) is the same run drawn as a record: one way per rung, state word Dialled, Skipped, Not needed or Waiting, and the detail is the time and what the dial reported, verbatim ("At 04:31 · Dialer opened"). There is no Reached and no tick: nothing on a phone can see that somebody picked up. It sits on the trip's own page under "What the phone did", and on the ladder page under "Right now" while an alert is open.
+
+### Out of reach
+
+The two notices the phone raises about the wearable itself, on one page: a "Right now" plate with the link and the battery in the words the notification would use (Connected; Out of reach since 09:12 · 45 min · you were told; 12% · below 15%), then two dials, minutes out of reach and percent of battery, where zero is drawn as the word Off. Both dials write on release and together, because they share one settings row. The hub's way says what is watched, or the outage in progress, and lights amber while the wearable is off the link.
+
 ### First run
 
 Six steps, each the same shape: a scene at the top in which the character does the thing the step is about (walks on and lights the board; stands beside a cane or a phone; peeks at the face being chosen; watches a small board light up as grants land; searches with its antenna until the wearable's own nub answers; holds up the card), a rail of bus ticks for progress, a headline, at most one line of body copy, the controls, and the actions pinned at the foot, rising with the keyboard. The scene runs under the status bar. Feature statements on the welcome step are rows with an icon in its accent and no bus tick or lamp, because they are not circuits.

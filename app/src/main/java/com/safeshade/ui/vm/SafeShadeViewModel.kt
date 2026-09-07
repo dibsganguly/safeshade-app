@@ -308,6 +308,18 @@ class SafeShadeViewModel(
     fun setSafetySettings(settings: SafetySettings) =
         launchIo { container.safetyRepository.setSettings(settings) }
 
+    /** The ladder climbing an open alert right now, or null. */
+    val escalationRun: StateFlow<com.safeshade.service.EscalationRun?> = container.escalationRunner.run
+
+    /** What the wearable watch believes this minute. */
+    val watchState: StateFlow<com.safeshade.service.WatchState> = container.wearableWatch.state
+
+    fun setEscalation(settings: com.safeshade.data.EscalationSettings) =
+        launchIo { container.safetyRepository.setEscalation(settings) }
+
+    fun setWatchThresholds(offlineAlertMinutes: Int, lowBatteryPercent: Int) =
+        launchIo { container.safetyRepository.setWatchThresholds(offlineAlertMinutes, lowBatteryPercent) }
+
     fun addContact(contact: EmergencyContact) =
         launchIo { container.safetyRepository.addContact(contact) }
 

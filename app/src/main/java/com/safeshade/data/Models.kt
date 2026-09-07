@@ -350,7 +350,13 @@ data class SafetySettings(
  * rather than a code change.
  */
 data class EscalationSettings(
-    val enabled: Boolean = true,
+    /**
+     * Off until a person turns it on. The ladder dials real numbers on a
+     * timer, and a default that did so on a phone whose owner had never seen
+     * the page would be the app deciding, on their behalf, to ring their
+     * contacts. The page that switches it on says what it will do first.
+     */
+    val enabled: Boolean = false,
     /** Seconds after the alert is logged before contact one is dialled. */
     val firstDelaySec: Int = 30,
     /** Seconds after that before contact two is dialled. */

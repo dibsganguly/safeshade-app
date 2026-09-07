@@ -45,6 +45,9 @@ import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.board
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 /**
  * Everything the Safety hub draws.
@@ -69,7 +72,13 @@ data class SafetyUiState(
     val insideSafeZone: Boolean? = null,
     val unresolvedTripCount: Int = 0,
     val lastTripLabel: String? = null,
-    val silentSosEnabled: Boolean = false
+    val silentSosEnabled: Boolean = false,
+    /** When the wearable was last on the link, while it is off it. Null when connected or never seen. */
+    val wearableOfflineSince: Long? = null,
+    /** Whether the out-of-reach notice has gone out for this outage. */
+    val wearableOfflineAlerted: Boolean = false,
+    /** Whether the ladder is climbing an open alert right now. */
+    val escalationRunning: Boolean = false
 )
 
 /**
@@ -110,6 +119,8 @@ fun SafetyScreen(
     onOpenZones: () -> Unit,
     onAutoCallChange: (Boolean) -> Unit,
     onSmsFallbackChange: (Boolean) -> Unit,
+    onOpenEscalation: () -> Unit = {},
+    onOpenWatch: () -> Unit = {},
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(0.dp),
     /**
@@ -237,6 +248,25 @@ fun SafetyScreen(
                     checked = state.settings.smsFallbackEnabled,
                     onCheckedChange = onSmsFallbackChange
                 )
+                Hairline()
+                val ladder = state.settings.escalation
+                Way(
+                    name = "If nobody answers",
+                    state = when {
+                        state.escalationRunning -> LampState.ATTENTION
+                        ladder.enabled -> LampState.LIVE
+                        else -> LampState.OFF
+                    },
+                    stateLabel = when {
+                        state.escalationRunning -> "Calling"
+                        ladder.enabled -> "On"
+                        else -> "Off"
+                    },
+                    detail = ladderDetail(state),
+                    icon = SafeShadeIcons.CallAfterAFall,
+                    sealed = locked,
+                    onClick = onOpenEscalation
+                )
             }
         }
 
@@ -311,6 +341,25 @@ fun SafetyScreen(
                     onClick = onOpenSilentSos
                 )
                 Hairline()
+                val watching = state.settings.offlineAlertMinutes > 0 || state.settings.lowBatteryPercent > 0
+                val offline = state.wearableOfflineSince != null && !state.linkLive
+                Way(
+                    name = "Out of reach",
+                    state = when {
+                        offline && watching -> LampState.ATTENTION
+                        watching -> LampState.LIVE
+                        else -> LampState.OFF
+                    },
+                    stateLabel = when {
+                        offline && watching -> "Out of reach"
+                        watching -> "Watching"
+                        else -> "Off"
+                    },
+                    detail = watchDetail(state),
+                    icon = SafeShadeIcons.ConnectToTheDevice,
+                    onClick = onOpenWatch
+                )
+                Hairline()
                 Way(
                     name = "Trip log",
                     state = if (state.unresolvedTripCount > 0) LampState.TRIP else LampState.OFF,
@@ -323,6 +372,35 @@ fun SafetyScreen(
         }
 
     }
+}
+
+/** One line on the ladder: who would be rung, or why nobody would. */
+private fun ladderDetail(state: SafetyUiState): String {
+    val ladder = state.settings.escalation
+    if (!ladder.enabled) return "Off. Only the one call after a fall's countdown."
+    val names = state.settings.emergencyContacts
+        .filter { it.phone.isNotBlank() }
+        .take(2)
+        .map { it.name.ifBlank { it.phone } }
+    if (names.isEmpty()) return "Nobody to call yet. With no contact the phone dials nothing."
+    val chain = names + if (ladder.thenEmergency) listOf(ladder.emergencyNumber) else emptyList()
+    return "Calls " + chain.joinToString(", then ") + " while the trip stays open."
+}
+
+/** One line on the watch: the thresholds, or the outage in progress. */
+private fun watchDetail(state: SafetyUiState): String {
+    val s = state.settings
+    val since = state.wearableOfflineSince
+    if (since != null && !state.linkLive && s.offlineAlertMinutes > 0) {
+        val mins = ((System.currentTimeMillis() - since) / 60_000L).toInt().coerceAtLeast(0)
+        return "Since ${SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(since))} · ${minutesShort(mins)}" +
+            if (state.wearableOfflineAlerted) " · you were told" else ""
+    }
+    val parts = buildList {
+        if (s.offlineAlertMinutes > 0) add("told after ${minutesShort(s.offlineAlertMinutes)} out of reach")
+        if (s.lowBatteryPercent > 0) add("battery below ${s.lowBatteryPercent}%")
+    }
+    return if (parts.isEmpty()) "No notices about the wearable itself." else parts.joinToString(" · ").replaceFirstChar { it.uppercase() }
 }
 
 /**

@@ -171,7 +171,14 @@ class EscalationRunner(
             return
         }
 
-        val result = dial(step.target.dialTo, settings.autoCallEmergency)
+        // A contact may be placed directly when "Call after a fall" allows it.
+        // The emergency number is never placed directly by this class: it
+        // opens the dialer with the number ready and stops there. A phone
+        // making an unattended call to 112 on a timer, with nobody holding it,
+        // is the one outcome here that cannot be taken back, and the dialer
+        // is one press away for anybody who is.
+        val direct = step.target is EscalationTarget.Contact && settings.autoCallEmergency
+        val result = dial(step.target.dialTo, direct)
         val outcome = StepOutcome.Dialled(
             at = System.currentTimeMillis(),
             result = describe(result)
