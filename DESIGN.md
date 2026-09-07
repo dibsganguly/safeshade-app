@@ -521,6 +521,10 @@ Three plates, one per tier, the current one carrying a lit lamp and the line "Yo
 
 One map with two layers. The household's own places (alerts with a fix, safe zones, the last fix) are small ink rings. The community layer is SafeShade Cloud's 1 km cells with at least five alerts each, drawn as three flat amber wash steps by count, never a ramp, so the layer reads in greyscale and nobody's home is visible in it. The layer is a rocker on a way that says what it is and that it is part of Plus; on the Free plan the row's state word is "Plus" and tapping it opens the plans.
 
+### Emails
+
+On the Account page: one way, "What SafeShade sends you", with a count of what is on, opening a page of rockers per kind of mail (Alerts, Circle changes, Account notices, Weekly report). Each rocker flips only after the server has accepted the change, because the server is what honours it; until the server has answered the row shows a dash. Sign-in codes and password mails are deliberately absent: they are how signing in works, not a notification. "Send This Week's Report Now" reports the server's answer as a sentence naming who received it, who had it off, and who could not be reached.
+
 ### Privacy
 
 A page of facts on the Profile, under This phone: what this phone knows and where each thing goes, one way per record, with the state word saying Local, Synced, Held or a count. The one control is the community map: "Share where alerts happen", a rocker that withholds an alert's place while the alert itself still syncs, with the row saying that places already sent stay sent. The page names the region and the delete path rather than reassuring; every row can be checked against the code.

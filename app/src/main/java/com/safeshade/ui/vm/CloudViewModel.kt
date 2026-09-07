@@ -11,6 +11,8 @@ import com.safeshade.BuildConfig
 import com.safeshade.SafeShadeApplication
 import com.safeshade.cloud.CircleInvite
 import com.safeshade.cloud.CircleRole
+import com.safeshade.cloud.EmailPreferences
+import com.safeshade.cloud.WeeklyReportSend
 import com.safeshade.cloud.CloudResult
 import com.safeshade.cloud.CloudSession
 import com.safeshade.cloud.CloudState
@@ -95,6 +97,12 @@ class CloudViewModel(
         cloud.circleActions.acceptInvite(token)
 
     suspend fun setShareAlertPlaces(on: Boolean) = cloud.circleActions.setShareAlertPlaces(on)
+
+    suspend fun setEmailPreferences(prefs: EmailPreferences): CloudResult<Unit> =
+        cloud.circleActions.setEmailPreferences(prefs)
+
+    suspend fun sendWeeklyReportNow(): CloudResult<WeeklyReportSend> =
+        cloud.circleActions.sendWeeklyReportNow()
 
     suspend fun setDevTierOverride(tier: CloudTier?) =
         cloud.circleActions.setDevTierOverride(tier)

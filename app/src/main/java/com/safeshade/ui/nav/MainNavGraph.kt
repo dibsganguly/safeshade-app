@@ -51,6 +51,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import com.safeshade.ui.screens.circle.GuardiansScreen
 import com.safeshade.ui.screens.circle.GuardiansUiState
 import com.safeshade.cloud.CloudSession
+import com.safeshade.ui.screens.profile.EmailsScreen
+import com.safeshade.ui.screens.profile.EmailsUiState
 import com.safeshade.ui.screens.profile.PrivacyScreen
 import com.safeshade.ui.screens.profile.PrivacyUiState
 import com.safeshade.ui.screens.profile.AccountScreen
@@ -2122,6 +2124,23 @@ fun MainNavGraph(
             )
         }
 
+        composable(Routes.SETTINGS_EMAILS) {
+            val cloudVm: CloudViewModel = viewModel(factory = CloudViewModel.Factory)
+            val session by cloudVm.session.collectAsStateWithLifecycle()
+            val cloudState by cloudVm.cloudState.collectAsStateWithLifecycle()
+            EmailsScreen(
+                state = EmailsUiState(
+                    signedIn = session is CloudSession.SignedIn,
+                    email = (session as? CloudSession.SignedIn)?.email,
+                    prefs = cloudState.emailPreferences
+                ),
+                onChange = { cloudVm.setEmailPreferences(it) },
+                onSendWeeklyNow = { cloudVm.sendWeeklyReportNow() },
+                onOpenSignIn = { navController.navigate(Routes.SETTINGS_SIGN_IN) },
+                onBack = { navController.popBackStack() }
+            )
+        }
+
         composable(Routes.SETTINGS_PRIVACY) {
             val state = liveState.value
             val cloudVm: CloudViewModel = viewModel(factory = CloudViewModel.Factory)
@@ -2156,6 +2175,11 @@ fun MainNavGraph(
                 onDeleteAccount = { cloudVm.deleteAccount() },
                 onOpenSignIn = { navController.navigate(Routes.SETTINGS_SIGN_IN) },
                 onOpenPlan = { navController.navigate(Routes.SETTINGS_PLAN) },
+                onOpenEmails = { navController.navigate(Routes.SETTINGS_EMAILS) },
+                emailsLabel = cloudState.emailPreferences?.let { p ->
+                    val on = listOf(p.alerts, p.circle, p.account, p.weeklyReport).count { it }
+                    when (on) { 4 -> "All on"; 0 -> "All off"; else -> "$on of 4 on" }
+                },
                 planLabel = PlanTier.fromKey(cloudState.effectiveTier.wire).label,
                 onBack = { navController.popBackStack() }
             )

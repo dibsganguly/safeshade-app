@@ -109,6 +109,8 @@ object Routes {
     const val SETTINGS_ACCOUNT = "settings/account"
     /** Privacy: what this phone knows and where each thing goes. */
     const val SETTINGS_PRIVACY = "settings/privacy"
+    /** Emails: which of SafeShade's messages this account receives. */
+    const val SETTINGS_EMAILS = "settings/account/emails"
     /** The four ways into an account. Pops itself when the session flips to signed in. */
     const val SETTINGS_SIGN_IN = "settings/account/signin"
 

@@ -62,6 +62,9 @@ fun AccountScreen(
     onDeleteAccount: suspend () -> CloudResult<Unit>,
     onOpenSignIn: () -> Unit,
     onOpenPlan: () -> Unit = {},
+    onOpenEmails: () -> Unit = {},
+    /** One line on what is switched on, or null until known. */
+    emailsLabel: String? = null,
     planLabel: String = "Free",
     onBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
@@ -185,6 +188,20 @@ fun AccountScreen(
                         detail = "What the cloud adds around the board, and what each plan costs",
                         icon = SafeShadeIcons.Crown,
                         onClick = onOpenPlan
+                    )
+                }
+            }
+
+            item("emails-heading") { SectionPlate(title = "Emails") }
+            item("emails") {
+                BoardPlate(modifier = Modifier.fillMaxWidth()) {
+                    Way(
+                        name = "What SafeShade sends you",
+                        state = if (emailsLabel == null) LampState.UNKNOWN else LampState.LIVE,
+                        stateLabel = emailsLabel ?: "—",
+                        detail = "Alerts, Circle changes, account notices and the weekly report, each with its own switch",
+                        icon = SafeShadeIcons.MessageInbox,
+                        onClick = onOpenEmails
                     )
                 }
             }
