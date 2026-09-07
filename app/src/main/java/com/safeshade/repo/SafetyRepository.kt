@@ -3,6 +3,7 @@ package com.safeshade.repo
 import com.safeshade.cloud.dto.CloudTables
 import com.safeshade.data.CheckInRequest
 import com.safeshade.data.EmergencyContact
+import com.safeshade.data.EscalationSettings
 import com.safeshade.data.FallAlertEvent
 import com.safeshade.data.SafeShadePreferences
 import com.safeshade.data.SafetySettings
@@ -325,6 +326,35 @@ class SafetyRepository(
         }
         current.copy(emergencyContacts = existing + contact)
     }
+
+    /**
+     * Replaces the escalation ladder's settings.
+     *
+     * One `mutateSettings`, like everything else here. A caller that set the
+     * delays and then the emergency number in two calls would lose the first
+     * write: `SafetySettings` is a single aggregate and the second read happens
+     * before the first write lands (handoff7 section 9).
+     */
+    suspend fun setEscalation(settings: EscalationSettings) =
+        mutateSettings { it.copy(escalation = settings) }
+
+    /**
+     * The out-of-reach and low-battery thresholds, together.
+     *
+     * Together rather than one setter each for exactly the reason above: they
+     * live on the same blob and they are edited on the same screen, so two
+     * setters would be the documented way to lose one of them.
+     *
+     * @param offlineAlertMinutes 0 switches the out-of-reach notice off.
+     * @param lowBatteryPercent 0 switches the low-battery notice off.
+     */
+    suspend fun setWatchThresholds(offlineAlertMinutes: Int, lowBatteryPercent: Int) =
+        mutateSettings {
+            it.copy(
+                offlineAlertMinutes = offlineAlertMinutes.coerceAtLeast(0),
+                lowBatteryPercent = lowBatteryPercent.coerceIn(0, 100)
+            )
+        }
 
     suspend fun removeContact(phone: String) = mutateSettings { current ->
         current.copy(emergencyContacts = current.emergencyContacts.filterNot { it.phone == phone })

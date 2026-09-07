@@ -4,6 +4,7 @@ import com.safeshade.data.CheckInRequest
 import com.safeshade.data.DeviceIconType
 import com.safeshade.data.DeviceSettings
 import com.safeshade.data.EmergencyContact
+import com.safeshade.data.EscalationSettings
 import com.safeshade.data.FallAlertEvent
 import com.safeshade.data.FallSensitivity
 import com.safeshade.data.GeofenceZone
@@ -22,6 +23,8 @@ import com.safeshade.data.TelemetryPoint
 import com.safeshade.data.TripKind
 import com.safeshade.data.TripOutcome
 import com.safeshade.data.UserRole
+import com.safeshade.data.VoiceNote
+import com.safeshade.data.VoiceUpload
 import com.safeshade.data.Wearer
 import java.util.UUID
 
@@ -201,7 +204,15 @@ data class SafetySettingsDto(
     val emergencyContacts: List<EmergencyContactDto?>? = null,
     val sosVolumeLevel: Float? = null,
     val smsFallbackEnabled: Boolean? = null,
-    val fallCountdownSeconds: Int? = null
+    val fallCountdownSeconds: Int? = null,
+    /**
+     * Null on every store written before the ladder existed, and decoded as
+     * the documented defaults rather than as "off" - a guardian who upgrades
+     * gets the feature, not a silently disabled one.
+     */
+    val escalation: EscalationSettingsDto? = null,
+    val offlineAlertMinutes: Int? = null,
+    val lowBatteryPercent: Int? = null
 ) {
     fun toDomain(): SafetySettings = SafetySettings(
         parentalControlsEnabled = parentalControlsEnabled ?: false,
@@ -215,9 +226,51 @@ data class SafetySettingsDto(
         emergencyContacts = emergencyContacts.orEmpty().filterNotNull().map { it.toDomain() },
         sosVolumeLevel = sosVolumeLevel ?: 0.8f,
         smsFallbackEnabled = smsFallbackEnabled ?: false,
-        fallCountdownSeconds = fallCountdownSeconds ?: 30
+        fallCountdownSeconds = fallCountdownSeconds ?: 30,
+        escalation = (escalation ?: EscalationSettingsDto()).toDomain(),
+        // Negative values are clamped rather than rejected: a stored -1 would
+        // otherwise read as "alert immediately, forever".
+        offlineAlertMinutes = (offlineAlertMinutes ?: 120).coerceAtLeast(0),
+        lowBatteryPercent = (lowBatteryPercent ?: 15).coerceIn(0, 100)
     )
 }
+
+/**
+ * The ladder's settings on disk.
+ *
+ * The delays are clamped on decode, not on write. A zero first delay would mean
+ * an alert dialling a contact in the same instant it is logged, before the
+ * person has had any chance to touch "I'm OK", and a truncated JSON write is
+ * enough to produce one.
+ */
+data class EscalationSettingsDto(
+    val enabled: Boolean? = null,
+    val firstDelaySec: Int? = null,
+    val secondDelaySec: Int? = null,
+    val thenEmergency: Boolean? = null,
+    val emergencyNumber: String? = null
+) {
+    fun toDomain(): EscalationSettings = EscalationSettings(
+        enabled = enabled ?: true,
+        firstDelaySec = (firstDelaySec ?: 30).coerceIn(MIN_DELAY_SEC, MAX_DELAY_SEC),
+        secondDelaySec = (secondDelaySec ?: 60).coerceIn(MIN_DELAY_SEC, MAX_DELAY_SEC),
+        thenEmergency = thenEmergency ?: true,
+        emergencyNumber = emergencyNumber?.takeIf { it.isNotBlank() } ?: "112"
+    )
+
+    private companion object {
+        const val MIN_DELAY_SEC = 5
+        const val MAX_DELAY_SEC = 3600
+    }
+}
+
+fun EscalationSettings.toDto(): EscalationSettingsDto = EscalationSettingsDto(
+    enabled = enabled,
+    firstDelaySec = firstDelaySec,
+    secondDelaySec = secondDelaySec,
+    thenEmergency = thenEmergency,
+    emergencyNumber = emergencyNumber
+)
 
 fun SafetySettings.toDto(): SafetySettingsDto = SafetySettingsDto(
     parentalControlsEnabled = parentalControlsEnabled,
@@ -227,7 +280,10 @@ fun SafetySettings.toDto(): SafetySettingsDto = SafetySettingsDto(
     emergencyContacts = emergencyContacts.map { it.toDto() },
     sosVolumeLevel = sosVolumeLevel,
     smsFallbackEnabled = smsFallbackEnabled,
-    fallCountdownSeconds = fallCountdownSeconds
+    fallCountdownSeconds = fallCountdownSeconds,
+    escalation = escalation.toDto(),
+    offlineAlertMinutes = offlineAlertMinutes,
+    lowBatteryPercent = lowBatteryPercent
 )
 
 data class FallAlertEventDto(
@@ -354,6 +410,91 @@ data class QuickMessageDto(
 
 fun QuickMessage.toDto(): QuickMessageDto =
     QuickMessageDto(id, text, fromGuardian, timestamp, replied, replyText, channel.name, wearerId)
+
+// ============================================
+// VOICE NOTES
+// ============================================
+
+/**
+ * A voice note on disk.
+ *
+ * The upload state is stored as a **tag plus one payload string** rather than
+ * as a nested object per case. Gson has no idea what a Kotlin sealed interface
+ * is: asked to decode one it picks the declared type and produces either a
+ * crash or an instance of the wrong case. A tag and a string is the shape that
+ * survives both a new case being added later and an older build reading a
+ * newer store, and [toDomain] is the one place the pair becomes a type again.
+ *
+ * An unknown tag decodes to [VoiceUpload.LocalOnly], which is the honest
+ * reading: this build does not know that the audio is anywhere else, and the
+ * file on this phone is the copy it can actually play.
+ */
+data class VoiceNoteDto(
+    val id: String? = null,
+    val wearerId: String? = null,
+    val fromGuardian: Boolean? = null,
+    val authorName: String? = null,
+    val file: String? = null,
+    val durationMs: Int? = null,
+    val waveform: List<Float?>? = null,
+    val createdAt: Long? = null,
+    /** One of `local`, `uploading`, `uploaded`, `failed`. */
+    val uploadState: String? = null,
+    /** The location for `uploaded`, the reason for `failed`, otherwise null. */
+    val uploadDetail: String? = null,
+    val listened: Boolean? = null
+) {
+    fun toDomain(): VoiceNote = VoiceNote(
+        id = id ?: UUID.randomUUID().toString(),
+        wearerId = wearerId,
+        fromGuardian = fromGuardian ?: true,
+        authorName = authorName.orEmpty(),
+        file = file.orEmpty(),
+        durationMs = (durationMs ?: 0).coerceAtLeast(0),
+        // A null inside the array is something Gson will hand back happily,
+        // and mapping over a List<Float?> declared as List<Float> is exactly
+        // the delayed NPE this file exists to prevent.
+        waveform = waveform.orEmpty().filterNotNull().map { it.coerceIn(0f, 1f) },
+        createdAt = createdAt ?: 0L,
+        uploadState = when (uploadState) {
+            STATE_UPLOADING -> VoiceUpload.Uploading
+            STATE_UPLOADED -> uploadDetail?.let { VoiceUpload.Uploaded(it) } ?: VoiceUpload.LocalOnly
+            STATE_FAILED -> VoiceUpload.Failed(uploadDetail.orEmpty().ifBlank { "Upload failed" })
+            else -> VoiceUpload.LocalOnly
+        },
+        listened = listened ?: false
+    )
+
+    companion object {
+        const val STATE_LOCAL = "local"
+        const val STATE_UPLOADING = "uploading"
+        const val STATE_UPLOADED = "uploaded"
+        const val STATE_FAILED = "failed"
+    }
+}
+
+fun VoiceNote.toDto(): VoiceNoteDto = VoiceNoteDto(
+    id = id,
+    wearerId = wearerId,
+    fromGuardian = fromGuardian,
+    authorName = authorName,
+    file = file,
+    durationMs = durationMs,
+    waveform = waveform,
+    createdAt = createdAt,
+    uploadState = when (uploadState) {
+        VoiceUpload.LocalOnly -> VoiceNoteDto.STATE_LOCAL
+        VoiceUpload.Uploading -> VoiceNoteDto.STATE_UPLOADING
+        is VoiceUpload.Uploaded -> VoiceNoteDto.STATE_UPLOADED
+        is VoiceUpload.Failed -> VoiceNoteDto.STATE_FAILED
+    },
+    uploadDetail = when (val state = uploadState) {
+        is VoiceUpload.Uploaded -> state.location
+        is VoiceUpload.Failed -> state.reason
+        else -> null
+    },
+    listened = listened
+)
 
 // ============================================
 // REMINDERS

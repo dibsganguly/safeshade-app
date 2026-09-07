@@ -44,6 +44,7 @@ import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.google.gson.Gson
@@ -60,6 +61,7 @@ import com.safeshade.data.local.QuickMessageDto
 import com.safeshade.data.local.ReminderDto
 import com.safeshade.data.local.SafetySettingsDto
 import com.safeshade.data.local.TelemetryPointDto
+import com.safeshade.data.local.VoiceNoteDto
 import com.safeshade.data.local.WearerDto
 import com.safeshade.data.local.toDto
 import kotlinx.coroutines.flow.Flow
@@ -70,6 +72,24 @@ import java.lang.reflect.Type
 private val Context.dataStore by preferencesDataStore(name = "safeshade_prefs")
 
 enum class DarkModePreference { SYSTEM, LIGHT, DARK }
+
+/**
+ * What the phone remembers about the wearable between sessions, for the
+ * out-of-reach and low-battery notices.
+ *
+ * @param lastConnectedAt null when this phone has never had a wearable on the
+ *   link. That is not "offline since the epoch": with no connection ever made
+ *   there is no outage to report, and the watch stays quiet.
+ * @param lastAddress the BLE address of that wearable, kept because the link
+ *   reports a blank address once disconnected and the notice has to name a
+ *   person.
+ */
+data class WearableWatchMarks(
+    val lastConnectedAt: Long? = null,
+    val lastAddress: String = "",
+    val offlineAlerted: Boolean = false,
+    val lowBatteryAlerted: Boolean = false
+)
 
 /**
  * Internal rather than private so the top-level migration steps below — and
@@ -103,6 +123,36 @@ internal object PrefsKeys {
     // --- v3 keys. The multi-wearer model. ---
     val WEARERS = stringPreferencesKey("wearers_json_v1")
     val SELECTED_WEARER = stringPreferencesKey("selected_wearer_id")
+
+    // --- Additive keys. No schema bump: every one of them reads as a
+    // documented default when absent, so there is nothing for a migration to
+    // do and a version bump would only make an upgrade rewrite the file. ---
+    val VOICE_NOTES = stringPreferencesKey("voice_notes_json_v1")
+
+    /**
+     * When the phone last had a bound wearable on the other end of the link,
+     * and which address that was.
+     *
+     * On disk rather than in memory because "out of reach for two hours" is a
+     * claim about wall-clock time that has to survive the process being
+     * reclaimed, which on a phone in a pocket is the normal case. The address
+     * is stored alongside because the link reports a blank one once it is
+     * disconnected, and the notice has to name the person, not "the wearable".
+     */
+    val LAST_WEARABLE_CONNECTED_AT = longPreferencesKey("last_wearable_connected_at")
+    val LAST_WEARABLE_ADDRESS = stringPreferencesKey("last_wearable_address")
+
+    /**
+     * Whether the guardian has already been told about the current outage.
+     *
+     * Persisted for one reason: without it, every cold start during a long
+     * outage would re-raise the same notice, and a phone that restarts a few
+     * times overnight would deliver the same sentence four times.
+     */
+    val OFFLINE_ALERTED = booleanPreferencesKey("wearable_offline_alerted")
+
+    /** Whether the low-battery notice has fired for the current discharge. */
+    val LOW_BATTERY_ALERTED = booleanPreferencesKey("wearable_low_battery_alerted")
 }
 
 /**
@@ -130,6 +180,17 @@ object PrefsLimits {
      * institution, and that is a different product.
      */
     const val WEARERS = 12
+
+    /**
+     * How many voice notes are kept.
+     *
+     * The same number as [MESSAGES], because a voice note *is* a message on the
+     * Talk thread and a thread whose text and audio scrolled off at different
+     * depths would read as gaps in the conversation. Twenty seconds of AAC at
+     * 24 kbit/s is roughly 60 kB, so 200 notes is a bounded ~12 MB of audio
+     * under `filesDir` — and the rows the cap drops take their files with them.
+     */
+    const val VOICE_NOTES = 200
 
     /** Bumped whenever [SafeShadePreferences.migrateIfNeeded] gains a step. */
     const val CURRENT_SCHEMA_VERSION = 3
@@ -170,6 +231,7 @@ class SafeShadePreferences(private val context: Context) {
     private val telemetryListType: Type = object : TypeToken<List<TelemetryPointDto>>() {}.type
     private val checkInListType: Type = object : TypeToken<List<CheckInRequestDto>>() {}.type
     private val pairedListType: Type = object : TypeToken<List<PairedDeviceDto>>() {}.type
+    private val voiceNoteListType: Type = object : TypeToken<List<VoiceNoteDto>>() {}.type
 
     /**
      * Every reader goes through here so the `dataStore.data` reference exists
@@ -404,6 +466,66 @@ class SafeShadePreferences(private val context: Context) {
         context.dataStore.edit {
             it[PrefsKeys.CHECKINS] =
                 gson.toJson(requests.takeLast(PrefsLimits.CHECKINS).map { r -> r.toDto() })
+        }
+    }
+
+    // ============================================
+    // VOICE NOTES
+    // ============================================
+
+    /**
+     * The Talk thread's audio, oldest first.
+     *
+     * Same ordering convention as every other history here, so the cap on
+     * write drops the oldest. The *files* those dropped rows point at are the
+     * repository's problem, not this class's: nothing at this layer holds a
+     * `Context` from which `filesDir` could be reached, and a cap that silently
+     * orphaned an `.m4a` per note would leak megabytes with no row to find them
+     * by. See `VoiceNoteRepository.add`.
+     */
+    val voiceNotes: Flow<List<VoiceNote>> = read { prefs ->
+        decodeList<VoiceNoteDto>(prefs[PrefsKeys.VOICE_NOTES], voiceNoteListType)
+            .map { it.toDomain() }
+    }
+
+    suspend fun setVoiceNotes(notes: List<VoiceNote>) {
+        context.dataStore.edit {
+            it[PrefsKeys.VOICE_NOTES] =
+                gson.toJson(notes.takeLast(PrefsLimits.VOICE_NOTES).map { n -> n.toDto() })
+        }
+    }
+
+    // ============================================
+    // WEARABLE WATCH - the out-of-reach and low-battery notices
+    // ============================================
+
+    /**
+     * The last time a bound wearable was on the link, its address, and whether
+     * each notice has already fired for the current outage or discharge.
+     *
+     * One flow rather than four because every reader wants all of them and a
+     * `combine` of four DataStore reads would let a reader see a fresh
+     * timestamp beside a stale "already told them" flag - which is precisely
+     * the state in which the notice fires twice.
+     */
+    val wearableWatchMarks: Flow<WearableWatchMarks> = read { prefs ->
+        WearableWatchMarks(
+            lastConnectedAt = prefs[PrefsKeys.LAST_WEARABLE_CONNECTED_AT],
+            lastAddress = prefs[PrefsKeys.LAST_WEARABLE_ADDRESS].orEmpty(),
+            offlineAlerted = prefs[PrefsKeys.OFFLINE_ALERTED] ?: false,
+            lowBatteryAlerted = prefs[PrefsKeys.LOW_BATTERY_ALERTED] ?: false
+        )
+    }
+
+    /** Writes all four marks in one edit. See [wearableWatchMarks]. */
+    suspend fun setWearableWatchMarks(marks: WearableWatchMarks) {
+        context.dataStore.edit { prefs ->
+            val at = marks.lastConnectedAt
+            if (at == null) prefs.remove(PrefsKeys.LAST_WEARABLE_CONNECTED_AT)
+            else prefs[PrefsKeys.LAST_WEARABLE_CONNECTED_AT] = at
+            prefs[PrefsKeys.LAST_WEARABLE_ADDRESS] = marks.lastAddress
+            prefs[PrefsKeys.OFFLINE_ALERTED] = marks.offlineAlerted
+            prefs[PrefsKeys.LOW_BATTERY_ALERTED] = marks.lowBatteryAlerted
         }
     }
 

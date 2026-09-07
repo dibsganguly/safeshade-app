@@ -14,6 +14,7 @@ import com.safeshade.data.QuickMessage
 import com.safeshade.data.SafetySettings
 import com.safeshade.data.TelemetryPoint
 import com.safeshade.data.UserRole
+import com.safeshade.data.VoiceNote
 import com.safeshade.data.Wearer
 import com.safeshade.data.DeviceSettings
 import com.safeshade.device.ConnectionState
@@ -57,6 +58,7 @@ class AppStateRepository(
     private val messagingRepo: MessagingRepository,
     private val zoneRepo: ZoneRepository,
     private val journeyRepo: JourneyRepository,
+    private val voiceNoteRepo: VoiceNoteRepository,
     scope: CoroutineScope
 ) {
 
@@ -100,7 +102,7 @@ class AppStateRepository(
         else SafetyBundle(settings, history, checkIns, active)
     }
 
-    private val activityBundle: Flow<ActivityBundle?> = combine(
+    private val activityCore: Flow<ActivityBundle?> = combine(
         messagingRepo.messages,
         zoneRepo.zones,
         journeyRepo.journey,
@@ -110,8 +112,21 @@ class AppStateRepository(
         // journey is legitimately null when idle, so its own `loaded` flag is
         // what decides readiness here — not the value.
         if (messages == null || zones == null || !journeyLoaded) null
-        else ActivityBundle(messages, zones, journey, transition)
+        else ActivityBundle(messages, zones, journey, transition, emptyList())
     }
+
+    /**
+     * The activity bundle, plus the Talk thread's voice notes.
+     *
+     * A second `combine` on top of [activityCore] rather than a sixth source
+     * inside it: the typed overloads stop at five, and the `Array<Any?>` vararg
+     * would turn every null-check in the Loading gate into an unchecked cast.
+     */
+    private val activityBundle: Flow<ActivityBundle?> =
+        combine(activityCore, voiceNoteRepo.notes) { activity, voiceNotes ->
+            if (activity == null || voiceNotes == null) null
+            else activity.copy(voiceNotes = voiceNotes)
+        }
 
     private val deviceCore: Flow<DeviceCore> = combine(
         device.connection,
@@ -173,6 +188,7 @@ class AppStateRepository(
                 zones = activity.zones,
                 journey = activity.journey,
                 lastZoneTransition = activity.lastTransition,
+                voiceNotes = activity.voiceNotes,
                 connection = live.core.connection,
                 telemetry = live.core.telemetry,
                 rssiSmoothed = live.core.rssiSmoothed,
@@ -214,7 +230,8 @@ class AppStateRepository(
         val messages: List<QuickMessage>,
         val zones: List<GeofenceZone>,
         val journey: Journey?,
-        val lastTransition: ZoneTransition?
+        val lastTransition: ZoneTransition?,
+        val voiceNotes: List<VoiceNote>
     )
 
     private data class DeviceCore(
@@ -269,6 +286,14 @@ sealed interface AppState {
         val zones: List<GeofenceZone>,
         val journey: Journey?,
         val lastZoneTransition: ZoneTransition?,
+
+        /**
+         * The Talk thread's voice notes, oldest first.
+         *
+         * Defaulted so a preview or a test constructing a `Ready` by hand keeps
+         * compiling; the real construction always passes the stored list.
+         */
+        val voiceNotes: List<VoiceNote> = emptyList(),
 
         // Live link
         val connection: ConnectionState,

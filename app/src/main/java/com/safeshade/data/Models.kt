@@ -309,11 +309,56 @@ data class SafetySettings(
     val sosVolumeLevel: Float = 0.8f,
     val smsFallbackEnabled: Boolean = false,
     /** Seconds before an unattended fall alert places a call. */
-    val fallCountdownSeconds: Int = 30
+    val fallCountdownSeconds: Int = 30,
+
+    /** The contact-by-contact ladder that runs when an alert goes unanswered. */
+    val escalation: EscalationSettings = EscalationSettings(),
+
+    /**
+     * How long a bound wearable may be out of reach before the guardian is
+     * told. Zero switches the notice off entirely.
+     *
+     * Two hours by default because a wearable left on a charger in another
+     * room is the common case and a shorter window would train the guardian to
+     * swipe the notice away — which is the failure mode that matters, since it
+     * is the same notice that reports a device left behind on a bus.
+     */
+    val offlineAlertMinutes: Int = 120,
+
+    /**
+     * The battery percentage at or below which the guardian is told once.
+     * Zero switches the notice off.
+     */
+    val lowBatteryPercent: Int = 15
 ) {
     val primaryContact: EmergencyContact?
         get() = emergencyContacts.firstOrNull { it.isPrimary } ?: emergencyContacts.firstOrNull()
 }
+
+/**
+ * The unanswered-alert ladder: contact one, then contact two, then the
+ * emergency number.
+ *
+ * The delays are seconds rather than minutes because the whole ladder has to
+ * finish inside the window in which a fall is still an emergency, and because
+ * the first rung is deliberately close behind the fall countdown - somebody who
+ * did not answer their phone in thirty seconds is not more likely to answer it
+ * in five minutes.
+ *
+ * [emergencyNumber] is a string, not an Int: 112 keeps its leading digits, and
+ * a country whose service number is not three digits is a settings change
+ * rather than a code change.
+ */
+data class EscalationSettings(
+    val enabled: Boolean = true,
+    /** Seconds after the alert is logged before contact one is dialled. */
+    val firstDelaySec: Int = 30,
+    /** Seconds after that before contact two is dialled. */
+    val secondDelaySec: Int = 60,
+    /** Whether the ladder ends at the emergency number. */
+    val thenEmergency: Boolean = true,
+    val emergencyNumber: String = "112"
+)
 
 /** A recorded trip on the board: a fall, an SOS, a missed check-in. */
 data class FallAlertEvent(
@@ -397,6 +442,58 @@ data class QuickMessage(
 )
 
 enum class MessageChannel { BLE, SMS }
+
+/**
+ * Where a voice note's audio currently lives.
+ *
+ * Modelled as a state rather than a `Boolean uploaded` because the interesting
+ * value is the middle one: a note that is uploading has been recorded, is
+ * playable on this phone and is not yet anywhere else, and a plate that drew a
+ * tick for it would be claiming the other person could hear it. [Failed]
+ * carries the reason so the row can say why rather than showing a bare cross.
+ */
+sealed interface VoiceUpload {
+
+    /** Recorded on this phone and never sent. The state every note starts in. */
+    data object LocalOnly : VoiceUpload
+
+    data object Uploading : VoiceUpload
+
+    /** @param location the storage path or URL the sync track wrote it to. */
+    data class Uploaded(val location: String) : VoiceUpload
+
+    /** @param reason user-facing, verbatim from whatever refused the upload. */
+    data class Failed(val reason: String) : VoiceUpload
+}
+
+/**
+ * One push-to-talk note on the Circle thread.
+ *
+ * [file] is a **file name**, not a path: the app's `filesDir` moves between
+ * installs and between users on the same phone, so an absolute path stored in
+ * DataStore is a path that resolves to nothing after a restore. The directory
+ * is `filesDir/voice`, and only the layer holding a `Context` may join the two.
+ *
+ * [waveform] is captured while recording rather than derived afterwards - the
+ * app keeps only the encoded `.m4a` and never the raw PCM - so a note carries
+ * its own picture from the instant it exists, before any upload.
+ */
+data class VoiceNote(
+    val id: String = UUID.randomUUID().toString(),
+    /** Whose thread this belongs to. Null means the primary wearer. */
+    val wearerId: String? = null,
+    /** True when a guardian recorded it, mirroring [QuickMessage.fromGuardian]. */
+    val fromGuardian: Boolean = true,
+    val authorName: String = "",
+    /** File name under `filesDir/voice`. See the class note. */
+    val file: String = "",
+    val durationMs: Int = 0,
+    /** Normalised 0..1 amplitudes, one per bar. */
+    val waveform: List<Float> = emptyList(),
+    val createdAt: Long = System.currentTimeMillis(),
+    val uploadState: VoiceUpload = VoiceUpload.LocalOnly,
+    val listened: Boolean = false
+)
 
 // ============================================
 // TELEMETRY

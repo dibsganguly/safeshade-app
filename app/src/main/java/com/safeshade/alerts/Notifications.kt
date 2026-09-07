@@ -111,5 +111,11 @@ object NotificationIds {
     const val JOURNEY_SERVICE = 1003
     const val ZONE = 1010
     const val CHECK_IN = 1011
+
+    /** The wearable has been out of reach for longer than the guardian allowed. */
+    const val WEARABLE_OFFLINE = 1012
+
+    /** The wearable's battery is at or below the guardian's threshold. */
+    const val WEARABLE_LOW_BATTERY = 1013
     const val REMINDER_BASE = 2000
 }

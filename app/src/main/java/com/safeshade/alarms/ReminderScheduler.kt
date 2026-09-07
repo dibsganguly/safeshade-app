@@ -71,6 +71,7 @@ object ReminderScheduler {
     private const val RC_JOURNEY_DEADLINE = 7004
     private const val RC_CHECK_IN_DEADLINE = 7005
     private const val RC_ALERT_EXPIRY = 7006
+    private const val RC_ESCALATION_STEP = 7007
 
     // ============================================
     // Capability
@@ -252,6 +253,41 @@ object ReminderScheduler {
     }
 
     // ============================================
+    // Escalation ladder
+    // ============================================
+
+    /**
+     * Arms the next rung of an unanswered alert's escalation ladder.
+     *
+     * One alarm for the whole ladder, re-armed by the receiver after each rung,
+     * for the same reason [scheduleCheckInDeadline] keeps one: a cancel matches
+     * a `PendingIntent` by request code, component and action only, so a single
+     * outstanding alarm is a single thing to cancel. Three armed at once would
+     * be three chances for one of them to survive an answered alert and dial an
+     * emergency number nobody is expecting.
+     *
+     * @param stepIndex which rung. Travels as an extra, which is *not* part of
+     *   `PendingIntent` equality - hence `FLAG_UPDATE_CURRENT` inside
+     *   [receiver], without which re-arming would deliver the first rung's
+     *   index forever.
+     */
+    fun scheduleEscalationStep(context: Context, alertId: String, stepIndex: Int, at: Long) {
+        schedule(
+            context = context,
+            at = at,
+            pendingIntent = escalationStep(context) {
+                it.putExtra(AlertActionReceiver.EXTRA_EVENT_ID, alertId)
+                it.putExtra(AlertActionReceiver.EXTRA_STEP_INDEX, stepIndex)
+            }
+        )
+    }
+
+    fun cancelEscalationStep(context: Context) {
+        val am = context.getSystemService(AlarmManager::class.java) ?: return
+        runCatching { am.cancel(escalationStep(context)) }
+    }
+
+    // ============================================
     // Boot / cold-start re-arm
     // ============================================
 
@@ -314,6 +350,17 @@ object ReminderScheduler {
          * cancel, is not a defensible thing to do.
          */
         cancelAlertExpiry(context)
+
+        /*
+         * Nor is the escalation ladder, for exactly the same reason and more
+         * so: its last rung dials an emergency number. A phone that rebooted
+         * mid-ladder has spent the outage showing nobody anything, and coming
+         * back up to ring 112 for an alert its owner never saw would be the
+         * single worst thing this app could do unattended. The trip is on disk
+         * as PENDING and the app surfaces it on next launch, which is the
+         * honest recovery.
+         */
+        cancelEscalationStep(context)
     }
 
     // ============================================
@@ -376,6 +423,18 @@ object ReminderScheduler {
         return PendingIntent.getBroadcast(
             context.applicationContext,
             requestCode,
+            intent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+    }
+
+    private fun escalationStep(context: Context, extras: (Intent) -> Unit = {}): PendingIntent {
+        val intent = Intent(context.applicationContext, AlertActionReceiver::class.java)
+            .setAction(AlertActionReceiver.ACTION_ESCALATION_STEP)
+            .also(extras)
+        return PendingIntent.getBroadcast(
+            context.applicationContext,
+            RC_ESCALATION_STEP,
             intent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )

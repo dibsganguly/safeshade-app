@@ -12,7 +12,11 @@ import com.safeshade.repo.MessagingRepository
 import com.safeshade.repo.ProfileRepository
 import com.safeshade.repo.LateBoundSyncHooks
 import com.safeshade.repo.SafetyRepository
+import com.safeshade.repo.VoiceNoteRepository
 import com.safeshade.repo.ZoneRepository
+import com.safeshade.service.EscalationRunner
+import com.safeshade.service.WearableWatch
+import java.io.File
 import com.safeshade.sendSmsText
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -105,6 +109,33 @@ class AppContainer(
 
     val journeyRepository = JourneyRepository(preferences, safetyRepository, scope)
 
+    val voiceNoteRepository = VoiceNoteRepository(
+        prefs = preferences,
+        scope = scope,
+        voiceDir = File(appContext.filesDir, "voice"),
+        hooks = syncHooks
+    )
+
+    /**
+     * The escalation ladder and the wearable watch: two things that act on
+     * their own clock, after the repositories they read and before the UI.
+     * Neither is started here; see [init], which is the one place things start.
+     */
+    val escalationRunner = EscalationRunner(
+        appContext = appContext,
+        prefs = preferences,
+        safety = safetyRepository,
+        link = link,
+        scope = scope
+    )
+
+    val wearableWatch = WearableWatch(
+        appContext = appContext,
+        prefs = preferences,
+        device = deviceRepository,
+        scope = scope
+    )
+
     val appStateRepository = AppStateRepository(
         device = deviceRepository,
         profileRepo = profileRepository,
@@ -112,6 +143,7 @@ class AppContainer(
         messagingRepo = messagingRepository,
         zoneRepo = zoneRepository,
         journeyRepo = journeyRepository,
+        voiceNoteRepo = voiceNoteRepository,
         scope = scope
     )
 
@@ -140,6 +172,12 @@ class AppContainer(
         // The last wire in the graph, and it has to be here: the repositories
         // were built before the cloud existed. See [syncHooks].
         syncHooks.bind(cloud.syncHooks)
+
+        // The two watchers start once the whole graph exists: the runner
+        // observes the safety repository's active alert and the watch polls the
+        // device repository, and both are pure observers of state built above.
+        escalationRunner.start()
+        wearableWatch.start()
 
         /*
          * Migration runs here, once, on the application scope — never inside a

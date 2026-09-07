@@ -67,6 +67,8 @@ object AlertNotifier {
     private const val RC_CONTENT = 6302
     private const val RC_OK = 6303
     private const val RC_CALL = 6304
+    private const val RC_WATCH_OFFLINE = 6305
+    private const val RC_WATCH_BATTERY = 6306
 
     // ============================================
     // Showing
@@ -186,6 +188,67 @@ object AlertNotifier {
             .setContentIntent(openApp(app, event.id, RC_CONTENT))
             .build()
         post(app, NotificationIds.FALL_ALERT, receipt)
+    }
+
+    // ============================================
+    // The wearable itself: out of reach, and low battery
+    // ============================================
+
+    /**
+     * Tells the guardian the wearable has not been on the link for a while.
+     *
+     * A notification and nothing else. No full-screen intent, no SMS, no call:
+     * a wearable on a charger in the next room produces this exactly as a
+     * wearable left on a bus does, and treating the two as an emergency would
+     * train the guardian to swipe away the one notice that later matters.
+     *
+     * @param wearerName may be blank, in which case the notice says "The
+     *   wearable" rather than leaving a gap where a name should be.
+     * @param minutes the threshold the guardian set, phrased back to them.
+     */
+    fun showWearableOffline(context: Context, wearerName: String, minutes: Int) {
+        val app = context.applicationContext
+        Channels.ensureCreated(app)
+
+        val whose = if (wearerName.isBlank()) "The wearable" else "$wearerName's wearable"
+        val notification = NotificationCompat.Builder(app, Channels.WATCH)
+            .setSmallIcon(android.R.drawable.stat_notify_sync_noanim)
+            .setContentTitle("$whose is out of reach")
+            .setContentText("No connection for ${describeMinutes(minutes)}.")
+            .setCategory(NotificationCompat.CATEGORY_STATUS)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setAutoCancel(true)
+            .setContentIntent(openApp(app, "", RC_WATCH_OFFLINE))
+            .build()
+        post(app, NotificationIds.WEARABLE_OFFLINE, notification)
+    }
+
+    /** Tells the guardian the wearable's battery has reached their threshold. */
+    fun showWearableLowBattery(context: Context, wearerName: String, percent: Int) {
+        val app = context.applicationContext
+        Channels.ensureCreated(app)
+
+        val whose = if (wearerName.isBlank()) "The wearable" else "$wearerName's wearable"
+        val notification = NotificationCompat.Builder(app, Channels.WATCH)
+            .setSmallIcon(android.R.drawable.ic_lock_idle_low_battery)
+            .setContentTitle("$whose is low on battery")
+            .setContentText("$percent% left. It will need charging soon.")
+            .setCategory(NotificationCompat.CATEGORY_STATUS)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setAutoCancel(true)
+            .setContentIntent(openApp(app, "", RC_WATCH_BATTERY))
+            .build()
+        post(app, NotificationIds.WEARABLE_LOW_BATTERY, notification)
+    }
+
+    /** "2 hours", "90 minutes". Whole hours read as hours; anything else stays minutes. */
+    internal fun describeMinutes(minutes: Int): String = when {
+        minutes <= 0 -> "a while"
+        minutes < 60 -> if (minutes == 1) "a minute" else "$minutes minutes"
+        minutes % 60 == 0 -> if (minutes == 60) "an hour" else "${minutes / 60} hours"
+        else -> "$minutes minutes"
     }
 
     // ============================================

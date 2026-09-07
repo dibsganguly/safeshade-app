@@ -18,6 +18,7 @@ import com.safeshade.emergencyAlertText
 import com.safeshade.placeEmergencyCall
 import com.safeshade.platform.PhoneNumbers
 import com.safeshade.sendEmergencySms
+import com.safeshade.service.EscalationRunner
 import com.safeshade.service.LastKnownLocation
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -65,6 +66,7 @@ class AlertActionReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val action = intent.action ?: return
         val eventId = intent.getStringExtra(EXTRA_EVENT_ID) ?: return
+        val stepIndex = intent.getIntExtra(EXTRA_STEP_INDEX, -1)
         val app = context.applicationContext as? SafeShadeApplication ?: return
         val pending = goAsync()
 
@@ -74,6 +76,7 @@ class AlertActionReceiver : BroadcastReceiver() {
                     ACTION_IM_OK -> handleImOk(app, eventId)
                     ACTION_CALL_NOW -> handleCallNow(app, eventId)
                     ACTION_ALERT_EXPIRED -> handleExpiry(app, eventId)
+                    ACTION_ESCALATION_STEP -> handleEscalationStep(app, eventId, stepIndex)
                     else -> Unit
                 }
             } catch (e: Exception) {
@@ -134,6 +137,10 @@ class AlertActionReceiver : BroadcastReceiver() {
         // Disarm first. If the process dies between here and the write, the
         // worst case is an unresolved trip in the history — not an ambulance.
         ReminderScheduler.cancelAlertExpiry(app)
+        // The ladder too, and through the runner rather than the scheduler, so
+        // the live plate shows the remaining rungs cancelled instead of sitting
+        // on "waiting" for an alert that has been answered.
+        app.container.escalationRunner.stop()
         dismissNotification(app)
 
         if (eventId == AlertNotifier.TEST_ALERT_ID) return
@@ -142,6 +149,7 @@ class AlertActionReceiver : BroadcastReceiver() {
 
     private suspend fun handleCallNow(app: SafeShadeApplication, eventId: String) {
         ReminderScheduler.cancelAlertExpiry(app)
+        app.container.escalationRunner.stop()
         dismissNotification(app)
 
         val settings = app.container.preferences.safetySettings.first()
@@ -194,6 +202,28 @@ class AlertActionReceiver : BroadcastReceiver() {
         val contacts = contactsForThisAlert(app, settings)
         val contact = primaryOf(contacts)
 
+        /*
+         * The escalation ladder, when it is on, owns every automatic dial.
+         *
+         * The two mechanisms overlap exactly: with the shipped defaults the
+         * countdown expires at thirty seconds and the ladder's first rung comes
+         * due at thirty seconds, both read the trip as PENDING, and both dial
+         * the primary contact. Worse, this branch resolves the trip to
+         * CONTACTED, and the ladder's own gate is the trip still being PENDING
+         * — so whenever this path won the race the ladder could never reach
+         * contact two or the emergency number, which is the entire feature.
+         *
+         * So when the ladder is enabled this keeps only what the ladder does
+         * not do — the expired notification and the SMS fallback — and dials
+         * nothing. The trip stays PENDING, which is also true: nobody has
+         * answered it yet.
+         */
+        if (app.container.escalationRunner.ownsAutoDial()) {
+            AlertNotifier.showExpired(app, event, calledContact = null)
+            if (settings.smsFallbackEnabled) notifyContactsBySms(app, contacts, event)
+            return
+        }
+
         if (!settings.autoCallEmergency || contact == null) {
             // Auto-call off, or nobody to call. Keep the alert on screen —
             // an unanswered fall is more urgent after the countdown, not less.
@@ -214,6 +244,26 @@ class AlertActionReceiver : BroadcastReceiver() {
         if (settings.smsFallbackEnabled) notifyContactsBySms(app, contacts, event)
 
         placeEmergencyCall(app, contact)
+    }
+
+    /**
+     * A rung of the escalation ladder came due.
+     *
+     * Everything the decision needs is re-read from disk by the runner, in a
+     * process this alarm may itself have just woken; see [EscalationRunner].
+     * A missing or negative index means the extra did not survive, which is not
+     * a reason to dial anything.
+     */
+    private suspend fun handleEscalationStep(
+        app: SafeShadeApplication,
+        eventId: String,
+        stepIndex: Int
+    ) {
+        if (stepIndex < 0) {
+            Log.w(TAG, "Escalation step fired with no index")
+            return
+        }
+        app.container.escalationRunner.onStepDue(eventId, stepIndex)
     }
 
     /**
@@ -258,7 +308,13 @@ class AlertActionReceiver : BroadcastReceiver() {
         /** Fired by `AlarmManager` when a fall countdown expires. */
         const val ACTION_ALERT_EXPIRED = "com.safeshade.action.ALERT_EXPIRED"
 
+        /** Fired by `AlarmManager` when a rung of the escalation ladder is due. */
+        const val ACTION_ESCALATION_STEP = "com.safeshade.action.ESCALATION_STEP"
+
         const val EXTRA_EVENT_ID = "com.safeshade.extra.EVENT_ID"
+
+        /** Which rung of the ladder. See `ReminderScheduler.scheduleEscalationStep`. */
+        const val EXTRA_STEP_INDEX = "com.safeshade.extra.STEP_INDEX"
 
         /**
          * Builds one of the notification-action intents.
