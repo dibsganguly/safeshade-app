@@ -234,6 +234,46 @@ class SyncEngine(
     private val now: () -> Long = { System.currentTimeMillis() }
 ) {
 
+    /**
+     * Called after a batch of rows has been accepted by the server, with the
+     * table and the `(record id, row)` pairs that went.
+     *
+     * ### Why a seam rather than an `if (table == "alerts")` in [push]
+     *
+     * Because the drain's job is "get the queue to the server", and the moment
+     * it also knows which table means an email, every future rule of that shape
+     * lands in the same method. `CloudContainer` wires this to
+     * [com.safeshade.cloud.AlertEmailNotifier]; the drain itself stays unaware
+     * that email exists.
+     *
+     * A `var` set after construction for the same reason `CircleManager`'s
+     * hooks are: the notifier needs a client that needs a container that builds
+     * this engine, and one of those three has to be last.
+     *
+     * Suspending, and awaited inside the drain, so that a drain does not report
+     * itself finished while an alert email is still being asked for. It must
+     * never throw - see [notifyPushed].
+     */
+    var onPushed: (suspend (String, List<Pair<String, JsonObject>>) -> Unit)? = null
+
+    /**
+     * Runs [onPushed] and swallows whatever it does.
+     *
+     * The rows are already on the server. Letting a notifier's exception escape
+     * would abandon the rest of the drain - every table after this one in the
+     * batch - because an email could not be asked for, which is precisely the
+     * wrong order of priorities for a sync engine on a phone that has just
+     * recorded a fall.
+     */
+    private suspend fun notifyPushed(table: String, rows: List<Pair<String, JsonObject>>) {
+        val hook = onPushed ?: return
+        try {
+            hook(table, rows)
+        } catch (e: Exception) {
+            Log.w(TAG, "onPushed(" + table + ") threw: " + e.message)
+        }
+    }
+
     private val drainLock = Mutex()
 
     /** Set when a drain was asked for while one was already running. */
@@ -373,6 +413,7 @@ class SyncEngine(
     // ============================================
 
     private suspend fun push() {
+        client.ensureFreshSession()
         val batches = outbox.dueBatches()
         if (batches.isEmpty()) return
 
@@ -422,8 +463,20 @@ class SyncEngine(
                 rows = resolved.map { it.second },
                 serializer = JsonObject.serializer()
             )) {
-                is CloudResult.Ok -> resolved.forEach { (entry, _) ->
-                    outbox.markSent(entry.table, entry.recordId)
+                is CloudResult.Ok -> {
+                    resolved.forEach { (entry, _) ->
+                        outbox.markSent(entry.table, entry.recordId)
+                    }
+                    // The rows are on the server. Anything that has to happen
+                    // *because* they are - today, exactly one thing: emailing
+                    // the Circle about an alert - hangs off here.
+                    //
+                    // After `markSent`, not before, and its failure is its own
+                    // problem: an outbox entry is about whether a row reached
+                    // the server, and re-pushing a row that is already there
+                    // because an email did not go would be the outbox reporting
+                    // somebody else's failure as its own.
+                    notifyPushed(table, resolved.map { (entry, row) -> entry.recordId to row })
                 }
 
                 is CloudResult.Failed -> {
@@ -471,6 +524,7 @@ class SyncEngine(
     // ============================================
 
     private suspend fun pull() {
+        client.ensureFreshSession()
         pullUserTables()
         if (pullSource.tables.isEmpty()) return
         val circleId = pullSource.circleId() ?: return

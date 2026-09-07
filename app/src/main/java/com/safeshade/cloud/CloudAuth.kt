@@ -1,7 +1,9 @@
 package com.safeshade.cloud
 
 import android.content.Intent
+import android.util.Log
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.serialization.json.JsonObject
 
 /**
  * The account surface, as the UI sees it.
@@ -68,11 +70,45 @@ class CloudAuth(private val client: CloudClient) {
      * Nothing in this class asks for confirmation and nothing here should: a
      * destructive action's confirmation belongs where the user can see what
      * they are about to lose, not buried in a helper.
+     *
+     * ### The email goes first, and its failure changes nothing
+     *
+     * `delete_account()` removes the `auth.users` row, so after it there is no
+     * address left to write to. `send-account-deleted` therefore runs first,
+     * reads the address under the service role, and sends - and because it runs
+     * first, the mail it sends says a request *was made*, not that an account
+     * *was deleted*. The template's tense follows from this ordering rather
+     * than from a preference.
+     *
+     * The result is logged and then dropped. Somebody who has asked to be
+     * deleted is entitled to be deleted, and an email provider having a bad
+     * afternoon is not a reason to keep their Circle's medical records on a
+     * server. The deletion is the outcome that matters and it proceeds either
+     * way.
      */
-    suspend fun deleteAccount(): CloudResult<Unit> = client.deleteAccount()
+    suspend fun deleteAccount(): CloudResult<Unit> {
+        when (val notice = client.invoke(DELETION_NOTICE, JsonObject(emptyMap()))) {
+            is CloudResult.Ok -> Unit
+            is CloudResult.Failed ->
+                Log.w(TAG, "deletion notice not sent: " + notice.reason)
+            CloudResult.Disabled -> Unit
+        }
+        return client.deleteAccount()
+    }
 
     /** For `MainActivity` to call in Phase 2. See [CloudClient.handleDeepLink]. */
     fun handleDeepLink(intent: Intent) = client.handleDeepLink(intent)
 }
+
+private const val TAG = "SafeShadeAuth"
+
+/**
+ * The edge function that emails the account before it is deleted.
+ *
+ * It takes no arguments at all: the address comes from `auth.users` under the
+ * service role, so there is no parameter anybody could point at somebody else's
+ * inbox.
+ */
+private const val DELETION_NOTICE = "send-account-deleted"
 
 private fun String.normalizeEmail(): String = trim().lowercase()

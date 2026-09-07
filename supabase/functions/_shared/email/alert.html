@@ -12,36 +12,63 @@
      statement. The preheader carries the same sentence so the inbox preview
      says it too, before the message is even opened.
    * THE MAP LINK IS A BUTTON, NEAR THE TOP. It is the single action anybody
-     takes from this email.
+     takes from this email, and it is the only one that works in every client -
+     which is why it is the button and the safeshade:// link below it is not.
    * THE MEDICAL SUMMARY IS INCLUDED, not linked. A paramedic standing in a
      stairwell should not have to sign in to anything.
    * WHO ELSE WAS REACHED IS STATED, and stated honestly - see the note on the
      delivery list below. Somebody deciding whether to drop everything and drive
      needs to know whether anyone else has been told.
 -->
-<h1 class="ss-h1" style="margin:0 0 10px; font-family:Archivo, 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size:26px; line-height:32px; font-weight:800; color:#22282E;">
+<title>{{headline}}</title>
+
+<h1 class="ss-h1 ss-ink" style="margin:0 0 10px; font-family:Archivo, 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size:26px; line-height:32px; font-weight:800; color:#22282E;">
   {{headline}}
 </h1>
 
-<p style="margin:0 0 20px; font-size:15px; line-height:23px; color:#4A5058;">
-  {{when_label}}{{where_clause}}
-</p>
+<!-- When and where, as one block, each on its own line so neither is skipped
+     when this is read in three seconds. -->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 22px; background:#F2EFE9; border-radius:10px;">
+  <tr>
+    <td style="padding:16px 18px; font-size:15px; line-height:23px; color:#4A5058;">
+      <div style="margin-bottom:4px;"><span style="color:#6A7078;">When:</span> <strong style="color:#22282E;">{{when_label}}</strong></div>
+      <div><span style="color:#6A7078;">Where:</span> <strong style="color:#22282E;">{{where_label}}</strong></div>
+    </td>
+  </tr>
+</table>
 
 <!-- The action. Charcoal fill, bone ink - see magic-link.html for why the
      button is not red: a red fill needs charcoal ink to measure, and charcoal
      ink on red at 15px in a client that has inverted the message is a coin
      toss. The red is carried by the accent band instead, where nothing has to
      be legible on top of it. -->
-<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 26px;">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 14px;">
   <tr>
     <td align="center" style="background:#22282E; border-radius:10px;">
       <a href="{{map_url}}"
-         style="display:inline-block; padding:14px 30px; font-family:Archivo, 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size:15px; font-weight:700; color:#FBF9F5; text-decoration:none;">
+         style="display:inline-block; padding:15px 32px; font-family:Archivo, 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size:15px; font-weight:700; color:#FBF9F5; text-decoration:none;">
         Open the location on a map
       </a>
     </td>
   </tr>
 </table>
+
+<!--
+  Opening the app is a LINE, not a second button, and that is a decision rather
+  than an omission.
+
+  safeshade://login-callback is the app's only registered deep link, and Gmail
+  will not make a custom scheme tappable at all. A second button that does
+  nothing for most readers, next to the one button that works everywhere, would
+  take attention away from the map at the moment attention is scarcest. It is
+  also honest about what it does: MainActivity hands this URI to Supabase auth
+  and nothing yet routes it to the alert, so it opens SafeShade - it does not
+  open this alert.
+-->
+<p style="margin:0 0 24px; font-size:13px; line-height:20px; color:#6A7078;">
+  On the phone with SafeShade installed, this opens the app:
+  <span style="word-break:break-all; color:#4A5058;">{{app_url}}</span>
+</p>
 
 <!-- Medical summary. Bordered rather than filled, so it reads as a card that
      can be shown to somebody rather than as a warning. -->
@@ -62,9 +89,10 @@
   This list is written from the alert_deliveries rows AFTER Resend has answered,
   never before. The app's own rule, learned the hard way: a message that reports
   success and reaches nobody is worse than one that reports failure. So an
-  address whose send failed appears here as failed, and one whose outcome is
-  genuinely unknown appears as unknown - it is not quietly promoted to "sent"
-  to make the email look tidier.
+  address whose send failed appears here as failed, one whose outcome is
+  genuinely unknown appears as unknown, and one that was skipped because that
+  person turned alert emails off appears as skipped - none of them is quietly
+  promoted to "notified" to make the email look tidier.
 -->
 <div style="font-family:Archivo, 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size:12px; font-weight:700; letter-spacing:1.2px; text-transform:uppercase; color:#6A7078; margin:0 0 8px;">
   Also notified
@@ -78,7 +106,6 @@
 </table>
 
 <p style="margin:0; font-size:13px; line-height:20px; color:#6A7078;">
-  You are receiving this because you are in {{wearer_name}}'s SafeShade Circle.
-  Open the app to acknowledge this alert so the rest of the Circle knows somebody
-  has seen it.
+  Open SafeShade to acknowledge this alert so the rest of the Circle knows
+  somebody has seen it.
 </p>

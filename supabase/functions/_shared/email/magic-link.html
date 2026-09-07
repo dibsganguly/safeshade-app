@@ -7,17 +7,19 @@
   deep link has four more ways to fail than typing six digits does. This one is
   for reading mail on a laptop.
 
-  Paste into Dashboard -> Authentication -> Email Templates and swap
-  {{action_url}} for Supabase's {{ .ConfirmationURL }}.
+  Generated into supabase/auth-templates/magic-link.html, with {{action_url}}
+  swapped for Supabase's {{ .ConfirmationURL }}.
 
   Accent: teal.
 -->
-<h1 class="ss-h1" style="margin:0 0 12px; font-family:Archivo, 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size:26px; line-height:32px; font-weight:800; color:#22282E;">
+<title>Sign in to SafeShade</title>
+
+<h1 class="ss-h1 ss-ink" style="margin:0 0 12px; font-family:Archivo, 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size:26px; line-height:32px; font-weight:800; color:#22282E;">
   Sign in to SafeShade
 </h1>
 
 <p style="margin:0 0 24px; font-size:15px; line-height:23px; color:#4A5058;">
-  Tap the button below to sign in. The link works once and expires in one hour.
+  Use the button below to sign in. The link works once.
 </p>
 
 <!--
@@ -25,16 +27,22 @@
   A styled <a> alone loses its background in Outlook and becomes blue underlined
   text on white, which on a teal-accented email reads as a broken message.
 
+  NOT a VML/MSO button. The `<!--[if mso]>` wrapper is an HTML comment, and
+  tools/gen_email_templates.py strips every comment out of these files before
+  compiling them - so an MSO fallback added here would be silently deleted on
+  the way to the inbox, which is worse than not having one. A padded table cell
+  is already rendered correctly by Word.
+
   Charcoal fill with bone ink, not teal with white: brand teal on a bone panel
   measures about 1.9:1, and DESIGN.md's rule is that a hued fill takes charcoal
   ink. Here the fill is the charcoal itself, which is the only combination that
   measures in every client's rendering, inverted or not.
 -->
-<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 22px;">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 20px;">
   <tr>
     <td align="center" style="background:#22282E; border-radius:10px;">
       <a href="{{action_url}}"
-         style="display:inline-block; padding:14px 30px; font-family:Archivo, 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size:15px; font-weight:700; color:#FBF9F5; text-decoration:none;">
+         style="display:inline-block; padding:15px 32px; font-family:Archivo, 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size:15px; font-weight:700; color:#FBF9F5; text-decoration:none;">
         Sign in to SafeShade
       </a>
     </td>
@@ -49,6 +57,16 @@
   <span style="word-break:break-all; color:#4A5058;">{{action_url}}</span>
 </p>
 
-<p style="margin:0; font-size:14px; line-height:21px; color:#4A5058;">
-  If you did not ask to sign in, you can ignore this email.
+<p style="margin:0 0 18px; font-size:14px; line-height:21px; color:#4A5058;">
+  <strong style="color:#22282E;">This link expires one hour after it was sent.</strong>
+  Ask for a new one if it has been longer than that.
 </p>
+
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0; background:#F2EFE9; border-radius:10px;">
+  <tr>
+    <td style="padding:14px 16px; font-size:13px; line-height:20px; color:#4A5058;">
+      If you did not ask for this, nothing happens unless the link is used.
+      Nobody can sign in without it, so there is nothing you need to do.
+    </td>
+  </tr>
+</table>

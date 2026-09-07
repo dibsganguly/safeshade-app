@@ -1,0 +1,127 @@
+<!--
+  The weekly report. Sent by weekly-report, on a Monday or on demand.
+
+  Accent: teal. A report is a reassurance, not an alarm, and it must never look
+  like one - if the weekly summary and the fall alert arrive looking the same,
+  the fall alert stops being distinguishable in a crowded inbox.
+
+  ============================================================================
+  Why the bars are table cells with pixel widths
+  ============================================================================
+
+  Outlook renders HTML through Word, which ignores percentage widths on table
+  cells often enough that a bar chart built from them collapses to nothing or
+  stretches off the frame. So every width in this file is a pixel number, and
+  the ones that depend on data are computed by the function against a known
+  content width: the frame is 600px, the panel has 32px of padding either side,
+  so the drawing area is 536px. That number appears in weekly-report/index.ts
+  as CONTENT_WIDTH and nowhere else.
+
+  No images and no image charts, for two reasons that both matter: Gmail strips
+  the data: URI this project has to use for images, and a chart that only exists
+  as a picture is unreadable in the text/plain part that a locked phone shows.
+
+  ============================================================================
+  An empty week says so, in one line
+  ============================================================================
+
+  {{^has_data}} is the whole of it. A week in which nothing happened renders one
+  sentence and stops. It does NOT render a strip of zeros, seven grey day cells
+  and a bar chart of nothing: that is a picture of a working product rather than
+  a picture of the week, and a guardian who reads it every Monday learns to
+  ignore it - including on the Monday it is not empty.
+-->
+<title>{{circle_name}}: your SafeShade week</title>
+
+<h1 class="ss-h1 ss-ink" style="margin:0 0 8px; font-family:Archivo, 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size:26px; line-height:32px; font-weight:800; color:#22282E;">
+  {{circle_name}}
+</h1>
+
+<p style="margin:0 0 24px; font-size:14px; line-height:21px; color:#6A7078;">
+  {{period_label}}
+</p>
+
+{{^has_data}}
+<p style="margin:0 0 8px; font-size:15px; line-height:23px; color:#4A5058;">
+  Nothing was recorded in this Circle in the last seven days &mdash; no alerts,
+  no messages, no zone events. {{quiet_caveat}}
+</p>
+{{/has_data}}
+
+{{#has_data}}
+
+<!-- The headline strip. Four numbers, one row, fixed cell widths. -->
+<table role="presentation" width="536" cellpadding="0" cellspacing="0" border="0" style="width:536px; margin:0 0 8px; background:#F2EFE9; border-radius:10px;">
+  <tr>
+    <td align="center" width="134" style="width:134px; padding:16px 4px;">
+      <div class="ss-stat ss-ink" style="font-family:Archivo, 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size:28px; line-height:34px; font-weight:800; color:#22282E;">{{alert_count}}</div>
+      <div style="font-size:11px; line-height:16px; color:#6A7078;">alerts</div>
+    </td>
+    <td align="center" width="134" style="width:134px; padding:16px 4px;">
+      <div class="ss-stat" style="font-family:Archivo, 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size:28px; line-height:34px; font-weight:800; color:{{answered_colour}};">{{answered_count}}</div>
+      <div style="font-size:11px; line-height:16px; color:#6A7078;">answered</div>
+    </td>
+    <td align="center" width="134" style="width:134px; padding:16px 4px;">
+      <div class="ss-stat ss-ink" style="font-family:Archivo, 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size:28px; line-height:34px; font-weight:800; color:#22282E;">{{message_count}}</div>
+      <div style="font-size:11px; line-height:16px; color:#6A7078;">messages</div>
+    </td>
+    <td align="center" width="134" style="width:134px; padding:16px 4px;">
+      <div class="ss-stat ss-ink" style="font-family:Archivo, 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size:28px; line-height:34px; font-weight:800; color:#22282E;">{{covered_days}}</div>
+      <div style="font-size:11px; line-height:16px; color:#6A7078;">days with data</div>
+    </td>
+  </tr>
+</table>
+
+<!-- Week over week, as text arrows. A coloured triangle glyph renders in every
+     client and needs no image; the number beside it is what is actually read.
+     Rows are omitted entirely where there is no previous week to compare with,
+     rather than shown as a flat line that claims nothing changed. -->
+{{#comparison_rows}}
+<table role="presentation" width="536" cellpadding="0" cellspacing="0" border="0" style="width:536px; margin:0 0 26px;">
+  <tr>
+    <td style="padding:2px 4px; font-size:13px; line-height:20px; color:#6A7078;">
+      {{{comparison_rows}}}
+    </td>
+  </tr>
+</table>
+{{/comparison_rows}}
+
+<!-- Alerts by kind. Label column then a track; the coloured cell inside the
+     track is the bar and its width is a pixel number the function computed. -->
+{{#kind_bars}}
+<div style="font-family:Archivo, 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size:12px; font-weight:700; letter-spacing:1.2px; text-transform:uppercase; color:#6A7078; margin:0 0 10px;">
+  What was raised
+</div>
+<table role="presentation" width="536" cellpadding="0" cellspacing="0" border="0" style="width:536px; margin:0 0 26px;">
+  {{{kind_bars}}}
+</table>
+{{/kind_bars}}
+
+<!-- Seven days, one cell each, coloured by the busiest thing that happened. -->
+<div style="font-family:Archivo, 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size:12px; font-weight:700; letter-spacing:1.2px; text-transform:uppercase; color:#6A7078; margin:0 0 10px;">
+  Day by day
+</div>
+<table role="presentation" width="536" cellpadding="0" cellspacing="0" border="0" style="width:536px; margin:0 0 10px;">
+  <tr>
+    {{{day_cells}}}
+  </tr>
+</table>
+<p style="margin:0 0 26px; font-size:12px; line-height:18px; color:#8A9099;">
+  {{day_legend}}
+</p>
+
+<!-- One panel per wearer. The disc is a table cell with a background and a
+     letter in it - no image, so it survives Gmail. -->
+{{#wearer_panels}}
+<div style="font-family:Archivo, 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size:12px; font-weight:700; letter-spacing:1.2px; text-transform:uppercase; color:#6A7078; margin:0 0 10px;">
+  Who this is about
+</div>
+{{{wearer_panels}}}
+{{/wearer_panels}}
+
+{{/has_data}}
+
+<p style="margin:0; font-size:13px; line-height:20px; color:#6A7078;">
+  This report counts only what reached SafeShade Cloud. A phone that was offline
+  all week has nothing here and that is not the same as a quiet week.
+</p>

@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
-import { composeEmail, sendEmail } from "../_shared/email/resend.ts";
+import { composeEmail, sendEmail, subjectFor } from "../_shared/email/resend.ts";
+import { inviteTemplate } from "../_shared/email/templates/invite.ts";
 
 /**
  * send-invite
@@ -155,8 +156,19 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // so there is one entry point to handle in MainActivity rather than two.
   const actionUrl = `safeshade://login-callback?invite=${invite.token}`;
 
-  const subject = `${inviterName} added you to ${circleName} on SafeShade`;
-  const html = await composeEmail("invite", {
+  // The subject comes from invite.html's own <title>, compiled into SUBJECTS by
+  // tools/gen_email_templates.py. Written here it would drift from the heading
+  // in the body the first time either was edited alone.
+  //
+  // An invitation is NOT gated on profiles.email_prefs. The person being
+  // invited usually has no SafeShade account at all, so there is no preference
+  // to read - and an invitation is a request somebody made to them by name,
+  // not a notification about something that happened.
+  const subject = subjectFor(inviteTemplate, {
+    inviter_name: inviterName,
+    circle_name: circleName,
+  });
+  const html = await composeEmail(inviteTemplate, {
     title: subject,
     preheader: `Join ${circleName} as ${ROLE_LABELS[role]} and be told if there is a fall.`,
     // Amber: this asks somebody to do something, but nothing is wrong.

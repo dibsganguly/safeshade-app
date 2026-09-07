@@ -1,6 +1,6 @@
 import { EMBLEM_DATA_URI } from "./emblem.ts";
-import { renderEmail, toPlainText, type Vars } from "./render.ts";
-import { BODY_TEMPLATES, LAYOUT_HTML, type BodyTemplateName } from "./templates.ts";
+import { renderEmail, renderSubject, toPlainText, type Vars } from "./render.ts";
+import { LAYOUT_HTML } from "./templates/layout.ts";
 
 /**
  * The Resend transport, and the one rule it exists to enforce.
@@ -43,6 +43,27 @@ import { BODY_TEMPLATES, LAYOUT_HTML, type BodyTemplateName } from "./templates.
  */
 
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
+
+/**
+ * One email design: its body and its subject, generated together from one
+ * `.html` file by `tools/gen_email_templates.py`.
+ *
+ * They travel as one value because they are one decision. An email whose
+ * heading says a fall was detected and whose subject line says "SafeShade
+ * notification" is two different emails, and that is what happens when the
+ * subject is a string literal in a function and the body is a file somewhere
+ * else. Here a function imports `alertTemplate` and gets both, or neither.
+ *
+ * A function's import list is therefore also the list of emails it can send —
+ * which is why there is one module per template rather than one module holding
+ * all of them.
+ */
+export interface EmailTemplate {
+  /** The subject, from the template's `<title>`. May carry `{{placeholders}}`. */
+  subject: string;
+  /** The body fragment, which renders into the layout's content slot. */
+  html: string;
+}
 
 /** See the note on the sender address above. */
 export const FROM_ADDRESS = "SafeShade <onboarding@resend.dev>";
@@ -180,8 +201,9 @@ function errorMessage(e: unknown): string {
  * went, and only a `template load failed` line in the logs said why it looked
  * wrong.
  *
- * `templates.ts` is generated from the same `.html` files by
- * `tools/gen_email_templates.py` and imported like any other module. A missing
+ * `templates/*.ts` are generated from the same `.html` files by
+ * `tools/gen_email_templates.py` and imported like any other module -- one
+ * module per template, so a function's imports say which emails it can send. A missing
  * template is now a build failure, which is a failure somebody sees. There is
  * no fallback here any more because there is nothing left to fall back from,
  * and a dead fallback path reads in review as a live safety net.
@@ -191,11 +213,27 @@ function errorMessage(e: unknown): string {
  */
 // deno-lint-ignore require-await
 export async function composeEmail(
-  bodyTemplate: BodyTemplateName,
+  template: EmailTemplate,
   vars: Vars,
 ): Promise<string> {
-  return renderEmail(LAYOUT_HTML, BODY_TEMPLATES[bodyTemplate], {
+  return renderEmail(LAYOUT_HTML, template.html, {
     emblem: EMBLEM_DATA_URI,
     ...vars,
   });
+}
+
+/**
+ * The subject line for a template, from the template's own `<title>`.
+ *
+ * A function that writes its own subject string is a function whose subject
+ * drifts from its body: the email says a fall was detected and the inbox says
+ * "SafeShade notification", and nobody notices because the two live in
+ * different files. `tools/gen_email_templates.py` lifts each body's `<title>`
+ * into its module, and this is the only way a function should read it.
+ *
+ * `renderSubject`, not `render`, because a subject is not HTML: escaping it
+ * would put `Mum &amp; Dad` in somebody's inbox list.
+ */
+export function subjectFor(template: EmailTemplate, vars: Vars): string {
+  return renderSubject(template.subject, vars);
 }

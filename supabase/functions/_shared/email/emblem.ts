@@ -1,20 +1,54 @@
 /**
  * The SafeShade emblem, inlined.
  *
- * Generated from docs/Logo/SafeShade Emblem Logo.png: the source is a 2000x2000
- * canvas whose artwork occupies only the middle of it (alpha bbox 447,182 to
- * 1545,1862), so it is CROPPED TO THE ALPHA BOUNDING BOX FIRST and only then
- * scaled to 96px wide. Skipping the crop is how every layout number around a
- * SafeShade drawable ends up being a lie - it has happened twice in this
- * project, to splash_emblem and to brand_tagline.
+ * Generated from docs/Logo/SafeShade Emblem Logo.png with Pillow, by hand --
+ * there is no generator script, and the exact recipe is written down in
+ * supabase/README.md under "The emblem does not render in Gmail" so that
+ * regenerating it does not become guesswork. The source is a 2000x2000 canvas
+ * whose artwork occupies
+ * only the middle of it (alpha bbox 447,182 to 1545,1862), so it is CROPPED TO
+ * THE ALPHA BOUNDING BOX FIRST and only then scaled. Skipping the crop is how
+ * every layout number around a SafeShade drawable ends up being a lie - it has
+ * happened twice in this project, to splash_emblem and to brand_tagline.
  *
- * Quantized to 64 colours, which takes it from 17 KB to 3.1 KB. The difference
- * is invisible at 26x40 in an email header and it is 14 KB off every single
- * message sent.
+ * ### Why it is 40x61 and eight colours, and stored in short lines
  *
- * KNOWN LIMITATION: Gmail strips data: URIs in <img src>. Gmail readers see the
- * alt text. Replace this with a hosted https URL once there is a domain - see
- * supabase/README.md.
+ * It used to be a 96px-wide, 64-colour PNG: 4,238 characters of base64, in
+ * every deploy of every function. That is a problem for one reason that has
+ * nothing to do with bytes - it is not reviewable. A single wrong character in
+ * the middle of it produces a file that compiles, deploys, sends, and shows a
+ * broken image, and no diff, test or log anywhere says so. It happened: a
+ * re-deploy carried a corrupted copy and the only thing that caught it was
+ * comparing the last seventy characters by hand.
+ *
+ * So it is now as small as it can be while still being the emblem: 40x61 (the
+ * header slot is 26x40, so this is 1.5x for a dense screen), eight colours,
+ * GIF, flattened onto the masthead charcoal because there is no transparency to
+ * carry. 948 characters, in 56-character lines that a person can actually check.
+ *
+ * ### KNOWN LIMITATION: Gmail strips data: URIs in <img src>
+ *
+ * Gmail readers - which is most readers - see the alt text, which is why the
+ * alt text is the brand name and not "logo". The fix is a hosted https URL,
+ * which needs a domain or a public bucket upload; see supabase/README.md. Until
+ * then the wordmark beside it in layout.html is what the header actually is.
  */
 export const EMBLEM_DATA_URI =
-  "data:image/png;base64,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";
+  "data:image/gif;base64," +
+  "R0lGODdhKAA9AIIAAGyYiyQoLyIoLiIoLSAoLyAmLR8lLB0hKCwAAAAA" +
+  "KAA9AEAI/wAFCDhAsCDBAgESClzIsKFDhwcKGDBwAIDFixgBBDg4sWNH" +
+  "iQcMPBwosUDFjAEoFlhJkeBEkwQHcPRowKTKjgZrGiBwIMDFjSt7ZrT4" +
+  "0iPCiDRNZozIM6NEmlB3HhA49aNQjRFN+sQYMqrHgQIGOBSL1KhLrzTB" +
+  "ih3JtsDAslCnumVL0iOBlSy93j1ItyFcmAa3DgUANyrPuXVfCh4MVOtg" +
+  "i4WPljyJMmTTi11fPvUKUgBNypj3LkVrda3AiZ4/L4a8WW/EvgLJkv5M" +
+  "ErZtAW4N3l5YFO3cgqZ3U50sWKHL1kZ5vqaL1PFjjBtJe16+MCvO43gJ" +
+  "Lk45G/UBspOfY/9tfXV0WpmtC9xtOfRl+fabVwKtCXq81J/NtSec+dXk" +
+  "Zu2VSbRdYZwVhNxlmN0HHYFRVWXWUFm9Nx9pJuFGVmq9hWeedNQtJFtS" +
+  "5U2I1kDBjSQbct21FJZwKxKEYVQwrciiQ7k5GJSMfclUE155FTDAjxQx" +
+  "VKJt6qVYE270iYRjX2UBVtCOXglAgIpLQqThUAHIxKBmQVY5HH3i4Ydi" +
+  "R9M9BFdPCa0G4WwDKfnlR3epB5OahI3pUXRvUpTmk9kJFd1EA7wUKFQ8" +
+  "1aUUYxz1+N2CUU135WMTHoplZCK2hOZgEclEp0WD3vnXjkVKqFN9+HU6" +
+  "0XzOAYCeVIIdMGWqnBKT6GN+k4LU6keW2inAhO9hFtRiW0IFUmE8reaq" +
+  "pKx11yaBCEIG5oJ2WpWYe8YS0KxGOiVllUhiWVVrr8F2NOVpNkpoWX2V" +
+  "ChvSQiV51NNZyNqnrGkVwkhqug0ueWJUG8421ZAtvkhfQv7NFiPAHk6L" +
+  "q79tshhStPbO2GK4Vk0lsUA1ClwxbhczVCNyFSJ8ccad7RYQADs=";

@@ -55,6 +55,22 @@ data class CloudState(
     val shareAlertPlaces: Boolean = true,
 
     /**
+     * Which emails this account has asked for, as the **server** last reported
+     * them, or null when the profile has not been read yet.
+     *
+     * Null is not "all off" and it is not "all on": it is "this phone has not
+     * been told". A settings page must render dashes rather than switches for
+     * it, because a switch drawn in the off position against an unknown value
+     * is a lie about a fall alert.
+     *
+     * The value is written by `set_email_prefs` and read back from it; the
+     * sending functions read `profiles.email_prefs` themselves and this copy
+     * never decides anything. A preference the client enforces is a preference
+     * that stops working the moment anything else calls the function.
+     */
+    val emailPreferences: EmailPreferences? = null,
+
+    /**
      * The last thing that went wrong while talking to the Circle, in plain
      * English, or null.
      *
@@ -181,4 +197,60 @@ data class HeatCell(
     val lat: Double,
     val lon: Double,
     val count: Int
+)
+
+/**
+ * The four email switches, as `profiles.email_prefs` holds them.
+ *
+ * ### Four, split by what the mail is FOR
+ *
+ * Not by which function sends it, and not one switch per email. A person
+ * deciding what reaches their inbox is deciding between "tell me if she falls"
+ * and "tell me who joined"; they are not deciding between `send-alert-email`
+ * and `notify-joined`, and a settings page built on function names would make
+ * them learn the server's vocabulary to answer a question about their mother.
+ *
+ * @param alerts a fall or an SOS nobody answered. The one switch whose
+ *   consequence is worth spelling out on the page: turning it off means a fall
+ *   alert does not reach this address, and the alert email says so to everybody
+ *   else in the Circle rather than pretending the person was notified.
+ * @param circle somebody joined, an invitation was accepted, membership
+ *   changed.
+ * @param weeklyReport the Monday summary.
+ * @param account account-level notices, such as a deletion request.
+ *
+ * The Supabase sign-in emails - the six-digit code, address confirmation,
+ * reauthentication - are **not** covered by any of these and cannot be turned
+ * off here. They are sign-in mechanics rather than notifications: somebody who
+ * has switched everything off still has to be able to sign in.
+ *
+ * Every field defaults to true because that is the schema default, and because
+ * the alternative reading of an absent value would silently withhold a fall
+ * alert from somebody who never opened the page.
+ */
+data class EmailPreferences(
+    val alerts: Boolean = true,
+    val circle: Boolean = true,
+    val weeklyReport: Boolean = true,
+    val account: Boolean = true
+)
+
+/**
+ * What "send this week's report now" achieved, per address.
+ *
+ * Three lists rather than a count, and they are three different facts:
+ *
+ *  - [sent] Resend returned a 2xx for this address.
+ *  - [skipped] this person has the weekly report switched off. Not a failure.
+ *  - [failed] the address and the provider's own words. With no sending domain
+ *    configured, every address except the Resend account owner's lands here
+ *    carrying Resend's explanation, and that has to reach the screen intact.
+ *
+ * A page that showed only a total would be back to reporting a success that
+ * reached nobody, which is the one thing this codebase is written against.
+ */
+data class WeeklyReportSend(
+    val sent: List<String> = emptyList(),
+    val skipped: List<String> = emptyList(),
+    val failed: Map<String, String> = emptyMap()
 )

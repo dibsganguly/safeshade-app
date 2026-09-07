@@ -195,6 +195,11 @@ class SupabaseCloudClient(
                 } catch (c: kotlinx.coroutines.CancellationException) {
                     throw c
                 } catch (again: Throwable) {
+                    // The class name is the diagnosis: a RestException here is
+                    // the server refusing the refresh, anything else is the
+                    // library or the network, and the two are fixed in
+                    // different places.
+                    Log.w(TAG, "refresh-and-retry failed: " + again.javaClass.name + ": " + again.message)
                     again.toCloudFailure()
                 }
             } else {
@@ -262,6 +267,28 @@ class SupabaseCloudClient(
             // mint the token fails the exchange with a message about the token
             // being invalid, which sends people looking in the wrong place.
             if (nonce != null) this.nonce = nonce
+        }
+    }
+
+    private val refreshLock = kotlinx.coroutines.sync.Mutex()
+
+    @OptIn(kotlin.time.ExperimentalTime::class)
+    override suspend fun ensureFreshSession() {
+        val current = client.auth.currentSessionOrNull() ?: return
+        // Sixty seconds of margin: a token that dies mid-drain is the same
+        // failure as one already dead.
+        val leftMs = current.expiresAt.toEpochMilliseconds() - System.currentTimeMillis()
+        if (leftMs > 60_000L) return
+        if (!refreshLock.tryLock()) return
+        try {
+            Log.w(TAG, "access token has " + (leftMs / 1000) + "s left; refreshing before the drain")
+            client.auth.refreshCurrentSession()
+        } catch (c: kotlinx.coroutines.CancellationException) {
+            throw c
+        } catch (t: Throwable) {
+            Log.w(TAG, "refresh before drain failed: " + t.javaClass.name + ": " + t.message)
+        } finally {
+            refreshLock.unlock()
         }
     }
 

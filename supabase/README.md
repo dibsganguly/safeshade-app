@@ -2,10 +2,13 @@
 
 Everything the app needs on the server side lives in this folder. The project
 is **SafeShade App** (`qlgbxhlbzyykxagsvwzv`, ap-southeast-1); the schema is
-applied, both edge functions are deployed, and `local.properties` points the app
-at it. What has **not** happened is a single real email or a single
-authenticated call: no user account exists yet, so every claim below about what
-a signed-in caller sees is reasoned from the code and the policies, not observed.
+applied through `0007`, all five edge functions are deployed, and
+`local.properties` points the app at it. Mail does reach an inbox -- a Circle
+invitation was delivered on 2026-09-06. What has **not** happened is a single
+*authenticated* call to any function, because the dashboard Magic Link template
+has never been pasted and the sign-in email therefore carries no token (see
+§6). Read "What is not done" at the end before trusting any claim here about
+what a signed-in caller sees.
 
 Until you finish step 3, the Android app builds and runs exactly as before:
 `CloudContainer` sees a blank `BuildConfig.SUPABASE_URL` and installs a disabled
@@ -22,14 +25,18 @@ addition to it, never a dependency of it.**
 | `migrations/0001_init.sql` | The whole schema: 19 tables, RLS on every one, the heat-map materialized view, the storage buckets, `handle_new_user`, `delete_account`. |
 | `functions/send-alert-email/` | Emails a Circle when an alert is raised. Takes `{ alert_id }` and nothing else. |
 | `functions/send-invite/` | Creates an invite row and emails the link. |
+| `functions/notify-joined/` | Tells a Circle's owners that somebody accepted their invitation. Takes `{ token }`. |
+| `functions/send-account-deleted/` | Emails the account that a deletion was requested, immediately before `delete_account()` runs. Takes nothing at all. |
+| `functions/weekly-report/` | The Monday summary for one Circle, as an infographic. Takes `{ circle_id }`. Its `report.ts` is pure and its `fixture.mjs` renders it with made-up data so the layout can be checked without a fall. |
 | `migrations/0002_advisor_fixes.sql` | The security advisor's findings from `0001`, fixed. |
 | `migrations/0003_function_grants.sql` | Execute grants on the `security definer` functions, revoked from `public` first. Its header lists the six advisor lines that are intentional. |
 | `migrations/0004_realtime_publication.sql` | Puts `alerts` and `messages` in the `supabase_realtime` publication. Without it a Postgres-changes subscription reports SUBSCRIBED and then delivers nothing, forever, with no error. |
 | `migrations/0005_bootstrap_circle.sql` | Every account owns exactly one Circle, from the moment it exists. See § "Every account owns exactly one Circle". |
+| `migrations/0007_email_notifications.sql` | Everything the email system needs: the `notified_at` / `joined_notified_at` claim stamps that make the dedupe server-side, `invites.accepted_by`, `profiles.email_prefs` and its one writer `set_email_prefs`, `'skipped'` on `alert_deliveries.status`, and the pg_cron + pg_net + Vault dispatcher for the weekly report. |
 | `migrations/0006_voice_messages.sql` | Voice notes on the Circle thread: `messages` gains `kind` (`text` or `voice`, `not null default 'text'`), `audio_path`, `duration_ms` and `waveform`. Re-states the private `voice` bucket and its circle-scoped policies idempotently, and **adds the UPDATE policy** they were missing — the app uploads with `upsert`, which is an UPDATE on a retry and was denied without it. |
-| `functions/_shared/email/` | The branded templates (`.html`, the source of truth), the renderer, the Resend transport, and the generated `templates.ts`. |
+| `functions/_shared/email/` | The branded templates (`.html`, the source of truth), the renderer, the Resend transport, and the generated `templates/*.ts` — one module per template, so a function ships only the emails it can send. |
 | `auth-templates/` | **Generated.** The three sign-in emails, ready to paste into the dashboard, with every placeholder already a Supabase `{{ .X }}`. See §6. |
-| `../tools/gen_email_templates.py` | Regenerates `templates.ts` and `auth-templates/` from the `.html` files. Run it after editing any of them. |
+| `../tools/gen_email_templates.py` | Regenerates `templates/*.ts` and `auth-templates/` from the `.html` files. Run it after editing any of them. |
 
 ---
 
@@ -185,10 +192,13 @@ records it gives you to your DNS, wait for verification, then change
 ```bash
 supabase functions deploy send-alert-email
 supabase functions deploy send-invite
+supabase functions deploy notify-joined
+supabase functions deploy send-account-deleted
+supabase functions deploy weekly-report
 ```
 
-**Both are already deployed** (version 1, `verify_jwt` on) -- they were pushed
-through the Supabase MCP rather than the CLI, which is why there is still no
+**All five are already deployed** (`verify_jwt` on) -- they were pushed through
+the Supabase MCP rather than the CLI, which is why there is still no
 `supabase/config.toml` and why the CLI has never been linked to this project.
 The MCP upload mirrors the repo tree, so `_shared/email/*.ts` sits beside the
 function directory and the committed `../_shared/email/...` imports resolve
@@ -204,9 +214,20 @@ only a `template load failed` line in **Edge Functions -> Logs** said why the
 alert looked wrong. Nobody watches that.
 
 `tools/gen_email_templates.py` now turns every `.html` in
-`functions/_shared/email/` into string constants in `templates.ts`, which
-`resend.ts` imports like any other module. **Edit the `.html` files -- they are
-still the source of truth -- then run the generator and redeploy:**
+`functions/_shared/email/` into **one TypeScript module per template** under
+`functions/_shared/email/templates/`, each holding that template's body and its
+subject line. A function imports the templates it can send, by name, so its
+import list is also the list of emails it is capable of sending -- and
+`send-account-deleted` no longer ships the fall alert and the whole weekly
+report in its bundle.
+
+The subject lives in the `.html` file's `<title>`, is lifted out by the
+generator, and is read back through `subjectFor(template, vars)`. A function
+that writes its own subject string is a function whose subject drifts from its
+body.
+
+**Edit the `.html` files -- they are still the source of truth -- then run the
+generator and redeploy:**
 
 ```bash
 python tools/gen_email_templates.py
@@ -240,21 +261,45 @@ and every placeholder already resolved to a Supabase Go-template variable.
 
 Go to **Authentication -> Email Templates** and paste each file whole.
 
-| Dashboard template | Paste this file | Supabase supplies |
-|---|---|---|
-| **Magic Link** | `auth-templates/magic-link-otp.html` | `{{ .Token }}` -- the six-digit code, which is what the app asks for first |
-| **Magic Link** (alternative) | `auth-templates/magic-link.html` | `{{ .ConfirmationURL }}` -- a link instead, for reading mail on a laptop |
-| **Confirm signup** | `auth-templates/confirm-signup.html` | `{{ .Token }}` -- a code, not a link. Read the next paragraph before "correcting" this. |
+The dashboard's **Subject** box is a separate field and is **not** read from the
+pasted file. Type the subject in by hand; `python tools/gen_email_templates.py`
+prints this same table when it runs.
 
-**Paste the file's contents, not its path.** On 2026-09-07 the first code
-email delivered through Resend arrived with a body that read, in full,
+| Dashboard template | Paste this file | Subject to type | Supabase supplies |
+|---|---|---|---|
+| **Magic Link** | `auth-templates/magic-link-otp.html` | Your SafeShade sign-in code | `{{ .Token }}` -- the six-digit code, which is what the app asks for first |
+| **Magic Link** (alternative) | `auth-templates/magic-link.html` | Sign in to SafeShade | `{{ .ConfirmationURL }}` -- a link instead, for reading mail on a laptop |
+| **Confirm signup** | `auth-templates/confirm-signup.html` | Confirm your email for SafeShade | `{{ .Token }}` -- a code, not a link. Read the next paragraph before "correcting" this. |
+| **Reset Password** | `auth-templates/reset-password.html` | Reset your SafeShade password | `{{ .ConfirmationURL }}` and `{{ .Token }}` -- both, because GoTrue populates both for a recovery |
+| **Change Email Address** | `auth-templates/change-email.html` | Confirm your new email address for SafeShade | `{{ .ConfirmationURL }}`, `{{ .Email }}` (the current address) and `{{ .NewEmail }}` (supported in this template and no other) |
+| **Reauthentication** | `auth-templates/reauthentication.html` | Your SafeShade confirmation code | `{{ .Token }}` only -- there is no confirmation URL for a reauthentication, which is why that file has no button |
+
+**The last three cannot fire on SafeShade today, and that is deliberate.** Reset
+Password and Reauthentication need a password sign-in, and the app offers a
+six-digit code and Google (`signInWithPassword` exists on `CloudClient` with no
+screen behind it); Change Email Address needs `updateUser({ email })`, which
+nothing calls. They are generated and pasted anyway so that those three
+dashboard slots are not still holding Supabase's unbranded defaults on the day
+one of those flows ships -- which is the day nobody is looking at email design.
+
+### THIS IS STILL BROKEN, AND IT BLOCKS SIGN-IN
+
+**Paste the file's contents, not its path.** On 2026-09-07 a code email
+delivered through Resend arrived with a body that read, in full,
 `supabase/auth-templates/magic-link-otp.html`: the path had been pasted into
-the dashboard's template body. Open the file, select everything, copy, and
-paste that into **Message body**. The dashboard's **Subject** field is separate
-and is not read from the file; set it to the file's `<title>` ("Your SafeShade
-sign-in code" for Magic Link, "Confirm your email for SafeShade" for Confirm
-signup). Check with a real request: the delivered mail in Resend's log should
-show the SafeShade layout and a six-digit code, not a file name.
+the dashboard's template body.
+
+**It is still like that.** A sign-in email requested at 11:54 UTC on 2026-09-07
+(Resend id `cf066206-d813-4a1a-b9de-7e9cb1c4b433`) was delivered with exactly
+that one line as both its HTML and its text part. So the Magic Link email
+currently carries **no token of any kind**, and nobody can sign in to this
+project by email until somebody opens the dashboard and fixes it. Every
+authenticated smoke test below is blocked on this one paste.
+
+Open the file, select everything, copy, and paste that into **Message body**.
+Set **Subject** from the table above. Check with a real request: the delivered
+mail in Resend's log should show the SafeShade layout and a six-digit code, not
+a file name.
 
 **Confirm signup carries a code, and that is not a mistake.** GoTrue's
 `SendMagicLink` sends the **Confirm signup** template, not the Magic Link one,
@@ -295,17 +340,234 @@ would only exist via `.Data` on an `inviteUserByEmail` call, which nothing in
 SafeShade makes. Circle invitations go out through the `send-invite` edge
 function and Resend, which renders `invite.html` with real values.
 
+---
+
+## 6a. The notification emails, and the rules they obey
+
+Five functions, and between them ten designs in
+`functions/_shared/email/*.html`. Every one renders into the same `layout.html`
+frame: charcoal masthead with the emblem and the wordmark, a 4px accent band
+coloured by what the message is for (teal = a confirmation, amber = attention,
+trip red = an emergency, and red appears on nothing routine), a bone panel, and
+a three-line footer that says why you received it, that replies are not read,
+and what the product is. There is deliberately no postal address, phone number
+or support address anywhere: SafeShade has none, and inventing one to make an
+email look established is a detail that is later discovered to be false.
+
+The subject lives in each file's `<title>` and is lifted into that template's
+generated module, so the subject and the body cannot drift apart.
+
+| Template | Sent by | Subject |
+|---|---|---|
+| `alert.html` | `send-alert-email` | *the headline*, e.g. "A fall was detected - Nani" |
+| `invite.html` | `send-invite` | "{inviter} added you to {circle} on SafeShade" |
+| `joined.html` | `notify-joined` | "{who} joined {circle} on SafeShade" |
+| `account-deleted.html` | `send-account-deleted` | "A request to delete your SafeShade account" |
+| `weekly-report.html` | `weekly-report` | "{circle}: your SafeShade week" |
+| `otp.html` | Supabase Auth | "Your SafeShade sign-in code" |
+| `magic-link.html` | Supabase Auth | "Sign in to SafeShade" |
+| `reset-password.html` | Supabase Auth | "Reset your SafeShade password" |
+| `change-email.html` | Supabase Auth | "Confirm your new email address for SafeShade" |
+| `reauthentication.html` | Supabase Auth | "Your SafeShade confirmation code" |
+
+### The dedupe is on the server, always
+
+Three of these are triggered by a phone, and a phone retries. So
+`send-alert-email` and `notify-joined` **claim** their row before they send
+anything:
+
+```sql
+update alerts set notified_at = now() where id = $1 and notified_at is null
+```
+
+If that returns no row, another invocation already ran the send pass and this
+one sends nothing -- it returns the existing `alert_deliveries` rows with
+`already_notified: true`, so a caller that retried still learns who was reached
+rather than being told "done". Resend's `Idempotency-Key` is the second layer,
+not the first: trusting it alone would leave the *phone* deciding how many
+emails a guardian gets.
+
+`notified_at` means **the pass ran**. It never means anybody was reached.
+`alert_deliveries` is the record of that, and it is still written from Resend's
+answer and from nothing else.
+
+`notify-joined` additionally requires that the caller *is* the person who
+accepted the invitation -- `invites.accepted_by`, set by `accept_invite`.
+Without that column, anybody who had seen an invite link could make the server
+email an owner "X joined your Circle" at any moment, from SafeShade's own
+address, saying something untrue.
+
+### Preferences are read by the sender, not by the phone
+
+`profiles.email_prefs` is a jsonb with four keys -- `alerts`, `circle`,
+`weekly_report`, `account` -- and every sending function reads it immediately
+before sending. A skipped recipient is reported as
+`{ email, status: "skipped", reason: "preference" }`, is written to
+`alert_deliveries` with `status = 'skipped'`, and appears in the alert email's
+"Also notified" list as *alert emails switched off*. It is never counted as
+delivered and never counted as a failure.
+
+Two deliberate exceptions:
+
+* **Invitations are not gated.** The person being invited usually has no
+  SafeShade account, so there is no preference to read, and an invitation is a
+  request somebody made to them by name rather than a notification.
+* **Supabase Auth mail is not gated.** Sign-in codes, address confirmation and
+  reauthentication are sign-in mechanics. Somebody who has switched everything
+  off still has to be able to sign in, and Supabase sends them from its own
+  templates without consulting this column anyway.
+
+An address with **no profile row** -- a neighbour in `emergency_contacts`, a
+GP's surgery -- is never skipped. They never opted out of anything, and
+withholding a fall alert from them because a table lookup missed would be the
+most expensive possible reading of an absent row.
+
+The one writer is `set_email_prefs(jsonb)`: it validates that every key is known
+and every value is a real boolean, merges rather than replaces, and returns what
+it stored. The app writes through it and updates `CloudState.emailPreferences`
+from the **answer**, so a switch is never drawn in a position the server has not
+confirmed. Before the first read that field is null, and the settings page shows
+dashes rather than switches.
+
+### What the app calls, and from where
+
+| Email | App call site |
+|---|---|
+| alert | `cloud/AlertEmailNotifier.kt`, hung off `SyncEngine.onPushed` -- after the alert row is accepted by the server, and only for `outcome = PENDING`. That filter is what stops a backfill emailing a family about months of old falls. |
+| joined | `CircleManager.CircleActions.acceptInvite`, straight after the join is recorded. Logged, never surfaced: the join succeeded whether or not somebody else's inbox did. |
+| account deleted | `CloudAuth.deleteAccount`, **before** `delete_account()` -- afterwards there is no address left to write to. Its failure is logged and the deletion proceeds. |
+| weekly report | `CircleManager.CircleActions.sendWeeklyReportNow()`, and the Monday cron. |
+
+**A known gap:** a crash between the alert row being pushed and the invoke
+completing loses that email -- the row is on the server with `notified_at` still
+null and nothing tries again. Closing it needs a server-side sweeper over
+`alerts_circle_notified_idx`, which is why that index exists.
+
+---
+
+## 6b. The weekly report, and its schedule
+
+`weekly-report` has two callers and checks them differently:
+
+* a signed-in guardian's JWT says `role: authenticated`, and membership of the
+  named circle is proven by a read through **their** client, where RLS decides;
+* the Monday job presents the project's `service_role` key, whose JWT says
+  `role: service_role`, and there is no user to check membership for.
+
+`verify_jwt` is on, so the gateway has already verified the signature before the
+function reads the claim.
+
+The job is `public.dispatch_weekly_reports()`, run by pg_cron at **01:30 UTC on
+Mondays, which is 07:00 IST**. Fixed IST rather than each Circle's local
+morning, and that is a limitation rather than a choice: `profiles.locale` is a
+*language*, no table on this schema carries a time zone, and inferring one from
+a language is wrong for every country with more than one.
+
+**No key appears in `0007` and none may ever be added to it.** The dispatcher
+reads two secrets out of Supabase Vault **by name**. Create them once, from the
+dashboard's SQL editor:
+
+```sql
+select vault.create_secret(
+  'https://<ref>.supabase.co/functions/v1',
+  'safeshade_functions_url',
+  'Base URL for SafeShade edge functions'
+);
+select vault.create_secret(
+  '<the service_role key from Project Settings -> API>',
+  'safeshade_service_role_key',
+  'Used only by dispatch_weekly_reports() over pg_net'
+);
+```
+
+**Until both exist the Monday job does nothing** and writes a notice saying so.
+That is the intended failure: a schedule that quietly stops is better than a key
+in a migration. The in-app "send this week's report now" button does not go
+through this path at all and works without either secret.
+
+Check the job with
+`select * from cron.job where jobname = 'safeshade-weekly-report';` and its
+history in `cron.job_run_details`.
+
+### The report itself
+
+`weekly-report/report.ts` is pure -- no Supabase import -- so the layout can be
+exercised without a project, a circle or a fall:
+
+```bash
+node supabase/functions/weekly-report/fixture.mjs out.html
+```
+
+writes a rendered week you can open in a browser, prints the `text/plain`
+alternative, and fails if any element is wider than the 600px frame. Every width
+in the infographic is a pixel computed against `CONTENT_WIDTH = 536`, because
+Outlook renders through Word and ignores percentage widths on table cells often
+enough that a percentage bar chart collapses or overflows. Nothing in it is an
+image: the bars are coloured table cells, the day strip is seven coloured cells,
+and the wearer discs are letters in a round-cornered cell -- so all of it
+survives Gmail, and all of it appears in the plain-text part.
+
+It counts only what the tables hold: `alerts`, `messages` and `zone_events`.
+There is no "nights out of range" and no wellbeing score -- `device_sightings`
+is empty and nothing writes a connectivity history, so a number for either would
+be invented, and a number in a weekly report is read as a measurement. **A week
+with nothing in it renders one sentence saying so**, not a grid of zeros: a
+guardian who reads a chart of nothing every Monday learns to ignore it,
+including on the Monday it is not empty.
+
 ### The emblem does not render in Gmail
 
-`layout.html` inlines the emblem as a `data:` URI, generated from
+`layout.html` inlines the emblem as a `data:` URI from
+`functions/_shared/email/emblem.ts`, generated from
 `docs/Logo/SafeShade Emblem Logo.png` — cropped to its alpha bounding box first
 (the source is a 2000×2000 canvas with the artwork in the middle of it), scaled
-to 96px wide and quantized to 64 colours, which is 3.1 KB.
+to 40×61, quantized to eight colours, flattened onto the masthead charcoal, and
+written as GIF: 948 characters, in 56-character lines.
 
-**Gmail strips `data:` URIs in `<img src>`.** Gmail readers see the alt text,
-which is why the alt text is `SafeShade` and not `logo`. Once there is a domain,
-upload the PNG to the public `avatars` bucket (or anywhere with an https URL)
-and replace `EMBLEM_DATA_URI` in `functions/_shared/email/emblem.ts` with it.
+**Why so small, and why in short lines.** It used to be a 96px-wide 64-colour
+PNG, 4,238 characters of base64 on one line, and that is not reviewable. One
+wrong character in the middle of it produces a file that compiles, deploys,
+sends, and shows a broken image, with no diff, test or log anywhere saying so —
+which is exactly what happened during this pass, on a re-deploy, and was caught
+only by comparing the last seventy characters by hand. Short lines and a small
+image are what make the next such mistake visible.
+
+**To regenerate it.** There is deliberately no generator script — this runs once
+a logo changes, and a script nobody runs rots faster than a paragraph. It needs
+Pillow, which the repo does not otherwise depend on:
+
+```python
+import base64, io
+from PIL import Image
+src = Image.open("docs/Logo/SafeShade Emblem Logo.png").convert("RGBA")
+src = src.crop(src.getbbox())                    # never skip this
+src.thumbnail((40, 61), Image.LANCZOS)
+flat = Image.new("RGB", src.size, (34, 40, 46))  # the masthead charcoal
+flat.paste(src, (0, 0), src)
+buf = io.BytesIO()
+flat.convert("P", palette=Image.ADAPTIVE, colors=8).save(buf, "GIF", optimize=True)
+b64 = base64.b64encode(buf.getvalue()).decode()
+lines = [b64[i:i + 56] for i in range(0, len(b64), 56)]
+for n, line in enumerate(lines):
+    print(f'  "{line}"' + (" +" if n < len(lines) - 1 else ""))
+```
+
+Paste the lines into `emblem.ts`, keeping the 56-character split, and redeploy
+**every** function — the emblem ships inside each bundle.
+
+This is the recipe that produced the current 948 characters, not a
+reconstruction of it: re-run on **Pillow 12.2.0** it reproduces
+`EMBLEM_DATA_URI` byte for byte, and that was checked rather than assumed. The
+adaptive quantizer is not guaranteed identical across Pillow versions, so
+another version may give a different-but-equivalent image rather than the same
+bytes.
+
+**Gmail strips `data:` URIs in `<img src>`.** Gmail readers — which is most
+readers — see the alt text, which is why the alt text is `SafeShade` and not
+`logo`, and why the wordmark sits beside the emblem rather than inside it. Once
+there is a domain, upload the PNG to the public `avatars` bucket (or anywhere
+with an https URL) and replace `EMBLEM_DATA_URI` with it; that also removes the
+transcription hazard above entirely.
 
 ## 7. Optional: send the auth emails through Resend too
 
@@ -333,35 +595,93 @@ verified, sign-in emails only reach the Resend account owner.
 ## What is not done
 
 Stated plainly, because a half-built thing that looks finished is how this
-project has lost time before:
+project has lost time before. Last checked 2026-09-07.
 
-- **No email has ever been sent.** `RESEND_API_KEY` is not set on the project,
-  so `sendEmail` returns `failed` with "RESEND_API_KEY is not set on this
-  project" and writes that to `alert_deliveries` — correct behaviour, and also
-  proof of nothing. Until a key is set and one message lands in an inbox, the
-  whole email path is unverified.
-- **No authenticated call has been made.** No user account exists on the
-  project. Both functions have been booted (an anon JWT gets `send-alert-email`
-  to its 404 and `send-invite` to its 401, which are their own authorisation
-  checks answering correctly), but nothing has ever run as a real member of a
-  real Circle, so the RLS-driven paths through them are unexercised.
-- **Realtime has never delivered a row.** `alerts` and `messages` are in the
-  publication and `CloudClient.changes` is implemented, but no subscription has
-  ever been opened against the live project.
-- **The app does not upload anything yet.** `SyncEngine` has `NoPayloadSource`
-  installed, so the outbox queues records and the drain finds no bodies to send.
-  Wiring the repositories in is Phase 2. A null payload is a *skip*, not a
-  failure, precisely so the UI does not report failures that never happened.
-- **Nothing pulls yet either.** `NoPullSource`. Writing rows back needs a merge
-  rule per table — last-write-wins is fine for a zone's radius and completely
-  wrong for an alert's outcome, where "dismissed by the guardian" must not be
-  overwritten by a stale "pending" from another phone.
-- **Deep links are registered but not handled.** The manifest has the
-  `safeshade://login-callback` intent filter and `CloudClient.handleDeepLink`
-  exists, but `MainActivity` does not call it. Until it does, the OTP and
-  password sign-ins work and the OAuth-redirect path does not complete.
+### Verified
+
+- **Email delivery works.** `RESEND_API_KEY` is set, custom SMTP points Supabase
+  Auth at Resend, and mail has been delivered to `dibsganguly@gmail.com` — a
+  Circle invitation on 2026-09-06 and sign-in mail since.
+- **The weekly report's layout, with data.** `node
+  supabase/functions/weekly-report/fixture.mjs` renders the full infographic
+  from a fixture week and asserts nothing exceeds the 600px frame; the rendered
+  page was opened and read. The plain-text alternative carries the same numbers,
+  the arrows included.
+- **The weekly report's layout with nothing in it.** The same command then
+  builds a week with no alerts, no messages and no zone events, and fails if it
+  renders anything but the one sentence — no statistics strip, and nothing left
+  unrendered. `{{^has_data}}` immediately followed by `{{#has_data}}` on the
+  same key is the shape a section regex gets wrong, and the quiet week is the
+  one most Circles will actually receive.
+- **The generator's placeholder gate.** Every `auth-templates/*.html` was
+  regenerated and scanned: every surviving `{{...}}` is a Supabase `{{ .X }}`
+  form, and `.NewEmail` appears only in `change-email.html`, which is the only
+  template Supabase supports it in.
+- **The schema.** `0007` is applied. `alerts.notified_at`,
+  `invites.accepted_by`, `invites.joined_notified_at`, `profiles.email_prefs`
+  and the widened `alert_deliveries.status` all exist; `pg_net` is installed and
+  `cron.job` holds `safeshade-weekly-report`.
+- **The app.** `gradlew.bat assembleDebug` and `testDebugUnitTest` are green —
+  285 unit tests, none failing.
+
+### NOT verified, and why
+
+- **No function has ever been invoked by a signed-in user.** This is the big
+  one, and it has a single cause: the dashboard's Magic Link template still
+  contains the literal string `supabase/auth-templates/magic-link-otp.html`
+  instead of the template (see §6), so the sign-in email carries no token and no
+  session can be obtained. Creating a second test account fails too — Resend's
+  `onboarding@resend.dev` refuses every address except the account owner's, so
+  GoTrue cannot send its confirmation email. **Paste the auth templates and the
+  whole smoke test below becomes possible in five minutes.**
+- **So: no live send of the alert, joined, account-deleted or weekly-report
+  emails.** Their rendering is proven only through the fixture renderer and the
+  generator; their *delivery* is unproven.
+- **The Monday job has never run**, and cannot until the two Vault secrets in
+  §6b exist.
+- **The auth templates have not been pasted into the dashboard**, so what
+  Supabase actually sends today is not what is in `auth-templates/`.
+- **Nothing has read `profiles.email_prefs` in anger.** The round trip is unit
+  tested (`EmailPrefsTest`) and `set_email_prefs` is applied, but no phone has
+  written a preference and no function has skipped a recipient because of one.
 - **`vitals_samples` is an empty table for a feature that does not exist.** The
   deck marks HR / SpO₂ / temperature as *Planned* and the wearable's
   `HEALTH_CHAR` carries the Medical ID, not vitals. The table is there so the
   schema is not migrated the week the sensor lands. Do not read its existence as
   the feature shipping.
+
+### The smoke test to run once sign-in works
+
+With a signed-in user's access token:
+
+```bash
+# 1. Give the Circle a deliverable recipient. send-alert-email excludes the
+#    CALLER from the circle-member half, so with one account the owner's own
+#    address has to arrive as an emergency contact.
+#    (SQL editor)
+insert into public.emergency_contacts
+  (id, circle_id, name, email, priority, notify_by_email, notify_by_sms)
+select gen_random_uuid(), id, 'Smoke test', '<the Resend account owner>', 1, true, false
+from public.circles limit 1;
+
+# 2. The four functions.
+curl -X POST "$URL/functions/v1/send-alert-email"      -H "Authorization: Bearer $JWT" -H "Content-Type: application/json" -d '{"alert_id":"<uuid>"}'
+curl -X POST "$URL/functions/v1/weekly-report"         -H "Authorization: Bearer $JWT" -H "Content-Type: application/json" -d '{"circle_id":"<uuid>"}'
+curl -X POST "$URL/functions/v1/notify-joined"         -H "Authorization: Bearer $JWT" -H "Content-Type: application/json" -d '{"token":"<an invite token this account accepted>"}'
+curl -X POST "$URL/functions/v1/send-account-deleted"  -H "Authorization: Bearer $JWT" -H "Content-Type: application/json" -d '{}'
+```
+
+Then read the delivered HTML back in Resend and check it shows the SafeShade
+layout — not a file path, not raw `{{mustache}}`. Re-run `send-alert-email` with
+the same id: it must answer `already_notified: true` and send nothing.
+
+**`send-account-deleted` emails a real person to say their account is being
+deleted.** It does not delete anything by itself, but do not fire it at an
+address that will be alarmed by it.
+
+Afterwards, delete the smoke-test emergency contact and clear the stamps:
+
+```sql
+delete from public.emergency_contacts where name = 'Smoke test';
+update public.alerts set notified_at = null where id = '<uuid>';
+```

@@ -89,6 +89,20 @@ interface CloudClient {
         nonce: String? = null
     ): CloudResult<Unit>
 
+    /**
+     * Refreshes the access token if it is about to expire, before a burst of
+     * table calls goes out on it.
+     *
+     * The access token lives half an hour on this project. A cold start with
+     * a stale stored session fired thirteen pulls at once, every one met a
+     * 401, and thirteen retries each asked the library to refresh while it
+     * was already refreshing, which it refuses. One refresh here, ahead of
+     * the burst, is the fix; the per-call retry stays as the second net.
+     * Never throws; a failed refresh is logged and the calls go out anyway,
+     * where the 401 path reports them.
+     */
+    suspend fun ensureFreshSession() {}
+
     suspend fun signOut(): CloudResult<Unit>
 
     /**

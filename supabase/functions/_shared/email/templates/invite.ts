@@ -1,19 +1,23 @@
-<!--
-  Circle invitation. Sent by send-invite.
+// ---------------------------------------------------------------------------
+// GENERATED FILE -- DO NOT EDIT.
+//
+// The .html files in this directory are the source of truth.  Regenerate with:
+//
+//     python tools/gen_email_templates.py
+//
+// They live here as compiled-in string constants rather than being read from
+// disk at runtime, because a deploy that drops a file must fail loudly at build
+// time instead of quietly sending unbranded mail about somebody having fallen
+// over.  See tools/gen_email_templates.py for the whole argument.
+// ---------------------------------------------------------------------------
 
-  Accent: amber. This asks somebody to do something, but nothing is wrong.
 
-  A note on the words: the app calls this group a Circle, and so does this
-  email. The vocabulary a user sees and the vocabulary the tables use are the
-  same on purpose - a "circle" can be a family, a care team, or one person
-  alone, and none of those is well described by "account" or "family".
+import type { EmailTemplate } from "../resend.ts";
 
-  There is deliberately no dashboard version of this template. Its variables
-  have no Supabase Auth counterpart; see tools/gen_email_templates.py.
--->
-<title>{{inviter_name}} added you to {{circle_name}} on SafeShade</title>
-
-<h1 class="ss-h1 ss-ink" style="margin:0 0 12px; font-family:Archivo, 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size:26px; line-height:32px; font-weight:800; color:#22282E;">
+/** `invite.html`, with its subject line from that file's `<title>`. */
+export const inviteTemplate: EmailTemplate = {
+  subject: `{{inviter_name}} added you to {{circle_name}} on SafeShade`,
+  html: `<h1 class="ss-h1 ss-ink" style="margin:0 0 12px; font-family:Archivo, 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size:26px; line-height:32px; font-weight:800; color:#22282E;">
   {{inviter_name}} added you to {{circle_name}}
 </h1>
 
@@ -23,8 +27,6 @@
   if there is a fall, an SOS, or a missed check-in.
 </p>
 
-<!-- What the role actually permits, in plain words. A permission model nobody
-     can read is a permission model nobody checks. -->
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 24px; background:#F2EFE9; border-radius:10px;">
   <tr>
     <td style="padding:16px 18px; font-size:14px; line-height:21px; color:#4A5058;">
@@ -45,10 +47,6 @@
   </tr>
 </table>
 
-<!-- The raw link matters more here than anywhere else in this system. It is a
-     safeshade:// address, and several mail clients will not turn a custom
-     scheme into a tappable link at all - so for those readers this line is the
-     invitation, not a fallback to it. -->
 <p style="margin:0 0 18px; font-size:13px; line-height:20px; color:#6A7078;">
   If the button does not open SafeShade, install the app and paste this link
   into your phone's browser:<br>
@@ -68,3 +66,5 @@
     </td>
   </tr>
 </table>
+`,
+};

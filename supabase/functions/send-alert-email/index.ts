@@ -1,13 +1,15 @@
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
-import { composeEmail } from "../_shared/email/resend.ts";
-import { sendEmail, type DeliveryResult } from "../_shared/email/resend.ts";
+import { composeEmail, sendEmail, subjectFor, type DeliveryResult } from "../_shared/email/resend.ts";
 import { escapeHtml } from "../_shared/email/render.ts";
+import { addressesOptedOut, type RecipientOutcome } from "../_shared/email/prefs.ts";
+import { alertTemplate } from "../_shared/email/templates/alert.ts";
 
 /**
  * send-alert-email
  *
  * Request:  { "alert_id": "<uuid>" }
- * Response: { "deliveries": [ { "recipient", "status", "error" } ] }
+ * Response: { "alert_id", "already_notified": bool,
+ *             "deliveries": [ { "email", "status", "error", "reason"? } ] }
  *
  * ============================================================================
  * The request body is ONE FIELD, and that is the security model
@@ -23,7 +25,8 @@ import { escapeHtml } from "../_shared/email/render.ts";
  * the first anyone would know is when it started being reported as phishing.
  * Resolving recipients from `emergency_contacts` and `circle_members` means the
  * only addresses this function can ever reach are ones somebody deliberately
- * added to a Circle.
+ * added to a Circle. For the same reason the caller cannot suppress a
+ * recipient either - see `_shared/email/prefs.ts`.
  *
  * ============================================================================
  * The caller is checked BEFORE the service role is used
@@ -32,7 +35,7 @@ import { escapeHtml } from "../_shared/email/render.ts";
  * The service role bypasses row-level security completely. So the caller's own
  * JWT is used first, through a separate client, to read the alert: if RLS lets
  * them see it they are a member of its circle, and if it does not, this returns
- * 403 and stops. Without that step, `{"alert_id": "<any uuid>"}` from any signed
+ * 404 and stops. Without that step, `{"alert_id": "<any uuid>"}` from any signed
  * -in account would email a stranger's Circle about a stranger's fall.
  *
  * That is why the check is a *read through the user's client* rather than a
@@ -41,13 +44,34 @@ import { escapeHtml } from "../_shared/email/render.ts";
  * would be a second definition of "who may see this" that can drift.
  *
  * ============================================================================
+ * The alert is CLAIMED before anything is sent, and the claim is the dedupe
+ * ============================================================================
+ *
+ * The app invokes this the moment an alert row is pushed, and the app retries.
+ * So the first thing that happens after authorisation is
+ *
+ *     update alerts set notified_at = now() where id = $1 and notified_at is null
+ *
+ * and if that returns no row, another invocation already ran the send pass and
+ * this one sends nothing. The dedupe is on the server because the phone must
+ * not be the thing deciding how many emails a guardian gets - a phone that
+ * loses three responses would otherwise send four copies of one fall alert.
+ *
+ * `notified_at` means THE PASS RAN. It does not mean anybody was reached; the
+ * `alert_deliveries` rows are the record of that, and they are still written
+ * from Resend's answer and from nothing else. A second invoke returns those
+ * rows with `already_notified: true`, so a caller that retried still learns the
+ * truth about who was reached rather than being told "done".
+ *
+ * ============================================================================
  * Nothing is recorded as sent before Resend answers 2xx
  * ============================================================================
  *
  * Each recipient gets a `queued` row first, then the send, then an UPDATE with
  * the real outcome. `sent` only ever comes from a 2xx. `failed` carries Resend's
  * own message. `unknown` is the genuinely ambiguous case and is never rounded to
- * either neighbour. See `_shared/email/resend.ts`.
+ * either neighbour. `skipped` is the person who turned alert emails off - not a
+ * failure, and not a delivery either. See `_shared/email/resend.ts`.
  *
  * Note on the sender: with no domain yet, `onboarding@resend.dev` can only
  * deliver to the Resend account owner's own address. Every other recipient comes
@@ -75,6 +99,13 @@ const KIND_LABELS: Record<string, string> = {
   ZONE_EXIT: "Left a safe zone",
   JOURNEY_OVERDUE: "A journey is overdue",
 };
+
+/**
+ * The app's only registered deep link (see AndroidManifest.xml). It opens
+ * SafeShade; nothing yet routes the `alert` parameter to the alert itself, and
+ * the template says so rather than implying otherwise.
+ */
+const APP_URL = "safeshade://login-callback";
 
 Deno.serve(async (req: Request): Promise<Response> => {
   if (req.method !== "POST") {
@@ -104,6 +135,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
     global: { headers: { Authorization: authHeader } },
   });
 
+  const { data: userData } = await asUser.auth.getUser();
+  const callerEmail = userData?.user?.email?.trim().toLowerCase() ?? null;
+
   const { data: visible } = await asUser
     .from("alerts")
     .select("id")
@@ -121,6 +155,34 @@ Deno.serve(async (req: Request): Promise<Response> => {
   //    has already been proven to be entitled to.
   const admin = createClient(url, serviceKey);
 
+  // 3. Claim it. One statement, conditional on the stamp still being null, so
+  //    two invocations racing each other produce exactly one send pass.
+  const { data: claimed } = await admin
+    .from("alerts")
+    .update({ notified_at: new Date().toISOString() })
+    .eq("id", alertId)
+    .is("notified_at", null)
+    .select("id")
+    .maybeSingle();
+
+  if (!claimed) {
+    // Somebody already ran the pass. Report what it achieved rather than a
+    // bare "ok": a retrying caller still needs to know who was reached.
+    const { data: existing } = await admin
+      .from("alert_deliveries")
+      .select("recipient, status, error")
+      .eq("alert_id", alertId);
+    return json({
+      alert_id: alertId,
+      already_notified: true,
+      deliveries: (existing ?? []).map((d) => ({
+        email: d.recipient,
+        status: d.status,
+        error: d.error,
+      })),
+    }, 200);
+  }
+
   const { data: alert, error: alertError } = await admin
     .from("alerts")
     .select("id, circle_id, wearer_id, kind, occurred_at, lat, lon, location_label, note")
@@ -131,22 +193,29 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return json({ error: "alert could not be read" }, 500);
   }
 
-  const recipients = await resolveRecipients(admin, alert);
+  const recipients = await resolveRecipients(admin, alert, callerEmail);
   if (recipients.length === 0) {
     // Not an error, and not a silent success either. An empty list is a real
-    // and important answer: nobody in this Circle has an email address, so
+    // and important answer: nobody else in this Circle has an email address, so
     // nobody was told. The app must be able to say that.
-    return json({ deliveries: [] }, 200);
+    return json({ alert_id: alert.id, already_notified: false, deliveries: [] }, 200);
   }
+
+  // 4. Preferences, read server-side, once for the whole batch.
+  const optedOut = await addressesOptedOut(admin, "alerts", recipients);
+  const toSend = recipients.filter((r) => !optedOut.has(r));
+  const toSkip = recipients.filter((r) => optedOut.has(r));
 
   const wearerName = await lookupWearerName(admin, alert.wearer_id);
   const medicalRows = await buildMedicalRows(admin, alert);
   const headline = `${KIND_LABELS[alert.kind ?? ""] ?? "A SafeShade alert"} - ${wearerName}`;
+  const subject = subjectFor(alertTemplate, { headline });
 
-  // 3. Queue a row per recipient before sending anything, so that a crash
-  //    mid-loop leaves evidence that a send was attempted rather than nothing
-  //    at all.
-  const queued = recipients.map((r) => ({
+  // 5. A row per recipient before anything is sent, so that a crash mid-loop
+  //    leaves evidence that a send was attempted rather than nothing at all.
+  //    The skipped ones are written in their final state immediately: they are
+  //    not queued for anything.
+  const queued = toSend.map((r) => ({
     id: crypto.randomUUID(),
     circle_id: alert.circle_id,
     alert_id: alert.id,
@@ -154,35 +223,47 @@ Deno.serve(async (req: Request): Promise<Response> => {
     channel: "email",
     status: "queued",
   }));
-  await admin.from("alert_deliveries").insert(queued);
+  if (queued.length > 0) await admin.from("alert_deliveries").insert(queued);
+  if (toSkip.length > 0) {
+    await admin.from("alert_deliveries").insert(toSkip.map((r) => ({
+      id: crypto.randomUUID(),
+      circle_id: alert.circle_id,
+      alert_id: alert.id,
+      recipient: r,
+      channel: "email",
+      status: "skipped",
+      error: "this address has alert emails switched off",
+    })));
+  }
 
-  // 4. Send, sequentially. Not in parallel: Resend rate-limits, and a burst
+  // 6. Send, sequentially. Not in parallel: Resend rate-limits, and a burst
   //    that trips the limit turns "three guardians notified" into "one
   //    notified, two 429s".
   const results: DeliveryResult[] = [];
-  for (let i = 0; i < recipients.length; i++) {
-    const to = recipients[i];
-    const html = await composeEmail("alert", {
-      title: headline,
+  for (let i = 0; i < toSend.length; i++) {
+    const to = toSend[i];
+    const html = await composeEmail(alertTemplate, {
+      title: subject,
       preheader: headline,
       accent: "#E5484D",
       headline,
       wearer_name: wearerName,
       when_label: formatWhen(alert.occurred_at),
-      where_clause: formatWhere(alert),
+      where_label: formatWhere(alert),
       map_url: mapUrl(alert),
+      app_url: APP_URL,
       medical_rows: medicalRows,
       // Who else was reached, as known so far. The first recipient's email
       // cannot list the outcomes of sends that have not happened yet, so it
       // lists the addresses and says the outcomes are still in flight rather
       // than claiming they succeeded.
-      delivery_rows: deliveryRowsHtml(recipients, results, to),
+      delivery_rows: deliveryRowsHtml(toSend, toSkip, results, to),
       footer: "Sent by SafeShade because an alert was raised in your Circle.",
     });
 
     const result = await sendEmail({
       to,
-      subject: headline,
+      subject,
       html,
       // Per recipient, never per alert. A key of just the alert id would make
       // Resend return the FIRST recipient's cached response for everybody else,
@@ -203,13 +284,21 @@ Deno.serve(async (req: Request): Promise<Response> => {
       .eq("id", queued[i].id);
   }
 
-  return json({
-    deliveries: results.map((r) => ({
-      recipient: r.recipient,
+  const deliveries: RecipientOutcome[] = [
+    ...results.map((r) => ({
+      email: r.recipient,
       status: r.status,
       error: r.error,
     })),
-  }, 200);
+    ...toSkip.map((email) => ({
+      email,
+      status: "skipped" as const,
+      error: null,
+      reason: "preference",
+    })),
+  ];
+
+  return json({ alert_id: alert.id, already_notified: false, deliveries }, 200);
 });
 
 /**
@@ -222,8 +311,19 @@ Deno.serve(async (req: Request): Promise<Response> => {
  * Order matters: emergency contacts first, by `priority`, because if a rate
  * limit or a quota cuts the loop short, the people who must be told are the
  * ones who were told.
+ *
+ * The caller is removed from the CIRCLE MEMBER half only. The phone that raised
+ * this alert does not need an email telling it what it just sent, and a person
+ * whose own inbox fills with their own alerts stops reading them. But an
+ * emergency contact who happens to share that address was added by hand, on
+ * purpose, as somebody to reach in an emergency, and that is not a duplicate to
+ * be tidied away.
  */
-async function resolveRecipients(admin: SupabaseClient, alert: AlertRow): Promise<string[]> {
+async function resolveRecipients(
+  admin: SupabaseClient,
+  alert: AlertRow,
+  callerEmail: string | null,
+): Promise<string[]> {
   const out: string[] = [];
 
   const { data: contacts } = await admin
@@ -253,7 +353,8 @@ async function resolveRecipients(admin: SupabaseClient, alert: AlertRow): Promis
       .in("id", memberIds);
     for (const p of profiles ?? []) {
       if (typeof p.email === "string" && p.email.includes("@")) {
-        out.push(p.email.trim().toLowerCase());
+        const email = p.email.trim().toLowerCase();
+        if (email !== callerEmail) out.push(email);
       }
     }
   }
@@ -322,41 +423,58 @@ async function buildMedicalRows(admin: SupabaseClient, alert: AlertRow): Promise
  *
  * Honest about what is not yet known. An address whose send has not happened
  * yet says "being notified", not "notified" - the recipient of the first email
- * genuinely does not know how the second one went.
+ * genuinely does not know how the second one went. An address that was skipped
+ * says so, and says why, because a guardian deciding whether to drive needs to
+ * know the difference between "the email bounced" and "she has these switched
+ * off".
  */
 function deliveryRowsHtml(
-  recipients: string[],
+  sending: string[],
+  skippedList: string[],
   done: DeliveryResult[],
   self: string,
 ): string {
   const byRecipient = new Map(done.map((d) => [d.recipient, d]));
-  return recipients
-    .map((r) => {
-      const label = r === self ? `${escapeHtml(r)} (you)` : escapeHtml(r);
-      const d = byRecipient.get(r);
-      if (!d) {
-        return `<div style="margin-bottom:3px;">${label} &mdash; <span style="color:#6A7078;">being notified</span></div>`;
-      }
-      const colour = d.status === "sent" ? "#2E7D6B" : d.status === "failed" ? "#E5484D" : "#8A6D1F";
-      const word = d.status === "sent" ? "notified" : d.status === "failed" ? "not reached" : "outcome unknown";
-      return `<div style="margin-bottom:3px;">${label} &mdash; <span style="color:${colour};">${word}</span></div>`;
-    })
-    .join("");
+  const sendingRows = sending.map((r) => {
+    const label = r === self ? `${escapeHtml(r)} (you)` : escapeHtml(r);
+    const d = byRecipient.get(r);
+    if (!d) {
+      return `<div style="margin-bottom:3px;">${label} &mdash; <span style="color:#6A7078;">being notified</span></div>`;
+    }
+    const colour = d.status === "sent" ? "#2E7D6B" : d.status === "failed" ? "#E5484D" : "#8A6D1F";
+    const word = d.status === "sent" ? "notified" : d.status === "failed" ? "not reached" : "outcome unknown";
+    return `<div style="margin-bottom:3px;">${label} &mdash; <span style="color:${colour};">${word}</span></div>`;
+  });
+  const skippedRows = skippedList.map((r) =>
+    `<div style="margin-bottom:3px;">${escapeHtml(r)} &mdash; <span style="color:#6A7078;">alert emails switched off</span></div>`
+  );
+  const all = [...sendingRows, ...skippedRows];
+  return all.length
+    ? all.join("")
+    : `<div style="color:#6A7078;">Nobody else in this Circle has an email address.</div>`;
 }
 
 function formatWhen(occurredAt: string | null): string {
-  if (!occurredAt) return "The time was not recorded.";
+  if (!occurredAt) return "Not recorded";
   const d = new Date(occurredAt);
-  if (Number.isNaN(d.getTime())) return "The time was not recorded.";
-  return d.toUTCString().replace("GMT", "UTC") + ".";
+  if (Number.isNaN(d.getTime())) return "Not recorded";
+  return d.toUTCString().replace("GMT", "UTC");
 }
 
+/**
+ * Where, in words.
+ *
+ * `lat` and `lon` are null on every alert from a phone whose owner turned the
+ * "share the place" switch off, and `location_label` may be null too. "Not
+ * recorded" is the honest rendering of that and it is not the same sentence as
+ * "at 0.00000, 0.00000".
+ */
 function formatWhere(alert: AlertRow): string {
-  if (alert.location_label) return ` Near ${alert.location_label}.`;
+  if (alert.location_label) return `Near ${alert.location_label}`;
   if (alert.lat !== null && alert.lon !== null) {
-    return ` At ${alert.lat.toFixed(5)}, ${alert.lon.toFixed(5)}.`;
+    return `${alert.lat.toFixed(5)}, ${alert.lon.toFixed(5)}`;
   }
-  return " No location was recorded.";
+  return "Not recorded";
 }
 
 /**

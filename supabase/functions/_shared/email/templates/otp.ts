@@ -1,17 +1,23 @@
-<!--
-  Sign-in code.
+// ---------------------------------------------------------------------------
+// GENERATED FILE -- DO NOT EDIT.
+//
+// The .html files in this directory are the source of truth.  Regenerate with:
+//
+//     python tools/gen_email_templates.py
+//
+// They live here as compiled-in string constants rather than being read from
+// disk at runtime, because a deploy that drops a file must fail loudly at build
+// time instead of quietly sending unbranded mail about somebody having fallen
+// over.  See tools/gen_email_templates.py for the whole argument.
+// ---------------------------------------------------------------------------
 
-  Generated into supabase/auth-templates/magic-link-otp.html and
-  confirm-signup.html by tools/gen_email_templates.py, which swaps the {{code}}
-  placeholder for Supabase's own {{ .Token }}. See supabase/README.md - the two
-  placeholder syntaxes are different and pasting this file unchanged into the
-  dashboard sends everybody the literal text "{{code}}".
 
-  Accent: teal. This is a routine, expected message.
--->
-<title>Your SafeShade sign-in code</title>
+import type { EmailTemplate } from "../resend.ts";
 
-<h1 class="ss-h1 ss-ink" style="margin:0 0 12px; font-family:Archivo, 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size:26px; line-height:32px; font-weight:800; color:#22282E;">
+/** `otp.html`, with its subject line from that file's `<title>`. */
+export const otpTemplate: EmailTemplate = {
+  subject: `Your SafeShade sign-in code`,
+  html: `<h1 class="ss-h1 ss-ink" style="margin:0 0 12px; font-family:Archivo, 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size:26px; line-height:32px; font-weight:800; color:#22282E;">
   Your sign-in code
 </h1>
 
@@ -19,11 +25,6 @@
   Enter this code in SafeShade to sign in.
 </p>
 
-<!--
-  The code, as a table cell rather than a styled div, so Outlook draws the
-  border. Monospace and letter-spaced because the number is going to be read off
-  one screen and typed into another, and 6 and 8 are the pair that gets confused.
--->
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 20px;">
   <tr>
     <td align="center" style="background:#F2EFE9; border:1px solid #DED8CE; border-radius:10px; padding:20px 30px;">
@@ -37,9 +38,6 @@
   Ask for a new one if it has been longer than that.
 </p>
 
-<!-- The security line. Every template that carries a credential has the same
-     one, worded the same way, so that a person who has seen it once recognises
-     it and a person who has not can act on it. -->
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0; background:#F2EFE9; border-radius:10px;">
   <tr>
     <td style="padding:14px 16px; font-size:13px; line-height:20px; color:#4A5058;">
@@ -48,3 +46,5 @@
     </td>
   </tr>
 </table>
+`,
+};

@@ -237,6 +237,15 @@ class CloudContainer(
         session = { client.session.value }
     )
 
+    /**
+     * Asks the server to email the Circle about alerts as they are pushed.
+     *
+     * Wired into [syncEngine] in `init` rather than passed to its constructor,
+     * because the engine is what tells it a row has landed and it is what tells
+     * the engine's client to send - one of the two has to be built first.
+     */
+    private val alertEmails = AlertEmailNotifier(client)
+
     private companion object {
         /**
          * `filesDir/voice`, matching what `AppContainer` hands
@@ -249,6 +258,13 @@ class CloudContainer(
         // A row arriving on the Realtime socket takes the same path as a row
         // arriving in a pull. Two paths would mean two merge rules.
         circle.onRealtimeRow = { table, rows -> pullSource.onRowsPulled(table, rows) }
+
+        // The alert email. `send-alert-email` existed from the first migration
+        // and nothing had ever called it, so a fall was recorded, synced, shown
+        // on the trip log, and no guardian was emailed. This is the caller, and
+        // it hangs off the push rather than off the write because the function
+        // reads the alert row by id - it has to exist on the server first.
+        syncEngine.onPushed = alertEmails::onPushed
 
         // The records that existed before anybody signed in. Routed through the
         // same hooks a local write uses, so there is one definition of "queue

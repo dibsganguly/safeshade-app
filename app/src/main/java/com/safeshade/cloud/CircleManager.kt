@@ -165,6 +165,12 @@ class CircleManager(
             backfillOnce(session.userId, circle, force = false)
             startRealtime(circle)
         }
+        // The email switches, read from the server on every sign-in rather than
+        // cached on disk. They are an account fact, not a handset setting, and a
+        // stale copy of one is a settings page that shows a switch as on for an
+        // address that is not being emailed. Until this returns,
+        // `CloudState.emailPreferences` stays null and the page shows dashes.
+        actions.refreshEmailPreferences()
         // Everything queued while signed out has a circle to go to now.
         syncEngine.kick()
     }
@@ -185,6 +191,9 @@ class CircleManager(
         _state.value = CloudState(
             devTierOverride = _state.value.devTierOverride,
             shareAlertPlaces = _state.value.shareAlertPlaces
+            // emailPreferences is deliberately NOT carried over: they belong to
+            // the account that just signed out, and showing them to whoever
+            // signs in next would be one account's settings on another's page.
         )
     }
 
@@ -637,10 +646,150 @@ class CircleManager(
                             backfillOnce(uid, joined, force = false)
                         }
                         startRealtime(joined)
+                        // Tell the owner somebody joined. Deliberately after the
+                        // join has been recorded and deliberately not part of
+                        // this call's result: the person tapping the link has
+                        // joined whether or not an email about it reaches
+                        // somebody else's inbox, and failing their join because
+                        // Resend was slow would be the tail wagging the dog.
+                        //
+                        // The server checks that the caller IS the person who
+                        // accepted, and claims `joined_notified_at` before
+                        // sending, so a retry of this whole method cannot
+                        // produce a second email.
+                        notifyOwnerOfJoin(clean)
+                        // The joiner's own switches are on the profile, not the
+                        // circle, so they survive the join - but this phone's
+                        // copy was cleared with the rest of the state above.
+                        refreshEmailPreferences()
                     }
                     CloudResult.Ok(Unit)
                 }
 
+                is CloudResult.Failed -> result
+                CloudResult.Disabled -> CloudResult.Disabled
+            }
+        }
+
+        /**
+         * Tells the Circle's owner that this account has just joined.
+         *
+         * Fire-and-report-to-the-log. There is nothing a person could do with a
+         * failure here and nothing to retry against: the join succeeded, and
+         * the owner will see the new member on the Circle page on the next pull
+         * whether or not the email arrived. Surfacing it as an error on the
+         * joining phone would report somebody else's inbox problem to the wrong
+         * person.
+         *
+         * The server does the checking - that the invite was accepted, that it
+         * was accepted by *this* caller, and that nobody has been told yet.
+         */
+        private suspend fun notifyOwnerOfJoin(token: String) {
+            val body = buildJsonObject { put("token", token) }
+            when (val result = client.invoke("notify-joined", body)) {
+                is CloudResult.Ok -> Unit
+                is CloudResult.Failed ->
+                    android.util.Log.w(TAG, "notify-joined: " + result.reason)
+                CloudResult.Disabled -> Unit
+            }
+        }
+
+        /**
+         * Reads `profiles.email_prefs` back from the server into [CloudState].
+         *
+         * Through `selectOwn`, so row-level security is what decides - the
+         * policy on `profiles` is `auth.uid() = id`, which makes this incapable
+         * of reading anybody else's switches even if the id were wrong.
+         *
+         * A failure leaves [CloudState.emailPreferences] as it was, which on a
+         * cold start is null. Null renders as dashes rather than as switches:
+         * drawing a switch in the off position for a value nobody has read is a
+         * lie about whether a fall alert reaches an inbox.
+         */
+        suspend fun refreshEmailPreferences() {
+            val userId = (client.session.value as? CloudSession.SignedIn)?.userId
+            if (userId.isNullOrBlank()) return
+            when (val result = client.selectOwn(CloudTables.PROFILES, userId)) {
+                is CloudResult.Ok -> {
+                    val prefs = result.value
+                        .firstNotNullOfOrNull { EmailPrefsCodec.decode(it["email_prefs"]) }
+                        ?: return
+                    _state.value = _state.value.copy(emailPreferences = prefs)
+                }
+
+                is CloudResult.Failed ->
+                    android.util.Log.w(TAG, "email prefs: " + result.reason)
+
+                CloudResult.Disabled -> Unit
+            }
+        }
+
+        /**
+         * Writes the four email switches, and updates [CloudState] from what the
+         * server stored rather than from what was asked for.
+         *
+         * ### Why the state is written after, from the answer
+         *
+         * `set_email_prefs` merges and validates: it refuses an unknown key and
+         * a non-boolean value, and it returns the whole stored object. So the
+         * value this phone shows is the value the sending functions will read.
+         * Writing the optimistic value first and reconciling later would put a
+         * switch in the off position for an address that is still being emailed
+         * - a confirmation shown before its result is known, which is the exact
+         * defect this codebase has already shipped once.
+         */
+        suspend fun setEmailPreferences(prefs: EmailPreferences): CloudResult<Unit> {
+            if (client.session.value !is CloudSession.SignedIn) {
+                return CloudResult.Failed(
+                    "Sign in to change which emails SafeShade sends you.",
+                    retryable = false
+                )
+            }
+            val args = buildJsonObject { put("p_prefs", EmailPrefsCodec.encode(prefs)) }
+            return when (val result = client.rpc("set_email_prefs", args)) {
+                is CloudResult.Ok -> {
+                    // The server's copy, not the argument. If it ever disagrees,
+                    // the server is right and the page must show that.
+                    val stored = EmailPrefsCodec.decode(result.value)
+                    if (stored == null) {
+                        CloudResult.Failed(
+                            "SafeShade did not confirm the change, so it may not have been saved.",
+                            retryable = true
+                        )
+                    } else {
+                        _state.value = _state.value.copy(emailPreferences = stored)
+                        CloudResult.Ok(Unit)
+                    }
+                }
+
+                is CloudResult.Failed -> result
+                CloudResult.Disabled -> CloudResult.Disabled
+            }
+        }
+
+        /**
+         * Sends this week's report now, to everybody in the Circle who has it
+         * switched on.
+         *
+         * The recipients are resolved on the server from `circle_members`; this
+         * call names a circle and nothing else, for the same reason
+         * `send-alert-email` takes only an alert id. The result is per address
+         * and three-valued, so the page can say who got it, who has it switched
+         * off, and who was not reached and why - see [WeeklyReportSend].
+         *
+         * A report with no deliveries at all is [CloudResult.Ok] with three
+         * empty lists, not a failure: "nobody in this Circle has an email
+         * address" is a real answer.
+         */
+        suspend fun sendWeeklyReportNow(): CloudResult<WeeklyReportSend> {
+            val circle = ensureCircle()
+                ?: return CloudResult.Failed(
+                    "Sign in before sending a report.",
+                    retryable = false
+                )
+            val body = buildJsonObject { put("circle_id", circle) }
+            return when (val result = client.invoke("weekly-report", body)) {
+                is CloudResult.Ok -> CloudResult.Ok(weeklyReportSend(result.value))
                 is CloudResult.Failed -> result
                 CloudResult.Disabled -> CloudResult.Disabled
             }
@@ -846,3 +995,52 @@ internal fun inviteStatusOf(wire: String): InviteStatus = when {
 
     else -> InviteStatus.Pending
 }
+
+/** Logcat tag for the Circle's own diagnostics. */
+private const val TAG = "SafeShadeCircle"
+
+/**
+ * `weekly-report`'s response, split into the three things a page has to be able
+ * to say separately.
+ *
+ * The wire shape is `{"deliveries": [{"email", "status", "error", "reason"}]}`
+ * with four possible statuses, and they do not collapse into two:
+ *
+ *  - `sent` - Resend answered 2xx. This is the only one that means an inbox.
+ *  - `skipped` - this person has the weekly report switched off. Not a failure
+ *    and not a delivery; counting it as either would misreport somebody's own
+ *    choice as a fault.
+ *  - `failed` - carries Resend's own words. With no sending domain, every
+ *    address except the Resend account owner's lands here.
+ *  - `unknown` - the request left the function and nothing came back. Reported
+ *    as failed *with that said in the reason*, because a page has two columns
+ *    and the honest place for "we do not know" is beside the failures rather
+ *    than beside the successes.
+ *
+ * An unreadable or absent `deliveries` array gives three empty lists rather
+ * than a throw: the report may well have been sent, and this is a display
+ * function.
+ */
+internal fun weeklyReportSend(body: JsonObject): WeeklyReportSend {
+    val rows = (body["deliveries"] as? JsonArray).orEmpty()
+    val sent = mutableListOf<String>()
+    val skipped = mutableListOf<String>()
+    val failed = linkedMapOf<String, String>()
+    for (element in rows) {
+        val row = element as? JsonObject ?: continue
+        val email = (row["email"] as? JsonPrimitive)?.contentOrNullSafe() ?: continue
+        val status = (row["status"] as? JsonPrimitive)?.contentOrNullSafe()
+        val error = (row["error"] as? JsonPrimitive)?.contentOrNullSafe()
+        when (status) {
+            "sent" -> sent += email
+            "skipped" -> skipped += email
+            "unknown" -> failed[email] =
+                error ?: "SafeShade did not get an answer from the email provider."
+            else -> failed[email] = error ?: "The email was not accepted."
+        }
+    }
+    return WeeklyReportSend(sent = sent, skipped = skipped, failed = failed)
+}
+
+private fun JsonArray?.orEmpty(): List<kotlinx.serialization.json.JsonElement> =
+    this ?: emptyList()
