@@ -543,6 +543,14 @@ The ladder of calls behind an open alert, as one page: a "Keep calling" rocker a
 
 The two notices the phone raises about the wearable itself, on one page: a "Right now" plate with the link and the battery in the words the notification would use (Connected; Out of reach since 09:12 · 45 min · you were told; 12% · below 15%), then two dials, minutes out of reach and percent of battery, where zero is drawn as the word Off. Both dials write on release and together, because they share one settings row. The hub's way says what is watched, or the outage in progress, and lights amber while the wearable is off the link.
 
+### Vitals
+
+Heart rate, blood oxygen and temperature as three large mono readouts on one plate with a single provenance line under them ("From Health Connect (Mi Fitness) · 5 min ago"; "From the wearable · just now"). A reading that was not measured is a dash, and a plate with no reading says so in words instead of drawing zeros. The two sources are a bank of two ways: the wearable (Reporting, No sensor reading, or the dash while it is off the link) and Health Connect, whose state word is the exact thing standing between the guardian and a reading, Not installed, Needs an update, Not allowed, Allowed, and whose one button below does the one thing that fixes it. Thresholds are four dials that commit together on release; a breach lights the readout amber, adds an "Outside range" way, and lights the hub's Vitals way. Readings are never alerts and the page says so.
+
+### Evidence
+
+The microphone after a fall or an SOS, on one page: two rockers for the two causes, one dial for how long, one rocker for whether a recording ever leaves the phone (Off means it stays; On while signed out reads Signed out, not On). A recording made from the page is labelled a test and is saved exactly like a real one. The sound meter is an instrument: a large readout in dB with its calibration limit printed under it verbatim, and a Loud environment way that goes amber only on a sustained minute at 85 dB. Recordings are ways whose state word is where the file is (On this phone, Sending, On SafeShade Cloud, Not sent with the reason); tapping one plays it and reveals Delete. Nothing on the page starts the microphone without the system notification showing.
+
 ### First run
 
 Six steps, each the same shape: a scene at the top in which the character does the thing the step is about (walks on and lights the board; stands beside a cane or a phone; peeks at the face being chosen; watches a small board light up as grants land; searches with its antenna until the wearable's own nub answers; holds up the card), a rail of bus ticks for progress, a headline, at most one line of body copy, the controls, and the actions pinned at the foot, rising with the keyboard. The scene runs under the status bar. Feature statements on the welcome step are rows with an icon in its accent and no bus tick or lamp, because they are not circuits.

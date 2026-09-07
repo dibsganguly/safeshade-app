@@ -127,7 +127,8 @@ object DeviceCapabilities {
         DeviceSetting(
             "firmwareVersion", "Firmware version over the link",
             SyncCapability.AWAITING_FIRMWARE,
-            wire = "EXT VER query, answered ACK:VER:<semver>, and a negative ack for unknown tags"
+            wire = "EXT VER, payload empty; answered ACK:VER:<semver>. A bare ACK:VER is this " +
+                "firmware acknowledging an unknown tag and reports no version"
         ),
         DeviceSetting(
             "voiceChunks", "Push-to-talk to and from the wearable",
@@ -137,17 +138,19 @@ object DeviceCapabilities {
         DeviceSetting(
             "otaChunks", "Firmware update over the link",
             SyncCapability.AWAITING_FIRMWARE,
-            wire = "OTA:<seq>/<total>,<crc32>,<base64> chunks; no OTA partition exists yet"
+            wire = "OTA:<seq>/<total>,<crc32hex>,<base64> chunks, CRC32 over the raw bytes; success " +
+                "is a later EXT VER matching the release, never a chunk ack. No OTA partition exists yet"
         ),
         DeviceSetting(
             "vitals", "Heart rate, blood oxygen and skin temperature",
             SyncCapability.AWAITING_FIRMWARE,
-            wire = "TELEMETRY fields 7-9; no sensor is fitted"
+            wire = "TELEMETRY fields 7-9 hr,spo2,skinTempC; empty or '-' means no reading. No sensor is fitted"
         ),
         DeviceSetting(
             "mesh", "Finding another SafeShade nearby",
             SyncCapability.AWAITING_FIRMWARE,
-            wire = "MESH advertisement payload: <deviceId>,<role>,<batteryPercent>,<lastFixAge>"
+            wire = "MESH advertisement payload: <deviceId>,<role>,<batteryPercent>,<lastFixAge>, " +
+                "role one of wearer|relay, empty numeric fields mean not reported"
         ),
         DeviceSetting(
             "batteryReading", "A measured battery level",

@@ -1,9 +1,11 @@
 package com.safeshade.device
 
 import com.safeshade.data.GeofenceZone
+import com.safeshade.data.LiveSensorData
 import com.safeshade.data.MedicalId
 import com.safeshade.data.PersonaMode
 import com.safeshade.data.SafetySettings
+import com.safeshade.data.VitalsSource
 
 /**
  * Every byte the app sends to the wearable is built here, and nowhere else.
@@ -23,6 +25,11 @@ import com.safeshade.data.SafetySettings
  * Being pure Kotlin with no Android imports, this file is directly unit
  * testable — which is the only way to be confident about a format whose
  * failure mode is silence.
+ *
+ * The inbound direction lives here too, for the same reason: [parseTelemetry]
+ * is the one place that reads a TELEMETRY notification, so the rule that a
+ * field the app cannot believe becomes *no reading* is written once and
+ * tested, rather than re-improvised inside a GATT callback.
  */
 object DeviceProtocol {
 
@@ -350,6 +357,156 @@ object DeviceProtocol {
             result += chunk.bytes
         }
         return result
+    }
+
+    // ============================================
+    // TELEMETRY_CHAR notify - inbound
+    // ============================================
+
+    /**
+     * Field count of the payload the shipped firmware sends:
+     * `accelXg,accelYg,accelZg,tempC,lightRaw,batteryPct`.
+     */
+    private const val TELEMETRY_BASE_FIELDS = 6
+
+    /** What a field carries when the device has the slot but no reading. */
+    private const val NO_READING = "-"
+
+    /** Plausible human heart rate, in bpm. Outside this the reading is dropped, not clamped. */
+    private val HR_RANGE = 25..250
+
+    /** Plausible blood-oxygen saturation, as a whole percentage. */
+    private val SPO2_RANGE = 50..100
+
+    /** Plausible skin temperature in Celsius. Wider and lower than core temperature: skin runs cool. */
+    private val SKIN_TEMP_RANGE = 20f..45f
+
+    /**
+     * Parses a TELEMETRY notification into [LiveSensorData], or null when the
+     * payload is too short to be one.
+     *
+     * ### The six-field payload must keep parsing exactly as it always did
+     *
+     * The firmware on every device in the field sends six fields and no more.
+     * Fields 7-9 — `hr,spo2,skinTempC` — are the vitals slots this side is
+     * ready for, so a six-field payload leaves all three null and
+     * [LiveSensorData.vitalsSource] null, which is what a screen renders as a
+     * dash. Fields beyond the ninth are ignored rather than treated as an
+     * error, so a firmware that appends something new later cannot break the
+     * fields that already work.
+     *
+     * ### A number the app cannot believe is not a reading
+     *
+     * An empty field or the literal `-` means the device has no reading. So
+     * does a value outside human range — heart rate 25..250 bpm, SpO2 50..100
+     * %, skin temperature 20..45 °C — and so does a value that is not a number
+     * of the expected kind (`72.5` in the integer heart-rate slot yields null).
+     * Nothing is clamped *into* range: a sensor reporting 4 bpm is a broken
+     * sensor rather than a dying wearer, and on this product a vital shown
+     * confidently but wrongly is worse than a dash.
+     *
+     * [LiveSensorData.vitalsSource] is [VitalsSource.DEVICE] only when at least
+     * one vital survives all of that. A payload ending `-,-,-` and one ending
+     * in three implausible numbers are both indistinguishable from no vitals,
+     * and both leave the source null.
+     */
+    fun parseTelemetry(value: String): LiveSensorData? {
+        val parts = value.split(",")
+        if (parts.size < TELEMETRY_BASE_FIELDS) return null
+
+        fun field(index: Int): String? =
+            parts.getOrNull(index)?.trim()?.takeIf { it.isNotEmpty() && it != NO_READING }
+
+        val heartRate = field(6)?.toIntOrNull()?.takeIf { it in HR_RANGE }
+        val spo2 = field(7)?.toIntOrNull()?.takeIf { it in SPO2_RANGE }
+        val skinTemp = field(8)?.toFloatOrNull()?.takeIf { it in SKIN_TEMP_RANGE }
+
+        return LiveSensorData(
+            accelX = parts[0].toFloatOrNull() ?: 0f,
+            accelY = parts[1].toFloatOrNull() ?: 0f,
+            accelZ = parts[2].toFloatOrNull() ?: 0f,
+            temperature = parts[3].toFloatOrNull() ?: 0f,
+            lightLevel = parts[4].toIntOrNull() ?: 0,
+            batteryLevel = parts[5].toIntOrNull() ?: 0,
+            isRealData = true,
+            heartRateBpm = heartRate,
+            spo2Percent = spo2,
+            skinTempC = skinTemp,
+            vitalsSource =
+                if (heartRate != null || spo2 != null || skinTemp != null) VitalsSource.DEVICE else null
+        )
+    }
+
+    /**
+     * Builds a TELEMETRY payload.
+     *
+     * Only the wearable ever sends one of these, so this exists for the
+     * round-trip test rather than for dispatch — a format nothing on this side
+     * writes still has to decode what it encodes. A null vital is written as
+     * [NO_READING] rather than omitted, because the parser is positional and a
+     * missing field would shift the ones after it.
+     */
+    fun encodeTelemetry(
+        accelX: Float,
+        accelY: Float,
+        accelZ: Float,
+        temperature: Float,
+        lightLevel: Int,
+        batteryLevel: Int,
+        heartRateBpm: Int? = null,
+        spo2Percent: Int? = null,
+        skinTempC: Float? = null
+    ): String = listOf(
+        "%.2f".format(accelX),
+        "%.2f".format(accelY),
+        "%.2f".format(accelZ),
+        "%.1f".format(temperature),
+        lightLevel.toString(),
+        batteryLevel.toString(),
+        heartRateBpm?.toString() ?: NO_READING,
+        spo2Percent?.toString() ?: NO_READING,
+        skinTempC?.let { "%.1f".format(it) } ?: NO_READING
+    ).joinToString(",")
+
+    // ============================================
+    // EXT VER - the firmware version over the link
+    // ============================================
+
+    /**
+     * `EXT VER` carries no payload: the tag alone is the question.
+     *
+     * `BleManager.sendExtCommand` writes the bare tag when the payload is
+     * empty, so this returns `""` deliberately rather than a placeholder that
+     * would ride on the wire as `VER:`.
+     */
+    fun versionQuery(): String = ""
+
+    /**
+     * Reads the semver out of a `VER:<semver>` acknowledgement tag, or null.
+     *
+     * The tag arrives here already stripped of its wire prefix: `BleManager`
+     * does `value.removePrefix("ACK:")`, which removes only those four leading
+     * characters and so leaves `"VER:1.2.3"` intact — the colon payload
+     * survives. `BleManager.awaitAck` matches `it == tag || it.startsWith("$tag:")`,
+     * so `awaitAck("VER")` does fire on a version reply; it returns a Boolean
+     * only, so the version itself has to be read off the `acks` flow.
+     *
+     * A reply is accepted only when it looks like a version — a leading digit
+     * and at least one dot. That guard exists because of the firmware fact this
+     * whole path is shaped around: the device acknowledges *every* EXT tag,
+     * including ones it does not know, so something like `VER:OK` is a
+     * plausible thing to receive from a build that has no version to give, and
+     * turning it into a version would let a non-answer masquerade as an answer.
+     * A bare `VER` with no colon is exactly that non-answer — see
+     * [OtaProtocol.VersionReply].
+     */
+    fun parseVersionAck(ackTag: String): String? {
+        val trimmed = ackTag.trim()
+        if (!trimmed.startsWith("VER:")) return null
+        val semver = trimmed.removePrefix("VER:").trim()
+        if (semver.isEmpty()) return null
+        if (!semver.first().isDigit() || !semver.contains('.')) return null
+        return semver
     }
 
     // ============================================

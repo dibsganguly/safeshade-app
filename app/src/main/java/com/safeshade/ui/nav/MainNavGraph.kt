@@ -170,6 +170,14 @@ import com.safeshade.ui.screens.safety.EmergencyCardUiState
 import com.safeshade.ui.screens.safety.EscalationScreen
 import com.safeshade.ui.screens.safety.EscalationUiState
 import com.safeshade.ui.screens.safety.WatchSettingsScreen
+import com.safeshade.ui.screens.safety.VitalsScreen
+import com.safeshade.ui.screens.safety.EvidenceScreen
+import com.safeshade.ui.screens.safety.EvidenceUiState
+import com.safeshade.ui.screens.safety.EvidenceClipRow
+import androidx.compose.runtime.mutableStateListOf
+import com.safeshade.ui.screens.safety.VitalsUiState
+import com.safeshade.ui.screens.safety.VitalsHistoryRow
+import com.safeshade.ui.screens.safety.HealthConnectState
 import com.safeshade.ui.screens.safety.WatchUiState
 import com.safeshade.ui.screens.safety.FallSettingsScreen
 import com.safeshade.ui.screens.safety.FallSettingsUiState
@@ -1112,6 +1120,9 @@ fun MainNavGraph(
             val lastTrip = state.tripHistory.maxByOrNull { it.timestamp }
             val hubRun by viewModel.escalationRun.collectAsStateWithLifecycle()
             val hubWatch by viewModel.watchState.collectAsStateWithLifecycle()
+            val hubVitals by viewModel.vitalsSamples.collectAsStateWithLifecycle()
+            val hubVitalsFlags by viewModel.vitalsFlags.collectAsStateWithLifecycle()
+            val newestVitals = hubVitals.orEmpty().filter { it.hasVitals }.maxByOrNull { it.at }
 
             SafetyScreen(
                 state = SafetyUiState(
@@ -1129,8 +1140,12 @@ fun MainNavGraph(
                     silentSosEnabled = silentSosEnabled,
                     wearableOfflineSince = hubWatch.offlineSince,
                     wearableOfflineAlerted = hubWatch.offlineAlerted,
-                    escalationRunning = hubRun?.let { !it.isFinished } == true
+                    escalationRunning = hubRun?.let { !it.isFinished } == true,
+                    vitalsLine = newestVitals?.let { vitalsLine(it) },
+                    vitalsFlagged = hubVitalsFlags.isNotEmpty()
                 ),
+                onOpenVitals = { navController.navigate(Routes.SAFETY_VITALS) },
+                onOpenEvidence = { navController.navigate(Routes.SAFETY_EVIDENCE) },
                 onOpenFallSettings = { navController.navigate(Routes.SAFETY_FALL) },
                 onOpenEscalation = { navController.navigate(Routes.SAFETY_ESCALATION) },
                 onOpenWatch = { navController.navigate(Routes.SAFETY_WATCH) },
@@ -1164,6 +1179,204 @@ fun MainNavGraph(
                 ),
                 onChange = { viewModel.setEscalation(it) },
                 onOpenContacts = { navController.navigate(Routes.SAFETY_CONTACTS) },
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Routes.SAFETY_VITALS) {
+            val state = liveState.value
+            val samples by viewModel.vitalsSamples.collectAsStateWithLifecycle()
+            val thresholds by viewModel.vitalsThresholds.collectAsStateWithLifecycle()
+            val flags by viewModel.vitalsFlags.collectAsStateWithLifecycle()
+            val scope = rememberCoroutineScope()
+            val context = LocalContext.current
+
+            // Health Connect's state is re-read on every visit and after every
+            // action, because installing it or granting a permission happens in
+            // another app and nothing here is told.
+            var availability by remember { mutableStateOf(viewModel.healthConnectAvailability()) }
+            var granted by remember { mutableStateOf(false) }
+            var reading by remember { mutableStateOf(false) }
+            var readError by remember { mutableStateOf<String?>(null) }
+            LaunchedEffect(availability) {
+                granted = availability is com.safeshade.platform.Availability.Available && viewModel.healthConnectGranted()
+            }
+            val askHealth = rememberLauncherForActivityResult(viewModel.healthConnectContract()) { result ->
+                granted = result.containsAll(viewModel.healthConnectPermissions)
+                if (!granted) readError = "Health Connect did not grant all three readings."
+            }
+            val readNow: () -> Unit = {
+                if (!reading) {
+                    reading = true; readError = null
+                    scope.launch {
+                        readError = viewModel.readHealthConnect(state.selectedWearer?.id)
+                        reading = false
+                    }
+                }
+            }
+            // The first visit with permission reads once, so the plate is not a
+            // bank of dashes when a reading was there for the asking.
+            LaunchedEffect(granted) { if (granted) readNow() }
+
+            val newest = samples.orEmpty().filter { it.hasVitals }.maxByOrNull { it.at }
+            VitalsScreen(
+                state = VitalsUiState(
+                    wearerName = state.wearerName,
+                    heartRateBpm = newest?.heartRateBpm,
+                    spo2Percent = newest?.spo2Percent,
+                    tempC = newest?.tempC,
+                    measuredAt = newest?.at,
+                    sourceLabel = newest?.let { if (it.source == com.safeshade.data.VitalsSample.SOURCE_DEVICE) "Wearable" else "Phone" },
+                    deviceLive = state.connection.isUsable && state.telemetry.isRealData,
+                    deviceReportsVitals = state.telemetry.hasVitals,
+                    healthConnect = when (availability) {
+                        is com.safeshade.platform.Availability.Available -> if (granted) HealthConnectState.READY else HealthConnectState.NO_PERMISSION
+                        is com.safeshade.platform.Availability.NotInstalled -> HealthConnectState.NOT_INSTALLED
+                        com.safeshade.platform.Availability.NeedsUpdate -> HealthConnectState.NEEDS_UPDATE
+                        is com.safeshade.platform.Availability.Unsupported -> HealthConnectState.UNSUPPORTED
+                    },
+                    reading = reading,
+                    readError = readError,
+                    hrLow = thresholds.hrLow,
+                    hrHigh = thresholds.hrHigh,
+                    spo2Low = thresholds.spo2Low,
+                    tempHigh = thresholds.tempHigh,
+                    flags = flags.map { f -> vitalsFlagLine(f, newest, thresholds) },
+                    history = samples.orEmpty().filter { it.hasVitals }.sortedByDescending { it.at }.take(8).map {
+                        VitalsHistoryRow(
+                            at = it.at,
+                            heartRateBpm = it.heartRateBpm,
+                            spo2Percent = it.spo2Percent,
+                            tempC = it.tempC,
+                            sourceLabel = if (it.source == com.safeshade.data.VitalsSample.SOURCE_DEVICE) "Wearable" else "Phone"
+                        )
+                    }
+                ),
+                onReadNow = readNow,
+                onInstallHealthConnect = {
+                    val intent = (availability as? com.safeshade.platform.Availability.NotInstalled)?.playStoreIntent
+                        ?: Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=com.google.android.apps.healthdata"))
+                    try {
+                        context.startActivity(intent)
+                    } catch (_: android.content.ActivityNotFoundException) {
+                        readError = "This phone has no Play Store to open."
+                    }
+                },
+                onAllowHealthConnect = {
+                    if (availability is com.safeshade.platform.Availability.Available) {
+                        askHealth.launch(viewModel.healthConnectPermissions)
+                    } else {
+                        availability = viewModel.healthConnectAvailability()
+                    }
+                },
+                onThresholds = { hrLow, hrHigh, spo2Low, tempHigh ->
+                    viewModel.setVitalsThresholds(com.safeshade.data.VitalsThresholds(hrLow, hrHigh, spo2Low, tempHigh))
+                },
+                onBack = { navController.popBackStack() }
+            )
+            // Coming back from the Play Store or from Health Connect's own
+            // permission page changes the answer; ask again when the screen resumes.
+            val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+            DisposableEffect(lifecycleOwner) {
+                val obs = androidx.lifecycle.LifecycleEventObserver { _, event ->
+                    if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) availability = viewModel.healthConnectAvailability()
+                }
+                lifecycleOwner.lifecycle.addObserver(obs)
+                onDispose { lifecycleOwner.lifecycle.removeObserver(obs) }
+            }
+        }
+
+        composable(Routes.SAFETY_EVIDENCE) {
+            val state = liveState.value
+            val clips by viewModel.evidenceClips.collectAsStateWithLifecycle()
+            val settings by viewModel.evidenceSettings.collectAsStateWithLifecycle()
+            val service by viewModel.evidenceService.collectAsStateWithLifecycle()
+            val evidenceCloudVm: CloudViewModel = viewModel(factory = CloudViewModel.Factory)
+            val session by evidenceCloudVm.session.collectAsStateWithLifecycle()
+            val context = LocalContext.current
+
+            var micGranted by remember { mutableStateOf(viewModel.hasMicPermission()) }
+            val askMic = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+                micGranted = granted
+            }
+            var startError by remember { mutableStateOf<String?>(null) }
+
+            // The meter lives exactly as long as this screen and its rocker say.
+            val meter = remember { com.safeshade.platform.SoundLevelMeter(context) }
+            var meterOn by remember { mutableStateOf(false) }
+            val reading by meter.reading.collectAsStateWithLifecycle()
+            val readings = remember { mutableStateListOf<com.safeshade.platform.SoundReading>() }
+            LaunchedEffect(reading) {
+                val r = reading ?: return@LaunchedEffect
+                readings.add(r)
+                if (readings.size > 600) readings.removeAt(0)
+            }
+            DisposableEffect(Unit) { onDispose { meter.stop(); meter.release() } }
+            val verdict = com.safeshade.platform.LoudEnvironment.assess(readings.toList(), System.currentTimeMillis())
+
+            val player = remember { VoicePlayer() }
+            var playingId by remember { mutableStateOf<String?>(null) }
+            var progress by remember { mutableFloatStateOf(0f) }
+            DisposableEffect(Unit) { onDispose { player.stop() } }
+
+            val recording = service as? com.safeshade.service.EvidenceServiceState.Recording
+            val finished = service as? com.safeshade.service.EvidenceServiceState.Finished
+            val serviceError = (finished?.result as? com.safeshade.platform.EvidenceRecordingResult.Failed)?.reason
+
+            EvidenceScreen(
+                state = EvidenceUiState(
+                    wearerName = state.wearerName,
+                    recordOnFall = settings.recordOnFall,
+                    recordOnSos = settings.recordOnSos,
+                    durationSeconds = settings.durationSeconds,
+                    uploadToCloud = settings.uploadToCloud,
+                    signedIn = session is CloudSession.SignedIn,
+                    micGranted = micGranted,
+                    recordingElapsedMs = recording?.elapsedMs,
+                    recordingTotalMs = recording?.totalMs,
+                    recordError = startError ?: serviceError,
+                    soundDb = if (meterOn) reading?.approxDbSpl else null,
+                    meterOn = meterOn,
+                    loudLine = (verdict as? com.safeshade.platform.LoudVerdict.Loud)?.let {
+                        "Loud for ${((System.currentTimeMillis() - it.sinceMs) / 60_000L).coerceAtLeast(1)} min · peak ${it.peakDb} dB"
+                    },
+                    calibrationNote = if (meterOn) com.safeshade.platform.SoundLevelMeter.CALIBRATION_NOTE else "",
+                    clips = clips.orEmpty().sortedByDescending { it.capturedAt }.map { evidenceRow(it, state) },
+                    playingId = playingId,
+                    playProgress = progress
+                ),
+                onRecordOnFall = { viewModel.setEvidenceSettings(settings.copy(recordOnFall = it)) },
+                onRecordOnSos = { viewModel.setEvidenceSettings(settings.copy(recordOnSos = it)) },
+                onDuration = { viewModel.setEvidenceSettings(settings.copy(durationSeconds = it)) },
+                onUploadToCloud = { viewModel.setEvidenceSettings(settings.copy(uploadToCloud = it)) },
+                onTestRecording = {
+                    startError = null
+                    if (!viewModel.startEvidence(alertId = null, seconds = 10)) {
+                        startError = "The microphone could not be started. Another app may be using it, or the permission was withdrawn."
+                    }
+                },
+                onStopRecording = { viewModel.stopEvidence() },
+                onMeter = { on ->
+                    if (on) {
+                        if (!micGranted) { askMic.launch(android.Manifest.permission.RECORD_AUDIO) }
+                        else if (meter.start()) { meterOn = true; readings.clear() }
+                        else startError = "The microphone could not be opened for the meter."
+                    } else { meter.stop(); meterOn = false }
+                },
+                onPlay = { id ->
+                    val clip = clips.orEmpty().firstOrNull { it.id == id }
+                    val file = clip?.let { java.io.File(context.filesDir, "${com.safeshade.platform.EvidenceRecorder.DIR_NAME}/${it.file}") }
+                    if (file != null && file.exists()) {
+                        player.stop()
+                        playingId = id; progress = 0f
+                        player.play(file, onProgress = { progress = it }, onDone = { playingId = null; progress = 0f })
+                    } else {
+                        startError = "That recording is no longer on this phone."
+                    }
+                },
+                onStop = { player.stop(); playingId = null; progress = 0f },
+                onDelete = { id -> if (playingId == id) { player.stop(); playingId = null }; viewModel.deleteEvidence(id) },
+                onRequestMic = { askMic.launch(android.Manifest.permission.RECORD_AUDIO) },
                 onBack = { navController.popBackStack() }
             )
         }
@@ -1445,6 +1658,11 @@ fun MainNavGraph(
             val trip = state.tripHistory.firstOrNull { it.id == tripId }
                 ?: state.activeAlert?.takeIf { it.id == tripId }
             val detailRun by viewModel.escalationRun.collectAsStateWithLifecycle()
+            val detailClips by viewModel.evidenceClips.collectAsStateWithLifecycle()
+            val detailContext = LocalContext.current
+            val detailPlayer = remember { VoicePlayer() }
+            var detailPlaying by remember { mutableStateOf<String?>(null) }
+            DisposableEffect(Unit) { onDispose { detailPlayer.stop() } }
 
             if (trip == null) {
                 // The history was cleared, or the id is stale. Leaving rather
@@ -1467,8 +1685,20 @@ fun MainNavGraph(
                     contactedName = state.safetySettings.primaryContact?.name
                         ?.takeIf { trip.wasEmergencyContacted },
                     escalation = detailRun?.takeIf { it.alertId == trip.id },
+                    recordings = detailClips.orEmpty().filter { it.alertId == trip.id }
+                        .sortedByDescending { it.capturedAt }.map { evidenceRow(it, state) },
+                    playingId = detailPlaying,
                     today = LocalDate.now()
                 ),
+                onPlayRecording = { id ->
+                    val clip = detailClips.orEmpty().firstOrNull { it.id == id } ?: return@TripDetailScreen
+                    val file = java.io.File(detailContext.filesDir, "${com.safeshade.platform.EvidenceRecorder.DIR_NAME}/${clip.file}")
+                    if (file.exists()) {
+                        detailPlayer.stop(); detailPlaying = id
+                        detailPlayer.play(file, onProgress = {}, onDone = { detailPlaying = null })
+                    }
+                },
+                onStopRecording = { detailPlayer.stop(); detailPlaying = null },
                 onBack = { navController.popBackStack() },
                 onResolve = { outcome ->
                     val contacted = outcome == TripOutcome.CONTACTED
@@ -2892,3 +3122,46 @@ private val TripKind.short: String
         TripKind.ZONE_EXIT -> "Zone"
         TripKind.JOURNEY_OVERDUE -> "Journey"
     }
+
+/** "72 bpm · 98% · 36.6°" for the hub's Vitals way; only the fields that were measured. */
+private fun vitalsLine(sample: com.safeshade.data.VitalsSample): String = listOfNotNull(
+    sample.heartRateBpm?.let { "$it bpm" },
+    sample.spo2Percent?.let { "$it%" },
+    sample.tempC?.let { "%.1f°".format(it) }
+).joinToString(" · ") + " · " + agoLabel(sample.at)
+
+/** One flag as the row's name. The word order is what the Vitals page keys its lamps on. */
+private fun vitalsFlagLine(
+    flag: com.safeshade.data.VitalsFlag,
+    sample: com.safeshade.data.VitalsSample?,
+    t: com.safeshade.data.VitalsThresholds
+): String = when (flag) {
+    com.safeshade.data.VitalsFlag.HR_LOW -> "Heart rate ${sample?.heartRateBpm ?: "—"}, below ${t.hrLow}"
+    com.safeshade.data.VitalsFlag.HR_HIGH -> "Heart rate ${sample?.heartRateBpm ?: "—"}, above ${t.hrHigh}"
+    com.safeshade.data.VitalsFlag.SPO2_LOW -> "Oxygen ${sample?.spo2Percent ?: "—"}%, below ${t.spo2Low}%"
+    com.safeshade.data.VitalsFlag.TEMP_HIGH -> "Temperature ${sample?.tempC?.let { "%.1f°".format(it) } ?: "—"}, above %.1f°".format(t.tempHigh)
+}
+
+/** One evidence clip as a row, with where the file is as its state. */
+private fun evidenceRow(clip: com.safeshade.data.EvidenceClip, state: AppState.Ready): EvidenceClipRow {
+    val cause = when {
+        clip.alertId == null -> "Test recording"
+        state.tripHistory.firstOrNull { it.id == clip.alertId }?.kind == TripKind.PHONE_SOS -> "After an SOS"
+        else -> "After a fall"
+    }
+    val (where, lamp) = when (clip.upload) {
+        com.safeshade.data.EvidenceUploadState.LOCAL_ONLY -> "On this phone" to LampState.OFF
+        com.safeshade.data.EvidenceUploadState.QUEUED -> "Sending to SafeShade Cloud" to LampState.ATTENTION
+        com.safeshade.data.EvidenceUploadState.UPLOADED -> "On SafeShade Cloud" to LampState.LIVE
+        com.safeshade.data.EvidenceUploadState.FAILED -> "Not sent: ${clip.uploadReason ?: "the upload did not finish"}" to LampState.TRIP
+    }
+    return EvidenceClipRow(
+        id = clip.id,
+        timeLabel = agoLabel(clip.capturedAt),
+        durationMs = clip.durationMs,
+        causeLabel = cause,
+        whereLabel = where,
+        whereState = lamp,
+        onThisPhone = true
+    )
+}

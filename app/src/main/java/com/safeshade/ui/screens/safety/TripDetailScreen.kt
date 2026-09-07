@@ -60,6 +60,9 @@ data class TripDetailUiState(
     val contactedName: String? = null,
     /** The ladder the phone climbed for this trip, when one ran. */
     val escalation: com.safeshade.service.EscalationRun? = null,
+    /** The microphone recordings tied to this trip, newest first. */
+    val recordings: List<EvidenceClipRow> = emptyList(),
+    val playingId: String? = null,
     val today: LocalDate = LocalDate.now()
 )
 
@@ -81,6 +84,8 @@ fun TripDetailScreen(
     state: TripDetailUiState,
     onBack: () -> Unit,
     onResolve: (TripOutcome) -> Unit,
+    onPlayRecording: (id: String) -> Unit = {},
+    onStopRecording: () -> Unit = {},
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(0.dp)
 ) {
@@ -207,6 +212,26 @@ fun TripDetailScreen(
             SectionPlate(title = "What the phone did")
             Spacer(Modifier.height(Spacing.sm))
             EscalationPlate(run = ladder)
+        }
+
+        if (state.recordings.isNotEmpty()) {
+            Spacer(Modifier.height(Spacing.xl))
+            SectionPlate(title = "What the microphone heard")
+            Spacer(Modifier.height(Spacing.sm))
+            BoardPlate(modifier = Modifier.fillMaxWidth()) {
+                state.recordings.forEachIndexed { i, clip ->
+                    if (i > 0) Hairline()
+                    val playing = state.playingId == clip.id
+                    Way(
+                        name = "Recording · ${clip.timeLabel}",
+                        state = clip.whereState,
+                        stateLabel = if (playing) "Playing" else "${(clip.durationMs / 1000).coerceAtLeast(1)} s",
+                        detail = clip.whereLabel,
+                        icon = if (playing) SafeShadeIcons.Pause else SafeShadeIcons.Play,
+                        onClick = if (clip.onThisPhone) ({ if (playing) onStopRecording() else onPlayRecording(clip.id) }) else null
+                    )
+                }
+            }
         }
 
         if (trip.outcome == TripOutcome.PENDING) {

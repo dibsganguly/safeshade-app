@@ -34,6 +34,16 @@ object Channels {
     /** The ongoing "SafeShade is watching" notification for the link service. */
     const val LINK = "link"
 
+    /**
+     * The ongoing notice shown while the microphone is recording for evidence.
+     *
+     * Not on [LINK], which is deliberately LOW and never peeks. A recording
+     * notice that did not peek would mean this app could open the microphone
+     * with nothing on screen to say so, and "the user can always see that the
+     * mic is on" is the whole basis on which this feature is defensible.
+     */
+    const val EVIDENCE = "evidence"
+
     fun ensureCreated(context: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val manager = context.getSystemService(NotificationManager::class.java) ?: return
@@ -97,6 +107,22 @@ object Channels {
                 setShowBadge(false)
             }
         )
+
+        manager.createNotificationChannel(
+            // DEFAULT rather than LOW: this one has to be seen. See the
+            // constant's own note.
+            NotificationChannel(
+                EVIDENCE,
+                "Evidence recording",
+                NotificationManager.IMPORTANCE_DEFAULT
+            ).apply {
+                group = GROUP_SAFETY
+                description = "Shown for as long as the microphone is recording after an alert."
+                setShowBadge(true)
+                enableVibration(false)
+                setSound(null, null)
+            }
+        )
     }
 
     /** Whether the user has left notifications on at all. */
@@ -109,6 +135,9 @@ object NotificationIds {
     const val FALL_ALERT = 1001
     const val LINK_SERVICE = 1002
     const val JOURNEY_SERVICE = 1003
+
+    /** The ongoing notice for [com.safeshade.service.EvidenceService]. */
+    const val EVIDENCE_SERVICE = 1004
     const val ZONE = 1010
     const val CHECK_IN = 1011
 

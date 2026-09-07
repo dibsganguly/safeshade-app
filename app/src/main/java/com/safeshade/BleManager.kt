@@ -482,23 +482,22 @@ class BleManager(private val context: Context) {
                 }
                 ACK_CHAR_UUID -> {
                     // Wire format "ACK:<tag>" - see sendAck() in the firmware.
+                    // Only the four-character prefix comes off, so a tag that
+                    // carries its own colon payload survives whole: "ACK:VER:1.2.3"
+                    // is published as "VER:1.2.3" and awaitAck("VER") still
+                    // matches it. DeviceProtocol.parseVersionAck reads it.
                     val tag = value.removePrefix("ACK:")
                     Log.d("BLE", "Ack received: $tag")
                     _ackEvents.tryEmit(tag)
                 }
                 TELEMETRY_CHAR_UUID -> {
-                    // "accelXg,accelYg,accelZg,tempC,lightRaw,batteryPct"
-                    val parts = value.split(",")
-                    if (parts.size >= 6) {
-                        _liveSensorData.value = LiveSensorData(
-                            accelX = parts[0].toFloatOrNull() ?: 0f,
-                            accelY = parts[1].toFloatOrNull() ?: 0f,
-                            accelZ = parts[2].toFloatOrNull() ?: 0f,
-                            temperature = parts[3].toFloatOrNull() ?: 0f,
-                            lightLevel = parts[4].toIntOrNull() ?: 0,
-                            batteryLevel = parts[5].toIntOrNull() ?: 0,
-                            isRealData = true
-                        )
+                    // "accelXg,accelYg,accelZg,tempC,lightRaw,batteryPct" from
+                    // this firmware, with vitals in fields 7-9 when a device
+                    // has them. The parse lives in DeviceProtocol so it can be
+                    // unit tested; a payload too short to be telemetry returns
+                    // null and the last good sample is left standing.
+                    com.safeshade.device.DeviceProtocol.parseTelemetry(value)?.let {
+                        _liveSensorData.value = it
                     }
                 }
             }

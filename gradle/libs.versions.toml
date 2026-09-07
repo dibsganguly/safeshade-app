@@ -55,6 +55,16 @@ ktor = "3.4.3"
 okhttp = "4.12.0"
 kotlinxSerialization = "1.9.0"
 
+# --- Phase 3: vitals from the phone's health store ---
+# Health Connect. 1.1.0 is the newest STABLE release (1.2.0-alpha06 is newer but
+# is an alpha, and the app ships against stable elsewhere). Checked before
+# adding, the way the supabase note above says to: its POM declares
+# kotlin-stdlib 2.0.21, well under the 2.2.10 compiler's N+1 metadata ceiling,
+# so it does not repeat the supabase 3.8.0 failure. It also declares
+# kotlinx-coroutines 1.7.3 at runtime scope, which Gradle resolves up to the
+# 1.9.0 already pinned by `coroutines` - nothing is downgraded.
+healthConnect = "1.1.0"
+
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-core-splashscreen = { group = "androidx.core", name = "core-splashscreen", version.ref = "coreSplashscreen" }
@@ -106,6 +116,7 @@ kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-
 androidx-credentials = { group = "androidx.credentials", name = "credentials", version.ref = "credentials" }
 androidx-credentials-play-services-auth = { group = "androidx.credentials", name = "credentials-play-services-auth", version.ref = "credentials" }
 googleid = { group = "com.google.android.libraries.identity.googleid", name = "googleid", version.ref = "googleid" }
+health-connect-client = { group = "androidx.health.connect", name = "connect-client", version.ref = "healthConnect" }
 billing-ktx = { group = "com.android.billingclient", name = "billing-ktx", version.ref = "billing" }
 
 [plugins]

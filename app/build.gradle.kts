@@ -144,6 +144,12 @@ dependencies {
     implementation(libs.googleid)
     implementation(libs.billing.ktx)
 
+    // Phase 3. Vitals read from the phone's Health Connect store, when the
+    // wearable has no vitals sensor of its own. The provider app is not
+    // installed on every phone and that is a first-class state, not an error -
+    // see platform/HealthConnectVitals.kt.
+    implementation(libs.health.connect.client)
+
     // Test
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

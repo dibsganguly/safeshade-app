@@ -75,7 +75,14 @@ data class SafetyUiState(
     /** Whether the out-of-reach notice has gone out for this outage. */
     val wearableOfflineAlerted: Boolean = false,
     /** Whether the ladder is climbing an open alert right now. */
-    val escalationRunning: Boolean = false
+    val escalationRunning: Boolean = false,
+    /** The newest vitals reading as one line, e.g. "72 bpm · 98%", or null when none. */
+    val vitalsLine: String? = null,
+    /** Whether the newest reading breaches a threshold. */
+    val vitalsFlagged: Boolean = false,
+    /** Whether the microphone is armed for a fall or an SOS. */
+    val evidenceArmed: Boolean = false,
+    val evidenceClipCount: Int = 0
 )
 
 /**
@@ -118,6 +125,8 @@ fun SafetyScreen(
     onSmsFallbackChange: (Boolean) -> Unit,
     onOpenEscalation: () -> Unit = {},
     onOpenWatch: () -> Unit = {},
+    onOpenVitals: () -> Unit = {},
+    onOpenEvidence: () -> Unit = {},
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(0.dp),
     /**
@@ -264,6 +273,20 @@ fun SafetyScreen(
                     sealed = locked,
                     onClick = onOpenEscalation
                 )
+                Hairline()
+                Way(
+                    name = "Evidence",
+                    state = if (state.evidenceArmed) LampState.LIVE else LampState.OFF,
+                    stateLabel = if (state.evidenceArmed) "Armed" else "Off",
+                    detail = when {
+                        state.evidenceArmed && state.evidenceClipCount > 0 ->
+                            "The microphone records after a fall or an SOS. ${state.evidenceClipCount} on this phone."
+                        state.evidenceArmed -> "The microphone records after a fall or an SOS."
+                        else -> "The microphone stays off when something happens."
+                    },
+                    icon = SafeShadeIcons.Microphone,
+                    onClick = onOpenEvidence
+                )
             }
         }
 
@@ -355,6 +378,23 @@ fun SafetyScreen(
                     detail = watchDetail(state),
                     icon = SafeShadeIcons.ConnectToTheDevice,
                     onClick = onOpenWatch
+                )
+                Hairline()
+                Way(
+                    name = "Vitals",
+                    state = when {
+                        state.vitalsLine == null -> LampState.UNKNOWN
+                        state.vitalsFlagged -> LampState.ATTENTION
+                        else -> LampState.LIVE
+                    },
+                    stateLabel = when {
+                        state.vitalsLine == null -> "—"
+                        state.vitalsFlagged -> "Outside range"
+                        else -> "In range"
+                    },
+                    detail = state.vitalsLine ?: "No reading yet. From the wearable or from Health Connect.",
+                    icon = SafeShadeIcons.HeartWithPulse,
+                    onClick = onOpenVitals
                 )
                 Hairline()
                 Way(

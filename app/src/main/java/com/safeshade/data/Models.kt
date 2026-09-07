@@ -129,6 +129,46 @@ data class PairedDevice(
     val lastConnected: Long = System.currentTimeMillis()
 )
 
+/**
+ * Which SafeShade hardware this is.
+ *
+ * [wireName] is not a display string and must not be edited for taste: the
+ * same three tokens are written into the `model` column of `firmware_releases`
+ * in `supabase/migrations/0001_init.sql`, where a check constraint accepts
+ * exactly `'s1'`, `'5g'` and `'spark'`. A rename here without a migration
+ * would make every firmware lookup match nothing — and matching nothing looks
+ * identical to "no update available", so the failure would be silent.
+ */
+enum class DeviceModel(val wireName: String, val label: String) {
+    S1("s1", "SafeShade S1"),
+    FIVE_G("5g", "SafeShade 5G"),
+    SPARK("spark", "SafeShade Spark");
+
+    companion object {
+        /** Case-insensitive; null for an unknown or absent token, never a guess. */
+        fun fromWire(wire: String?): DeviceModel? =
+            wire?.trim()?.lowercase()?.let { token -> entries.firstOrNull { it.wireName == token } }
+
+        /**
+         * Reads the model out of the name a wearable advertises.
+         *
+         * Unlike [fromWire] this cannot return null, because the advertised
+         * name is the only identity a scan result carries and every device
+         * answering this app's service UUID is a SafeShade. S1 is the default
+         * because it is the shipped hardware; the two newer names are matched
+         * first so that "SafeShade Spark S1-style" does not fall through to it.
+         */
+        fun fromAdvertisedName(name: String): DeviceModel {
+            val lower = name.lowercase()
+            return when {
+                lower.contains("spark") -> SPARK
+                lower.contains("5g") -> FIVE_G
+                else -> S1
+            }
+        }
+    }
+}
+
 // ============================================
 // WEARERS - the people this phone looks after
 // ============================================
@@ -512,6 +552,24 @@ data class VoiceNote(
 // TELEMETRY
 // ============================================
 
+/**
+ * Where a vitals reading came from.
+ *
+ * The two sources are not interchangeable and must never be averaged or
+ * silently swapped: a wrist sensor on the wearable measures the wearer, while
+ * a phone-side reading measures whoever is holding the phone — on a Guardian
+ * phone that is a different person entirely. Any screen showing a vital has to
+ * be able to say which one it is looking at, so the source travels with the
+ * numbers rather than being inferred from the connection state.
+ *
+ * These two are the same two `VitalsSample.source` records as the strings
+ * `"device"` and `"phone"`, which the server's `vitals_samples.source` check
+ * constraint accepts and nothing else. Keep the pair in step: a third member
+ * here would become a row the server rejects at drain time, with nothing left
+ * on the phone to show for it.
+ */
+enum class VitalsSource { DEVICE, PHONE }
+
 data class LiveSensorData(
     val accelX: Float = 0f,
     val accelY: Float = 0f,
@@ -520,10 +578,31 @@ data class LiveSensorData(
     val lightLevel: Int = 0,
     val batteryLevel: Int = 0,
     /** True once a real TELEMETRY payload has arrived this session. */
-    val isRealData: Boolean = false
+    val isRealData: Boolean = false,
+    /**
+     * Beats per minute, or null for *no reading*.
+     *
+     * Null is not zero and must not render as one. The shipped firmware fits
+     * no heart-rate sensor and sends a six-field TELEMETRY payload, so this is
+     * null on every real device today; the UI draws a dash. It is also null
+     * when a number arrives that the app cannot believe — see
+     * `DeviceProtocol.parseTelemetry`, which drops implausible values rather
+     * than passing them on, because a wrong vital shown confidently is worse
+     * than no vital at all.
+     */
+    val heartRateBpm: Int? = null,
+    /** Blood-oxygen saturation as a whole percentage, or null for no reading. */
+    val spo2Percent: Int? = null,
+    /** Skin temperature in Celsius, or null for no reading. Distinct from [temperature], which is ambient. */
+    val skinTempC: Float? = null,
+    /** Which side measured the vitals above. Null whenever all three are null. */
+    val vitalsSource: VitalsSource? = null
 ) {
     val magnitudeG: Float
         get() = kotlin.math.sqrt(accelX * accelX + accelY * accelY + accelZ * accelZ)
+
+    /** True when at least one vital carries a reading. */
+    val hasVitals: Boolean get() = heartRateBpm != null || spo2Percent != null || skinTempC != null
 }
 
 /** One sample for the battery / link-quality sparklines. */

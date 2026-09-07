@@ -19,6 +19,8 @@ import com.safeshade.service.WearableWatch
 import java.io.File
 import com.safeshade.sendSmsText
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /**
@@ -136,6 +138,38 @@ class AppContainer(
         scope = scope
     )
 
+    /**
+     * Vitals: the newest heart rate, blood oxygen and temperature, from the
+     * wearable's telemetry or from Health Connect on this phone. Its own
+     * DataStore file, so the store's write rate (a sample a minute while a
+     * sensor reports) never contends with `safeshade_prefs`.
+     */
+    val healthConnectVitals = com.safeshade.platform.HealthConnectVitals(appContext)
+
+    val vitalsRepository = com.safeshade.repo.VitalsRepository(
+        store = com.safeshade.data.DataStoreVitalsStore(appContext),
+        scope = scope,
+        hooks = syncHooks
+    )
+
+    /**
+     * Evidence: the microphone after a fall or an SOS. Its settings are hoisted
+     * to a hot state so the repository's opt-in check can answer synchronously
+     * at the moment a clip lands.
+     */
+    private val evidenceStore = com.safeshade.data.DataStoreEvidenceStore(appContext)
+
+    val evidenceSettings: kotlinx.coroutines.flow.StateFlow<com.safeshade.data.EvidenceSettings> =
+        evidenceStore.settings.stateIn(scope, SharingStarted.Eagerly, com.safeshade.data.EvidenceSettings())
+
+    val evidenceRepository = com.safeshade.repo.EvidenceRepository(
+        store = evidenceStore,
+        scope = scope,
+        evidenceDir = File(appContext.filesDir, com.safeshade.platform.EvidenceRecorder.DIR_NAME),
+        hooks = syncHooks,
+        uploadOptIn = { evidenceSettings.value.uploadToCloud }
+    )
+
     val appStateRepository = AppStateRepository(
         device = deviceRepository,
         profileRepo = profileRepository,
@@ -179,6 +213,47 @@ class AppContainer(
         // device repository, and both are pure observers of state built above.
         escalationRunner.start()
         wearableWatch.start()
+
+        // The evidence service runs in this process and hands each finished
+        // recording here; a failure is left on the service's own state for the
+        // page to show, since there is nothing to store for it.
+        com.safeshade.service.EvidenceService.onRecorded = { result, alertId ->
+            if (result is com.safeshade.platform.EvidenceRecordingResult.Recorded) {
+                scope.launch {
+                    evidenceRepository.add(
+                        file = result.file.name,
+                        durationMs = result.durationMs,
+                        byteSize = result.bytes,
+                        alertId = alertId
+                    )
+                }
+            }
+        }
+
+        /*
+         * Vitals off the link. The wearable's telemetry arrives about once a
+         * second; a sample a minute is plenty for a history, and anything the
+         * parser could not believe has already become null upstream, so a
+         * payload with no vitals field records nothing at all.
+         */
+        scope.launch {
+            var lastDeviceSampleAt = 0L
+            deviceRepository.telemetry.collect { t ->
+                if (!t.hasVitals) return@collect
+                val now = System.currentTimeMillis()
+                if (now - lastDeviceSampleAt < 60_000L) return@collect
+                lastDeviceSampleAt = now
+                vitalsRepository.record(
+                    com.safeshade.data.VitalsSample(
+                        at = now,
+                        heartRateBpm = t.heartRateBpm,
+                        spo2Percent = t.spo2Percent,
+                        tempC = t.skinTempC,
+                        source = com.safeshade.data.VitalsSample.SOURCE_DEVICE
+                    )
+                )
+            }
+        }
 
         /*
          * Migration runs here, once, on the application scope — never inside a

@@ -19,6 +19,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -232,6 +233,18 @@ fun SafeShadeApp(viewModel: SafeShadeViewModel) {
         // The trip layer sits above everything, including the bottom bar. It is
         // not a dialog: a dialog can be dismissed by tapping outside it, and
         // this must be answered.
+        // A fall or a device SOS that reaches this screen starts the microphone
+        // when the person armed it. Keyed on the alert's id so one alert starts
+        // one recording however many times this recomposes, and started from
+        // here rather than the receiver because a microphone service may only
+        // start while an Activity of ours is in front — which, with the
+        // full-screen notification bringing this one forward, it now is.
+        val fallAlertId = ready.activeAlert?.takeIf { it.kind != TripKind.PHONE_SOS }?.id
+        val evidenceSettings by viewModel.evidenceSettings.collectAsStateWithLifecycle()
+        LaunchedEffect(fallAlertId) {
+            if (fallAlertId != null && evidenceSettings.recordOnFall) viewModel.startEvidence(fallAlertId)
+        }
+
         AnimatedVisibility(
             visible = ready.activeAlert != null,
             enter = fadeIn(),

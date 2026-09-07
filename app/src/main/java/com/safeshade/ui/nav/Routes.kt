@@ -83,6 +83,10 @@ object Routes {
     const val SAFETY_TRIPS = "safety/trips"
     const val SAFETY_TRIP_DETAIL = "safety/trips/detail"
     const val SAFETY_SILENT = "safety/silent"
+    /** Vitals: heart rate, blood oxygen and temperature, from the wearable or Health Connect. */
+    const val SAFETY_VITALS = "safety/vitals"
+    /** Evidence: the microphone recording after a fall or an SOS, and the sound around the wearer. */
+    const val SAFETY_EVIDENCE = "safety/evidence"
 
     /** Bottom destination 4 — the wearable itself. */
     const val DEVICE = "device"

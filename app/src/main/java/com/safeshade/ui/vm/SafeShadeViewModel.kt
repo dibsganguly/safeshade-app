@@ -314,6 +314,71 @@ class SafeShadeViewModel(
     /** What the wearable watch believes this minute. */
     val watchState: StateFlow<com.safeshade.service.WatchState> = container.wearableWatch.state
 
+    // ============================================
+    // Vitals
+    // ============================================
+
+    val vitalsSamples: StateFlow<List<com.safeshade.data.VitalsSample>?> = container.vitalsRepository.samples
+    val vitalsThresholds: StateFlow<com.safeshade.data.VitalsThresholds> = container.vitalsRepository.thresholds
+    val vitalsFlags: StateFlow<List<com.safeshade.data.VitalsFlag>> =
+        container.vitalsRepository.latestFlags.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    fun setVitalsThresholds(t: com.safeshade.data.VitalsThresholds) =
+        launchIo { container.vitalsRepository.setThresholds(t) }
+
+    /** Health Connect as the phone sees it right now. Re-evaluated on every call because installing it changes the answer. */
+    fun healthConnectAvailability(): com.safeshade.platform.Availability = container.healthConnectVitals.availability()
+
+    fun healthConnectContract() = container.healthConnectVitals.permissionsContract()
+    val healthConnectPermissions: Set<String> get() = container.healthConnectVitals.requiredPermissions
+    suspend fun healthConnectGranted(): Boolean =
+        container.healthConnectVitals.grantedPermissions().containsAll(container.healthConnectVitals.requiredPermissions)
+
+    /**
+     * Reads the newest vitals from Health Connect and stores them. Returns the
+     * failure reason, or null when the read worked (a read that found nothing
+     * new is a success with nothing to say).
+     */
+    suspend fun readHealthConnect(wearerId: String?): String? {
+        val since = System.currentTimeMillis() - 24 * 3_600_000L
+        return when (val r = container.healthConnectVitals.latest(since)) {
+            is com.safeshade.platform.VitalsResult.Readings -> {
+                container.vitalsRepository.recordFromPhone(r, wearerId); null
+            }
+            is com.safeshade.platform.VitalsResult.Failed -> r.reason
+            com.safeshade.platform.VitalsResult.NotAvailable -> "Health Connect is not available on this phone."
+            com.safeshade.platform.VitalsResult.NoPermission -> "SafeShade has not been allowed to read from Health Connect."
+        }
+    }
+
+    // ============================================
+    // Evidence
+    // ============================================
+
+    val evidenceClips: StateFlow<List<com.safeshade.data.EvidenceClip>?> = container.evidenceRepository.clips
+    val evidenceSettings: StateFlow<com.safeshade.data.EvidenceSettings> = container.evidenceSettings
+    val evidenceService: StateFlow<com.safeshade.service.EvidenceServiceState> = com.safeshade.service.EvidenceService.state
+
+    fun setEvidenceSettings(settings: com.safeshade.data.EvidenceSettings) =
+        launchIo { container.evidenceRepository.setSettings(settings) }
+
+    fun deleteEvidence(id: String) = launchIo { container.evidenceRepository.delete(id) }
+
+    /**
+     * Opens the microphone for [seconds], tied to [alertId]. Only ever called
+     * from a surface the person is looking at (the alert banner, the SOS
+     * outcome, the Evidence page), because on Android 14 a microphone service
+     * cannot start from the background. Returns false with the reason logged
+     * when the permission is missing or the start was refused.
+     */
+    fun startEvidence(alertId: String?, seconds: Int = container.evidenceSettings.value.durationSeconds): Boolean =
+        com.safeshade.service.EvidenceService.start(getApplication(), alertId, seconds)
+
+    fun stopEvidence() = com.safeshade.service.EvidenceService.stop(getApplication())
+
+    fun hasMicPermission(): Boolean =
+        ContextCompat.checkSelfPermission(getApplication(), Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+
     /** Records a finished voice note. See VoiceNoteRepository.add. */
     fun addVoiceNote(
         fileName: String,
@@ -445,6 +510,12 @@ class SafeShadeViewModel(
         // could have deferred. handoff7 section 6 item 5.
         val alert = FallAlertEvent(kind = TripKind.PHONE_SOS, note = "Raised from the phone")
         container.safetyRepository.record(alert, sync = false)
+
+        // The microphone, if the person armed it for an SOS. The tap that
+        // fired this came from a screen in front of them, which is the one
+        // condition the service needs; a refused start is logged and nothing
+        // else here waits on it.
+        if (container.evidenceSettings.value.recordOnSos) startEvidence(alert.id)
 
         val fix = LastKnownLocation.state.value?.takeIf { it.isValid }
             ?: _location.value.takeIf { it.isValid }

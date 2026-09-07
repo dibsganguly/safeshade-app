@@ -81,8 +81,47 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <!--
+        The evidence recording. A third type for a third service, for the same
+        reason the second one exists: on API 34+ a "microphone" FGS cannot be
+        started from the background at all, so it lives alone in
+        .service.EvidenceService and is started only from a screen the user is
+        looking at. See that class's KDoc.
+    -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+
+    <!--
+        Vitals read from Health Connect, the phone's own health store, for the
+        case where the wearable has no vitals sensor. These are runtime
+        permissions granted inside Health Connect's own UI, not ours, and
+        nothing here works at all unless the provider app is installed - which
+        on most phones it is not. See platform/HealthConnectVitals.kt.
+
+        READ_SKIN_TEMPERATURE is deliberately NOT requested. The only
+        temperature this app shows is a core body temperature compared against
+        a fever threshold, and a wrist skin temperature (~33-35 C) is a
+        different measurement that would either never trip that threshold or
+        mislead if merged into it. An unused health permission is also a Play
+        review flag, so it is left out rather than declared for later.
+    -->
+    <uses-permission android:name="android.permission.health.READ_HEART_RATE" />
+    <uses-permission android:name="android.permission.health.READ_OXYGEN_SATURATION" />
+    <uses-permission android:name="android.permission.health.READ_BODY_TEMPERATURE" />
 
     <uses-feature android:name="android.hardware.bluetooth_le" android:required="true" />
+
+    <!--
+        Package visibility. On API 30+ an app cannot see another package unless
+        it declares it here, and `getPackageInfo("com.google.android.apps.healthdata")`
+        is exactly how HealthConnectVitals tells "not installed" apart from
+        "installed but too old" - `getSdkStatus` collapses both into one code.
+        Without this the lookup throws NameNotFoundException on a phone that
+        does have Health Connect, and the app would offer an install button to
+        someone who already installed it.
+    -->
+    <queries>
+        <package android:name="com.google.android.apps.healthdata" />
+    </queries>
 
     <application
         android:name=".SafeShadeApplication"
@@ -129,6 +168,49 @@
             </intent-filter>
         </activity>
 
+        <!--
+            Health Connect asks an app to explain why it wants health data, and
+            it launches this action to do it. It is a plain alias onto
+            MainActivity: the app is a single Activity, and the rationale is a
+            screen inside it, not a second Activity.
+
+            Deliberately NOT guarded by START_VIEW_PERMISSION_USAGE. That
+            permission is signature-level and held by the system; on API 33 and
+            below it is the Health Connect *app* that launches this action, and
+            it does not hold it - so guarding this alias would make the privacy
+            link inside Health Connect's own permission screen fail to open
+            SafeShade, with no error anywhere. The alias below, which the
+            platform itself launches from API 34, is the one that carries it.
+        -->
+        <activity-alias
+            android:name=".HealthPermissionsRationaleActivity"
+            android:targetActivity=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
+            </intent-filter>
+        </activity-alias>
+
+        <!--
+            The same rationale, reached the other way. From API 34 the platform
+            stopped using the androidx action above and sends
+            VIEW_PERMISSION_USAGE with the HEALTH_PERMISSIONS category instead,
+            from the system settings screen. Both are declared because the app
+            supports both sides of that line. The START_VIEW_PERMISSION_USAGE
+            permission is what stops any app launching this - it is held by the
+            system only.
+        -->
+        <activity-alias
+            android:name=".HealthPermissionsUsageActivity"
+            android:targetActivity=".MainActivity"
+            android:exported="true"
+            android:permission="android.permission.START_VIEW_PERMISSION_USAGE">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW_PERMISSION_USAGE" />
+                <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
+            </intent-filter>
+        </activity-alias>
+
         <receiver
             android:name=".GeofenceBroadcastReceiver"
             android:exported="false" />
@@ -168,6 +250,18 @@
             android:name=".service.JourneyService"
             android:exported="false"
             android:foregroundServiceType="location" />
+
+        <!--
+            The surroundings recording. Stricter still than JourneyService: on
+            API 34+ a "microphone" FGS cannot be started from the background,
+            and startForeground throws outright if RECORD_AUDIO is not held at
+            that instant. Started only from the alert full-screen surface or
+            the SOS screen - never from a receiver, an alarm or a geofence.
+        -->
+        <service
+            android:name=".service.EvidenceService"
+            android:exported="false"
+            android:foregroundServiceType="microphone" />
 
         <!-- Fires medication, check-in, journey-overdue and fake-call alarms. -->
         <receiver
