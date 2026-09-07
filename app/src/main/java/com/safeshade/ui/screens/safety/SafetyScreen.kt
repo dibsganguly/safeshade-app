@@ -311,7 +311,7 @@ fun SafetyScreen(
                     name = "Emergency card",
                     state = if (state.medicalId.isUsable) LampState.LIVE else LampState.OFF,
                     stateLabel = if (state.medicalId.isUsable) "Ready" else "Empty",
-                    icon = SafeShadeIcons.QrCode,
+                    icon = SafeShadeIcons.MedicalId,
                     onClick = onOpenEmergencyCard
                 )
             }

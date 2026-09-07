@@ -23,6 +23,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -311,6 +312,11 @@ fun WearerScreen(
             onClick = { customising = !customising },
             modifier = Modifier.padding(horizontal = Spacing.sm)
         ) {
+            Icon(
+                if (customising) SafeShadeIcons.Tick02 else SafeShadeIcons.Edit,
+                contentDescription = null, tint = colors.inkAttention, modifier = Modifier.size(18.dp)
+            )
+            Spacer(Modifier.width(Spacing.xs))
             Text(
                 if (customising) "Done making one" else "Make your own face",
                 style = MaterialTheme.typography.bodyMedium,

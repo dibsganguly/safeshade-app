@@ -197,6 +197,7 @@ fun ProfileScreen(
                 Hairline()
                 ExpandableSection(
                     label = "Appearance",
+                    icon = SafeShadeIcons.Appearance,
                     count = DarkModePreference.entries.size
                 ) {
                     DarkModePreference.entries.forEach { option ->

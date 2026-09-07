@@ -237,7 +237,8 @@ fun MedicalIdScreen(
         // set the device up, and then leaves alone. Twelve stacked text boxes
         // are also the thing that made this screen read as a form to be
         // completed rather than a card to be got right.
-        ExpandableSection(label = "More medical details", count = 7) {
+        ExpandableSection(label = "More medical details",
+                    icon = SafeShadeIcons.MedicalId, count = 7) {
             Spacer(Modifier.height(Spacing.sm))
 
             PlateField(

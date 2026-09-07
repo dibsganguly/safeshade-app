@@ -228,6 +228,7 @@ private fun LazyListScope.journeySetup(
     item("start") {
         BoardButton(
             label = if (state.isBusy) "Starting" else "Start the journey",
+            icon = SafeShadeIcons.RouteNavigation,
             supporting = if (state.canStart || state.isBusy) null else "A destination and a time are needed",
             onClick = onStart,
             enabled = state.canStart,

@@ -38,6 +38,7 @@ import com.safeshade.ui.board.ScreenHeader
 import com.safeshade.ui.board.ScreenTier
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.shady.ShadyMood
+import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.board
@@ -371,6 +372,7 @@ private fun Composer(
 
             BoardButton(
                 label = if (state.isSending) "Sending" else "Send",
+                icon = SafeShadeIcons.SendMessage,
                 onClick = onSend,
                 enabled = canSend,
                 weight = ButtonWeight.PRIMARY,

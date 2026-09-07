@@ -197,6 +197,7 @@ fun GuardiansScreen(
                 }
                 BoardButton(
                     label = if (busy) "Sending…" else "Send the Invitation",
+                    icon = SafeShadeIcons.MailSendInvite,
                     supporting = "An email with a link that joins this Circle. Good for seven days.",
                     onClick = {
                         if (busy) return@BoardButton

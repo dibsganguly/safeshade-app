@@ -13,6 +13,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.Icon
+import androidx.compose.foundation.layout.size
+import com.safeshade.ui.icons.SafeShadeIcons
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -99,9 +102,16 @@ internal fun FaceEditor(
         Spacer(Modifier.height(Spacing.xs))
         Row(modifier = Modifier.padding(horizontal = Spacing.sm)) {
             TextButton(onClick = { pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }) {
+                Icon(SafeShadeIcons.CameraAdd, contentDescription = null, tint = colors.inkAttention, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(Spacing.xs))
                 Text("Use a photo", style = MaterialTheme.typography.bodyMedium, color = colors.inkAttention)
             }
             TextButton(onClick = { customising = !customising }) {
+                Icon(
+                    if (customising) SafeShadeIcons.Tick02 else SafeShadeIcons.Edit,
+                    contentDescription = null, tint = colors.inkAttention, modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.width(Spacing.xs))
                 Text(
                     if (customising) "Done making one" else "Make your own",
                     style = MaterialTheme.typography.bodyMedium,

@@ -165,6 +165,7 @@ fun AccountScreen(
                     Column(modifier = Modifier.padding(Spacing.lg)) {
                         BoardButton(
                             label = "Sync Now",
+                            icon = SafeShadeIcons.Refresh,
                             onClick = onSyncNow,
                             weight = ButtonWeight.SECONDARY,
                             enabled = !sync.syncing,
@@ -239,6 +240,7 @@ fun AccountScreen(
                     ) {
                         BoardButton(
                             label = if (busy) "Working…" else "Sign Out",
+                            icon = SafeShadeIcons.LogSignOut,
                             supporting = "Everything stays on this phone",
                             onClick = { act(onSignOut) },
                             weight = ButtonWeight.SECONDARY,
@@ -247,6 +249,7 @@ fun AccountScreen(
                         )
                         BoardButton(
                             label = "Delete Account",
+                            icon = SafeShadeIcons.DeleteBin,
                             supporting = "Removes the cloud copy for good",
                             onClick = { confirmingDelete = true },
                             weight = ButtonWeight.DANGER,

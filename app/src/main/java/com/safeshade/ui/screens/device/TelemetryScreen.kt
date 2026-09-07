@@ -40,6 +40,7 @@ import com.safeshade.ui.board.Readout
 import com.safeshade.ui.board.ScreenHeader
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.shady.ShadyMood
+import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.board
@@ -228,6 +229,7 @@ fun TelemetryScreen(
         item("read-signal") {
             BoardButton(
                 label = "Take a signal reading",
+                icon = SafeShadeIcons.FullSignal,
                 supporting = "Asks the radio for a fresh RSSI sample",
                 onClick = onReadSignal,
                 enabled = state.connection.isUsable,

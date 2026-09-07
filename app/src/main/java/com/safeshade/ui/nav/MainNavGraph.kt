@@ -1237,6 +1237,7 @@ fun MainNavGraph(
             var draftPhone by rememberSaveable { mutableStateOf("") }
             var draftPrimary by rememberSaveable { mutableStateOf(false) }
             var draftRelationship by rememberSaveable { mutableStateOf("") }
+            var draftAvatar by rememberSaveable { mutableStateOf("") }
 
             // Writes the whole list in one go rather than calling
             // `addContact` / `removeContact` in sequence: an edit is a remove
@@ -1250,7 +1251,7 @@ fun MainNavGraph(
                 state = ContactsUiState(
                     contacts = contacts,
                     draft = if (draftOpen) {
-                        ContactDraft(draftIndex, draftName, draftPhone, draftPrimary, draftRelationship)
+                        ContactDraft(draftIndex, draftName, draftPhone, draftPrimary, draftRelationship, avatarId = draftAvatar)
                     } else {
                         null
                     },
@@ -1266,6 +1267,7 @@ fun MainNavGraph(
                     // The first contact anyone adds is the one that gets rung.
                     draftPrimary = contacts.isEmpty()
                     draftRelationship = ""
+                    draftAvatar = ""
                     draftOpen = true
                 },
                 onStartEdit = { index ->
@@ -1282,6 +1284,7 @@ fun MainNavGraph(
                         draftPhone = PhoneNumbers.digitsOf(contact.phone)
                         draftPrimary = contact.isPrimary
                         draftRelationship = contact.relationship
+                        draftAvatar = contact.avatarId
                         draftOpen = true
                     }
                 },
@@ -1296,13 +1299,15 @@ fun MainNavGraph(
                     // than an unwired field, because it reads as a bug in the
                     // keyboard rather than as something not finished.
                     draftRelationship = draft.relationship
+                    draftAvatar = draft.avatarId
                 },
                 onSaveDraft = {
                     val edited = EmergencyContact(
                         name = draftName.trim(),
                         phone = draftPhone.trim(),
                         isPrimary = draftPrimary,
-                        relationship = draftRelationship.trim()
+                        relationship = draftRelationship.trim(),
+                        avatarId = draftAvatar
                     )
                     if (edited.name.isNotBlank() && edited.phone.isNotBlank()) {
                         val index = draftIndex

@@ -249,6 +249,8 @@ fun CircleScreen(
                     modifier = Modifier.padding(top = Spacing.lg),
                     trailing = {
                         TextButton(onClick = onOpenPeople) {
+                            Icon(SafeShadeIcons.UserGroup, contentDescription = null, tint = colors.inkAttention, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(Spacing.xs))
                             Text("Manage", style = MaterialTheme.typography.bodyMedium, color = colors.inkAttention)
                         }
                     }
@@ -591,10 +593,11 @@ private fun WearerPlate(
                 .fillMaxWidth()
                 .padding(horizontal = Spacing.lg, vertical = Spacing.md)
         ) {
-            BoardButton(label = "Message", onClick = onMessage, weight = ButtonWeight.QUIET, modifier = Modifier.weight(1f))
-            BoardButton(label = "Where", onClick = onLocate, weight = ButtonWeight.QUIET, modifier = Modifier.weight(1f))
+            BoardButton(label = "Message", icon = SafeShadeIcons.SendMessage, onClick = onMessage, weight = ButtonWeight.QUIET, modifier = Modifier.weight(1f))
+            BoardButton(label = "Where", icon = SafeShadeIcons.PinLocation, onClick = onLocate, weight = ButtonWeight.QUIET, modifier = Modifier.weight(1f))
             BoardButton(
                 label = "Call",
+                icon = SafeShadeIcons.TelephoneCall,
                 onClick = onCall,
                 weight = ButtonWeight.QUIET,
                 enabled = card.canCall,

@@ -22,6 +22,7 @@ import com.safeshade.ui.board.Hairline
 import com.safeshade.ui.board.LampState
 import com.safeshade.ui.board.PersonRow
 import com.safeshade.ui.board.ScreenHeader
+import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.board
@@ -110,6 +111,7 @@ fun PeopleScreen(
             item("add") {
                 BoardButton(
                     label = "Add a Person",
+                    icon = SafeShadeIcons.UserAdd,
                     onClick = onAdd,
                     weight = ButtonWeight.COMMIT,
                     modifier = Modifier.fillMaxWidth()

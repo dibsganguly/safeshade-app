@@ -27,6 +27,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -67,6 +68,7 @@ fun ExpandableSection(
     modifier: Modifier = Modifier,
     count: Int? = null,
     initiallyOpen: Boolean = false,
+    icon: ImageVector? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
     var open by rememberSaveable(label) { mutableStateOf(initiallyOpen) }
@@ -75,6 +77,7 @@ fun ExpandableSection(
         open = open,
         onOpenChange = { open = it },
         modifier = modifier,
+        icon = icon,
         count = count,
         content = content
     )
@@ -91,6 +94,8 @@ fun ExpandableSection(
     onOpenChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
     count: Int? = null,
+    /** Drawn before the label at the way's icon size, so a collapsed bank reads like the rows inside it. */
+    icon: ImageVector? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
     val colors = MaterialTheme.board
@@ -115,6 +120,15 @@ fun ExpandableSection(
                     stateDescription = if (open) "Expanded" else "Collapsed"
                 }
         ) {
+            if (icon != null) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = colors.inkMuted,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(Modifier.width(Spacing.md))
+            }
             Nameplate(label, modifier = Modifier.weight(1f), muted = true)
             if (count != null) {
                 // Shown open as well as closed. It used to disappear on open,

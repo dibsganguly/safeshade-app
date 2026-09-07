@@ -408,6 +408,7 @@ fun DeviceSettingsScreen(
             BoardPlate(modifier = Modifier.fillMaxWidth()) {
                 ExpandableSection(
                     label = "Only on the device",
+                    icon = SafeShadeIcons.DeviceSettings,
                     count = DeviceCapabilities.deviceOnly.size
                 ) {
                     DeviceCapabilities.deviceOnly.forEach { setting ->

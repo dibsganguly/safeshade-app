@@ -47,6 +47,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.vector.addPathNodes
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import com.safeshade.ui.theme.BoardColors
@@ -389,7 +391,7 @@ private fun SosSlot(
                 }
             }
             Icon(
-                imageVector = SafeShadeIcons.FirstAid,
+                imageVector = EmergencyAsterisk,
                 contentDescription = null,
                 // Knocked out of the disc when armed; drawn in the ring's own
                 // colour when it is only an outline.
@@ -517,4 +519,28 @@ private fun BottomDestination.accent(colors: BoardColors): Color = when (this) {
     BottomDestination.CIRCLE -> colors.accentSky
     BottomDestination.SAFETY -> colors.accentSage
     BottomDestination.DEVICE -> colors.accentPlum
+}
+
+/**
+ * The six-armed asterisk the SOS disc has always carried.
+ *
+ * Material's "emergency" glyph, kept verbatim (Apache 2.0) after the icon
+ * set replaced Material everywhere else: the set's first-aid case did not
+ * read as SOS knocked out of the red disc, and the user asked for exactly
+ * this one back. It is the only glyph in the app that is not generated
+ * from docs/Icons, and this is the only place it is drawn.
+ */
+private val EmergencyAsterisk: ImageVector by lazy {
+    ImageVector.Builder(
+        name = "EmergencyAsterisk",
+        defaultWidth = 24.dp, defaultHeight = 24.dp,
+        viewportWidth = 24f, viewportHeight = 24f
+    ).apply {
+        addPath(
+            pathData = addPathNodes(
+                "M20.79 9.23l-2-3.46L14 8.54V3h-4v5.54L5.21 5.77l-2 3.46L8 12l-4.79 2.77 2 3.46L10 15.46V21h4v-5.54l4.79 2.77 2-3.46L16 12z"
+            ),
+            fill = SolidColor(Color.Black)
+        )
+    }.build()
 }

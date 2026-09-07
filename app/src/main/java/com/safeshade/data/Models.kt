@@ -288,6 +288,13 @@ data class EmergencyContact(
     val phone: String,
     val isPrimary: Boolean = false,
     /**
+     * The contact's face, in the same form as a wearer's: blank for the
+     * initial on a disc, `a:` for a made face, `photo:` for a picture. Kept
+     * on this phone; the cloud row has no column for it, and a pulled row
+     * never clears it (see MergeRules.contacts).
+     */
+    val avatarId: String = "",
+    /**
      * How this person is related to the wearer, in the wearer's own words.
      *
      * Free text rather than an enum, and empty rather than null. A responder

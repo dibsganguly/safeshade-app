@@ -312,6 +312,7 @@ fun FallSettingsScreen(
         BoardPlate(modifier = Modifier.fillMaxWidth()) {
             ExpandableSection(
                 label = "How the alert is heard",
+                    icon = SafeShadeIcons.LoudEnvironment,
                 count = VolumeChoices.size + 1
             ) {
                 Hairline()
@@ -361,6 +362,7 @@ fun FallSettingsScreen(
         // the cost this pattern is supposed to avoid.
         ExpandableSection(
             label = "Parental controls",
+                    icon = SafeShadeIcons.ParentalControl,
             count = if (settings.parentalControlsEnabled) 2 else 1,
             initiallyOpen = settings.parentalControlsEnabled
         ) {

@@ -102,6 +102,9 @@ OPTICAL = {
     "fall-detection": 0.88,
     "apple-logo": 0.86,
     "google-logo": 0.86,
+    # Reads a touch heavy beside the sun in the Appearance rows; measured by
+    # eye on the Profile page, the user's call.
+    "moon": 0.92,
 }
 
 

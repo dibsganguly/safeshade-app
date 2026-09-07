@@ -211,7 +211,7 @@ fun WearerEditorScreen(
                         state = if (state.medicalFieldsFilled > 0) LampState.LIVE else LampState.OFF,
                         stateLabel = if (state.medicalFieldsFilled > 0) "Filled in" else "Empty",
                         detail = "${state.medicalFieldsFilled} of ${state.medicalFieldsTotal} fields",
-                        icon = SafeShadeIcons.Alert02,
+                        icon = SafeShadeIcons.MedicalId,
                         onClick = onOpenMedicalId
                     )
                 }
@@ -268,6 +268,7 @@ fun WearerEditorScreen(
                         val phoneOk = PhoneNumbers.digitsOf(contactPhone).length >= 10
                         BoardButton(
                             label = "Add Contact",
+                            icon = SafeShadeIcons.UserAdd,
                             onClick = {
                                 contacts = contacts + EmergencyContact(name = contactName.trim(), phone = contactPhone.trim())
                                 contactName = ""
@@ -286,6 +287,7 @@ fun WearerEditorScreen(
                 Column(modifier = Modifier.padding(horizontal = Spacing.gutter)) {
                     BoardButton(
                         label = "Remove This Person",
+                        icon = SafeShadeIcons.UserRemove,
                         supporting = "Their medical ID and contacts go with them",
                         onClick = { confirmingRemove = true },
                         weight = ButtonWeight.DANGER,

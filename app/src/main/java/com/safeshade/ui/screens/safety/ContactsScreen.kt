@@ -16,6 +16,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -39,6 +40,8 @@ import com.safeshade.ui.board.RELATIONSHIP_SUGGESTIONS
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.Way
 import com.safeshade.ui.icons.SafeShadeIcons
+import com.safeshade.ui.screens.profile.FaceEditor
+import com.safeshade.ui.board.PersonRow
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.board
@@ -62,7 +65,9 @@ data class ContactDraft(
      * Last, and defaulted, on purpose: the draft is built positionally at its
      * one call site, so a field added anywhere else would break it.
      */
-    val relationship: String = ""
+    val relationship: String = "",
+    /** The face, as `EmergencyContact.avatarId`. Last and defaulted, like `relationship`. */
+    val avatarId: String = ""
 )
 
 /** Everything the contacts screen draws. */
@@ -179,8 +184,9 @@ private fun ContactList(
                         if (index > 0) Hairline()
                         val isFirst = contact.isPrimary ||
                             (state.contacts.none { it.isPrimary } && index == 0)
-                        Way(
+                        PersonRow(
                             name = contact.name.ifBlank { "Unnamed contact" },
+                            avatarId = contact.avatarId,
                             // The person who gets called is the live circuit;
                             // the rest are standby. The state word carries it
                             // as well, so the lamp is never the only signal.
@@ -302,15 +308,22 @@ private fun ContactEditor(
         // and PanelHeader already supplies the whole header-to-content gap.
         // A Spacing.xl on top of that was a third gap stacked on the header's
         // own 20dp, not a separator between two pieces of content.
-        PlateField(
-            label = "Name",
-            value = draft.name,
-            onValueChange = { onDraftChange(draft.copy(name = stripDeviceDelimiters(it))) },
-            placeholder = "Priya",
-            error = nameError,
-            maxLength = 24,
-            imeAction = ImeAction.Next
+        // The same face editor a wearer gets: name beside the face, the
+        // preset strip, a photo, or a made one. A contact is a person too,
+        // and the list reads far better as faces than as a column of names.
+        FaceEditor(
+            name = draft.name,
+            onNameChange = { onDraftChange(draft.copy(name = it)) },
+            avatarId = draft.avatarId,
+            onAvatarChange = { onDraftChange(draft.copy(avatarId = it)) },
+            nameLabel = "Name",
+            namePlaceholder = "Priya",
+            modifier = Modifier.padding(horizontal = 0.dp)
         )
+        if (nameError != null) {
+            Text(text = nameError, style = MaterialTheme.typography.bodySmall, color = colors.inkTrip)
+        }
+        Spacer(Modifier.height(Spacing.lg))
 
         Spacer(Modifier.height(Spacing.lg))
 

@@ -198,7 +198,10 @@ internal object MergeRules {
                 // priority 0 is the one the SOS path dials first; see
                 // PayloadResolver.contact.
                 isPrimary = (row.priority ?: 1) <= 0,
-                relationship = row.relationship.orEmpty()
+                relationship = row.relationship.orEmpty(),
+                // The face lives on this phone only; the row has no column
+                // for it, so a pull must not wipe it.
+                avatarId = if (index >= 0) result[index].avatarId else ""
             )
 
             if (index < 0) {

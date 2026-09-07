@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -233,6 +234,13 @@ private fun HoldToTalk(
         Row(verticalAlignment = Alignment.CenterVertically) {
             PilotLamp(state = if (recording) LampState.TRIP else LampState.OFF)
             Spacer(Modifier.width(Spacing.md))
+            Icon(
+                imageVector = SafeShadeIcons.Microphone,
+                contentDescription = null,
+                tint = colors.ink,
+                modifier = Modifier.size(22.dp)
+            )
+            Spacer(Modifier.width(Spacing.sm))
             Text(
                 text = word,
                 style = MaterialTheme.typography.titleMedium,

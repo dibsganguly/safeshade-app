@@ -183,18 +183,21 @@ data class EmergencyContactDto(
      * `orEmpty()` turns that into the empty string the domain type expects.
      * No migration, no reset, nothing to write back.
      */
-    val relationship: String? = null
+    val relationship: String? = null,
+    /** Added later still; absent on older rows, which decode with no face. */
+    val avatarId: String? = null
 ) {
     fun toDomain(): EmergencyContact = EmergencyContact(
         name = name.orEmpty(),
         phone = phone.orEmpty(),
         isPrimary = isPrimary ?: false,
-        relationship = relationship.orEmpty()
+        relationship = relationship.orEmpty(),
+        avatarId = avatarId.orEmpty()
     )
 }
 
 fun EmergencyContact.toDto(): EmergencyContactDto =
-    EmergencyContactDto(name, phone, isPrimary, relationship)
+    EmergencyContactDto(name, phone, isPrimary, relationship, avatarId.ifBlank { null })
 
 data class SafetySettingsDto(
     val parentalControlsEnabled: Boolean? = null,
