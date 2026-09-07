@@ -50,8 +50,8 @@ in. Three phases, each ending green and committed, each writing this file.
 - **Phase 1 — done** (v2.5.0, `versionCode 8`). Ten commits, `0b963f1` to
   `a3e54cb`, local by the user's choice.
 - **Phase 2 — done in scope, see §12 for what was not verified** (v2.6.0,
-  `versionCode 9`). Twenty-one commits, `4131176` onward, this file's own
-  two included, **not pushed**
+  `versionCode 9`). 27 commits, `4131176` onward, this file's own
+  included, **not pushed**
   (the user authorises every push explicitly). `assembleDebug` green,
   **265 unit tests** pass (74 at the end of Phase 1).
 - **Phase 3 — next.** Vitals, evidence, smart home, mesh, OTA, Spark and
@@ -382,6 +382,20 @@ the plan file and this list line up. Commits are on `master`, `v2.6.0:` prefixed
 12. `DESIGN.md` carries every new kit member and pattern: Person row, Sync
     dot, Waveform, the ladder plate, and the pages.
 
+Added after the brief, at the user's request on the closing day:
+
+13. **The custom icon set, everywhere.** 227 SVGs in `docs/Icons` generated
+    by `tools/gen_icons.py`; Material retired except the SOS disc's asterisk,
+    kept verbatim by the user's ask; contacts have faces; collapsed banks and
+    about twenty action buttons carry a glyph. (`ad5ad34`, `d10157c`)
+14. **Mail like a company sends it.** One layout, ten templates with their
+    subjects in their titles, five deployed functions (alert, invite, joined,
+    account deleted, weekly report), migration 0007, preferences honoured by
+    the sender, a Monday weekly report from pg_cron once its Vault secrets
+    exist, and the same report sent from the phone. (`5fa880d`)
+15. **Emails page** on the Account: a rocker per kind of mail, flipped only
+    on the server's answer, and "Send This Week's Report Now". (`e225ccd`)
+
 **Not done from the brief's verification line**, carried to §12: RLS proven
 with a second account; a voice note between two phones; the call to the
 wearable's SIM; sync observed going to Failed in airplane mode.
@@ -447,6 +461,19 @@ contains) and read back from uiautomator dumps and screenshots.
   Play marks it Heard.
 - **Privacy**: the share switch flips Off and On, the line changes each way,
   `share_alert_places_v1` lands in the store.
+- **Icons**: every page photographed by the icon agent after the swap, plus
+  the Safety bar with the asterisk, the contact editor with its face strip,
+  the Profile's Appearance row and the Circle hub's Manage after the polish.
+- **Emails, live from the signed-in phone**: the weekly rocker went Off and
+  On through the server (`profiles.email_prefs` updated at 12:32:44 UTC);
+  "Send This Week's Report Now" answered "Sent to dibsganguly@gmail.com";
+  Resend delivered it at 12:32:58 (id `7bdd59c3`) and the body is the full
+  infographic with the week's real numbers, not a fixture.
+- **The 401 retry fires live**: thirteen pulls on a stale token at 12:28 UTC
+  each logged "refreshing the session and retrying once"; the retry's own
+  refresh failed because the library was already refreshing, which is why the
+  pre-drain refresh was added. That guard is not yet verified against an
+  expired token.
 - People, the wearer editor, the family dashboard, Guardians, Plans, the heat
   map's own layer, nearest services — each opened and photographed earlier in
   the phase (see the commit messages for what each one saw).
@@ -464,6 +491,15 @@ contains) and read back from uiautomator dumps and screenshots.
   the session one, so the observed 401 may not have surfaced as a
   `RestException`; the hook compiles and is untested live. See §9.
 - **Sync going to Failed in airplane mode** was not driven this phase.
+- **The alert, joined and account-deleted mails** have never been sent live
+  (no alert raised, nobody joined, nothing deleted); rendering is proven by
+  fixture. **The Monday weekly job** has never run: its two Vault secrets do
+  not exist yet (README §6b).
+- **The pre-drain token refresh** (`ensureFreshSession`) against a token
+  that has actually expired.
+- **A contact saved with a photo** and shown in the list; **the Sign in
+  page's brand marks** on the phone (checked in the kit gallery only; the
+  Google mark is monochrome by design).
 - **OTP mail branding**: the 02:53 OTP was not in Resend's sent list (likely
   Supabase's built-in SMTP at that moment); ask the user whether the later
   ones arrived branded.
@@ -529,6 +565,10 @@ contains) and read back from uiautomator dumps and screenshots.
   the start silently; the full-screen notification path exists for the alert
   itself, not for a rung. Phase 3's first live alert test must watch for a
   rung that reads Dialled with no dialer on screen.
+- **An alert email can be lost in a crash window**: the row is pushed, the
+  phone dies before `send-alert-email` is invoked, and `notified_at` stays
+  null with nothing retrying. The index `alerts_circle_notified_idx` exists
+  for a server-side sweeper that has not been written. Phase 3 or 5.
 - **The twenty-second cap on a voice note**: `MediaRecorder` stops itself at
   `MAX_DURATION_MS`, and the release then calls `stop()` on a recorder that
   has already stopped, which throws and reports Failed while the file sits on
@@ -611,7 +651,7 @@ SMS). Added this pass:
 
 ## 11. What the user still has to do
 
-- **Push.** Ten v2.5.0 and twenty-one v2.6.0 commits are local. Ask before
+- **Push.** Ten v2.5.0 and 27 v2.6.0 commits are local. Ask before
   pushing.
 - **A second account** (a throwaway user in the Supabase dashboard, or any
   second Google account on another phone) to prove RLS and the accept-invite
@@ -626,6 +666,13 @@ SMS). Added this pass:
   in page and confirm the mail shows the layout and a six-digit code.
 - **Enable Supabase's leaked-password protection** (an advisor finding, one
   toggle in Authentication → Providers → Email).
+- **The auth templates are still not pasted** as of 11:54 UTC: the code mail
+  sent then (Resend id `cf066206`) again carried the file path as its whole
+  body. Sign-in by code is broken until this is done; Google sign-in works.
+  The dashboard subject per template is in `supabase/README.md` §6.
+- **Create the two Vault secrets** for the Monday weekly report, exactly as
+  `supabase/README.md` §6b shows, from the dashboard's SQL editor. Until
+  then the job writes a notice and sends nothing.
 - **Decide the ladder's default** (off now; §2).
 - **Icons** from `docs/icons-wanted.md` into `docs/Icons/`. Thirty SVGs have
   appeared there; the swap waits for the user's word.
