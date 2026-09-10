@@ -52,13 +52,6 @@ import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.theme.BoardCondensed
 import com.safeshade.ui.theme.BoardMono
 import com.safeshade.ui.theme.BoardSans
-import com.safeshade.ui.theme.CandidateBricolage
-import com.safeshade.ui.theme.CandidateFraunces
-import com.safeshade.ui.theme.CandidateGeistMono
-import com.safeshade.ui.theme.CandidateInstrument
-import com.safeshade.ui.theme.CandidateInstrumentCondensed
-import com.safeshade.ui.theme.CandidateJakarta
-import com.safeshade.ui.theme.CandidateManrope
 import com.safeshade.ui.theme.Radius
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.Stroke
@@ -81,28 +74,21 @@ import com.safeshade.ui.theme.boardType
  * Nothing here is used by a screen. A candidate becomes part of the kit only
  * when the user names its number, at which point it moves into the file its
  * family lives in, DESIGN.md gains its rule, and the rest of its group is
- * deleted. Until then this file is a sketchbook that compiles, and the
- * candidate type families in `CandidateType.kt` exist only for it.
+ * deleted. Until then this file is a sketchbook that compiles.
  *
  * The numbering is stable: a candidate keeps its number for as long as it
- * exists so a conversation about "2.14" means the same thing next week.
+ * exists so a conversation about "2.14" means the same thing next week. The
+ * gaps in the sequence are the adoptions of v2.8.0: thirty-three candidates
+ * moved into the kit (see DESIGN.md, "Adopted from the v2.0 candidates") and
+ * the type candidates went with their fonts. What is left is what was not
+ * chosen, kept so a later pick can still be made by number.
  */
 fun LazyListScope.kitCandidates() {
     item { CandidateIntro() }
 
-    item { SectionPlate("2.0 · Type", accent = Color.Unspecified) }
-    item { C01BricolageInstrument() }
-    item { C02FrauncesHeadlines() }
-    item { C03Manrope() }
-    item { C04Jakarta() }
-    item { C05Instrument() }
-    item { C06GeistMono() }
-    item { C07ReadabilityStep() }
-
     item { SectionPlate("2.0 · Colour", accent = Color.Unspecified) }
     item { C08HubGrounds() }
     item { C09WashedPlate() }
-    item { C10DeeperNight() }
     item { C11WarmDusk() }
     item { C12IconDiscs() }
 
@@ -118,29 +104,15 @@ fun LazyListScope.kitCandidates() {
     item { C19MainsPlateV2() }
     item { C20HubMasthead() }
     item { C21FactWells() }
-    item { C22LedgerPlate() }
-    item { C23TimelinePlate() }
-    item { C24SegmentedChoice() }
-
-    item { SectionPlate("2.0 · Explainers", accent = Color.Unspecified) }
-    item { C25Footnote() }
-    item { C26Callout() }
-    item { C27WhatHappensChain() }
-    item { C28RowHelp() }
-    item { C29QualifierChips() }
 
     item { SectionPlate("2.0 · Actions and navigation", accent = Color.Unspecified) }
-    item { C30CaptionedStrip() }
-    item { C31FigureButton() }
     item { C32BarWithWords() }
     item { C33BarWithRule() }
-    item { C34FootCommitBar() }
 
     item { SectionPlate("2.0 · Instruments", accent = Color.Unspecified) }
     item { C35RangeGauge() }
     item { C36SignalBars() }
     item { C37StatusWell() }
-    item { C38BarsPlate() }
 
     item { SectionPlate("2.0 · People and wearables", accent = Color.Unspecified) }
     item { C39PersonPlateV2() }
@@ -165,7 +137,7 @@ private fun CandidateIntro() {
         )
         Spacer(Modifier.height(Spacing.xs))
         Text(
-            "A hundred and one numbered kits, none of them on a screen yet. Each is live where it has state. Name a number to adopt it.",
+            "What was not chosen from the hundred and one. The thirty-three that were are in the kit below, on every screen. Each of these is still live where it has state; name a number to adopt it.",
             style = MaterialTheme.typography.bodyMedium,
             color = colors.inkMuted
         )
@@ -228,176 +200,6 @@ internal fun Candidate(
  * line for line: a screen title, a mains headline with its status line, a way
  * with a detail line and a state word, and a readout strip.
  */
-@Composable
-internal fun TypeSpecimen(
-    display: FontFamily,
-    body: FontFamily,
-    condensed: FontFamily,
-    mono: FontFamily,
-    titleSize: Int = 28,
-    rowTitleSize: Int = 15,
-    detailSize: Int = 13,
-    condensedTracking: Float = 0.12f
-) {
-    val colors = MaterialTheme.board
-    BoardPlate {
-        Column(Modifier.padding(Spacing.lg)) {
-            Text(
-                "Safety",
-                style = TextStyle(fontFamily = display, fontWeight = FontWeight.W700, fontSize = titleSize.sp, lineHeight = (titleSize + 6).sp, letterSpacing = (-0.01).em),
-                color = colors.ink
-            )
-            Spacer(Modifier.height(Spacing.md))
-            Text(
-                "Baba is covered",
-                style = TextStyle(fontFamily = display, fontWeight = FontWeight.W600, fontSize = 20.sp, lineHeight = 26.sp),
-                color = colors.ink
-            )
-            Text(
-                "SafeShade S1 · connected · 84%",
-                style = TextStyle(fontFamily = body, fontWeight = FontWeight.W600, fontSize = detailSize.sp, lineHeight = (detailSize + 4).sp),
-                color = colors.inkMuted
-            )
-            Spacer(Modifier.height(Spacing.md))
-            Hairline()
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(vertical = Spacing.md).height(IntrinsicSize.Min)
-            ) {
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        "Fall detection",
-                        style = TextStyle(fontFamily = body, fontWeight = FontWeight.W600, fontSize = rowTitleSize.sp, lineHeight = (rowTitleSize + 5).sp),
-                        color = colors.ink
-                    )
-                    Spacer(Modifier.height(Spacing.xs))
-                    Text(
-                        "30 seconds to cancel before a call.",
-                        style = TextStyle(fontFamily = body, fontWeight = FontWeight.W400, fontSize = detailSize.sp, lineHeight = (detailSize + 4).sp),
-                        color = colors.inkFaint
-                    )
-                }
-                Spacer(Modifier.width(Spacing.md))
-                Text(
-                    "MEDIUM",
-                    style = TextStyle(fontFamily = condensed, fontWeight = FontWeight.W700, fontSize = 13.sp, letterSpacing = condensedTracking.em),
-                    color = colors.inkLive
-                )
-                Spacer(Modifier.width(Spacing.md))
-                BusTick(LampState.LIVE, Modifier.fillMaxHeight())
-            }
-            Hairline()
-            Spacer(Modifier.height(Spacing.md))
-            Text(
-                "SECTION PLATE",
-                style = TextStyle(fontFamily = condensed, fontWeight = FontWeight.W700, fontSize = 13.sp, letterSpacing = 0.18.em),
-                color = colors.inkMuted
-            )
-            Spacer(Modifier.height(Spacing.sm))
-            Row {
-                MonoSpecimen("84%", "Battery", mono, Modifier.weight(1f))
-                MonoSpecimen("-62 dBm", "Signal", mono, Modifier.weight(1f))
-                MonoSpecimen("20.29, 85.82", "Fix", mono, Modifier.weight(1.4f))
-            }
-        }
-    }
-}
-
-@Composable
-internal fun MonoSpecimen(value: String, label: String, mono: FontFamily, modifier: Modifier = Modifier) {
-    val colors = MaterialTheme.board
-    Column(modifier) {
-        Text(label, style = MaterialTheme.boardType.nameplateSmall, color = colors.inkMuted)
-        Text(
-            value,
-            style = TextStyle(fontFamily = mono, fontWeight = FontWeight.W500, fontSize = 16.sp, lineHeight = 22.sp, letterSpacing = (-0.01).em),
-            color = colors.ink
-        )
-    }
-}
-
-@Composable
-private fun C01BricolageInstrument() = Candidate(
-    "2.01", "Bricolage Grotesque titles, Instrument Sans everything else",
-    refines = "the whole scale",
-    note = "Bricolage has a lowercase with real character at title size and stays plain small; Instrument is quieter than Archivo in the rows. The condensed voice is Instrument at width 75, so it is still one file for body and plates."
-) {
-    TypeSpecimen(CandidateBricolage, CandidateInstrument, CandidateInstrumentCondensed, BoardMono)
-}
-
-@Composable
-private fun C02FrauncesHeadlines() = Candidate(
-    "2.02", "Fraunces headlines over Archivo",
-    refines = "display and headline only",
-    note = "A soft serif for the three lines that greet a worried person, and nothing else. Body, rows and plates stay exactly as they are. The warmest of the seven; also the biggest departure from a panel."
-) {
-    TypeSpecimen(CandidateFraunces, BoardSans, BoardCondensed, BoardMono)
-}
-
-@Composable
-private fun C03Manrope() = Candidate(
-    "2.03", "Manrope throughout",
-    refines = "the whole scale",
-    note = "Rounded terminals and open apertures. Reads a step friendlier than Archivo at the same size and slightly wider, so long row titles wrap a little sooner. No width axis: the condensed voice would be Archivo's, kept."
-) {
-    TypeSpecimen(CandidateManrope, CandidateManrope, BoardCondensed, BoardMono)
-}
-
-@Composable
-private fun C04Jakarta() = Candidate(
-    "2.04", "Plus Jakarta Sans throughout",
-    refines = "the whole scale",
-    note = "Geometric and more contemporary than Manrope, with a taller x-height that helps at 13sp detail size. The heaviest weights are very black, which suits a masthead and would need restraint elsewhere."
-) {
-    TypeSpecimen(CandidateJakarta, CandidateJakarta, BoardCondensed, BoardMono)
-}
-
-@Composable
-private fun C05Instrument() = Candidate(
-    "2.05", "Instrument Sans throughout, its own condensed",
-    refines = "the whole scale",
-    note = "The closest to the current voice: a plain grotesk with a width axis, so the one-family-two-widths rule still holds. Slightly narrower and lighter than Archivo; the difference shows most in the rows."
-) {
-    TypeSpecimen(CandidateInstrument, CandidateInstrument, CandidateInstrumentCondensed, BoardMono)
-}
-
-@Composable
-private fun C06GeistMono() = Candidate(
-    "2.06", "Geist Mono for readouts",
-    refines = "Readout, Gauge, countdown",
-    note = "Both faces at the sizes the app draws them. Geist has a dotted zero and squarer figures; Azeret is more condensed so more fits across a strip. Judge on the coordinates and the large number."
-) {
-    BoardPlate {
-        Row(Modifier.padding(Spacing.lg)) {
-            MonoColumn("Azeret (now)", BoardMono, Modifier.weight(1f))
-            Spacer(Modifier.width(Spacing.lg))
-            MonoColumn("Geist Mono", CandidateGeistMono, Modifier.weight(1f))
-        }
-    }
-}
-
-@Composable
-internal fun MonoColumn(title: String, mono: FontFamily, modifier: Modifier = Modifier) {
-    val colors = MaterialTheme.board
-    Column(modifier) {
-        Text(title, style = MaterialTheme.boardType.nameplateSmall, color = colors.inkMuted)
-        Spacer(Modifier.height(Spacing.sm))
-        Text("28", style = TextStyle(fontFamily = mono, fontWeight = FontWeight.W500, fontSize = 34.sp, lineHeight = 38.sp, letterSpacing = (-0.03).em), color = colors.ink)
-        Text("84% · -62", style = TextStyle(fontFamily = mono, fontWeight = FontWeight.W500, fontSize = 14.sp, lineHeight = 20.sp), color = colors.ink)
-        Text("20.2961", style = TextStyle(fontFamily = mono, fontWeight = FontWeight.W500, fontSize = 14.sp, lineHeight = 20.sp), color = colors.ink)
-        Text("09:12 · 45 min", style = TextStyle(fontFamily = mono, fontWeight = FontWeight.W500, fontSize = 14.sp, lineHeight = 20.sp), color = colors.ink)
-        Text("0 1 l I O", style = TextStyle(fontFamily = mono, fontWeight = FontWeight.W500, fontSize = 14.sp, lineHeight = 20.sp), color = colors.inkMuted)
-    }
-}
-
-@Composable
-private fun C07ReadabilityStep() = Candidate(
-    "2.07", "A readability step: rows at 17 and 14",
-    refines = "nameplate and rowDetail",
-    note = "Same faces, one size up on the two styles that make up most of every screen; 2.02 above shows the current 15 / 13 pair in the same specimen. A guardian who is also elderly reads rows, not headlines."
-) {
-    TypeSpecimen(BoardSans, BoardSans, BoardCondensed, BoardMono, rowTitleSize = 17, detailSize = 14)
-}
 
 // ============================================
 // 2.0 · COLOUR
@@ -476,18 +278,6 @@ private fun C09WashedPlate() = Candidate(
             }
         }
     }
-}
-
-@Composable
-private fun C10DeeperNight() = Candidate(
-    "2.10", "A deeper night",
-    refines = "the dark theme's three neutrals",
-    note = "Ground near black, the plate two steps up, the recess below the ground. On an OLED the ground stops being a colour and the plates read as the only things there. Contrast of the three inks on the new plate is printed live."
-) {
-    PaletteSwatches(
-        ground = Color(0xFF0B0D0F), plate = Color(0xFF181C20), recess = Color(0xFF050607), hairline = Color(0xFF2A3036),
-        ink = Color(0xFFECEFF1), inkMuted = Color(0xFFB4AEA4), inkFaint = Color(0xFF948F86)
-    )
 }
 
 @Composable
@@ -612,19 +402,6 @@ private fun C12IconDiscs() = Candidate(
     }
 }
 
-@Composable
-internal fun IconDisc(icon: ImageVector, accent: Color, size: Dp = 36.dp, glyph: Dp = 20.dp) {
-    Box(
-        Modifier
-            .size(size)
-            .clip(CircleShape)
-            .background(accent.copy(alpha = 0.14f)),
-        contentAlignment = Alignment.Center
-    ) {
-        Icon(icon, contentDescription = null, tint = accent, modifier = Modifier.size(glyph))
-    }
-}
-
 // ============================================
 // 2.0 · ROWS
 // ============================================
@@ -675,21 +452,6 @@ internal fun DiscWay(name: String, detail: String?, icon: ImageVector, state: La
             BusTick(state, Modifier.fillMaxHeight())
         }
     }
-}
-
-@Composable
-internal fun StateWord(label: String, state: LampState) {
-    val colors = MaterialTheme.board
-    Text(
-        label.uppercase(),
-        style = MaterialTheme.boardType.stateLabel,
-        color = when (state) {
-            LampState.LIVE -> colors.inkLive
-            LampState.ATTENTION -> colors.inkAttention
-            LampState.TRIP -> colors.inkTrip
-            LampState.OFF, LampState.UNKNOWN -> colors.inkFaint
-        }
-    )
 }
 
 @Composable
@@ -980,368 +742,13 @@ private fun C21FactWells() = Candidate(
     }
 }
 
-@Composable
-private fun C22LedgerPlate() = Candidate(
-    "2.22", "A ledger",
-    refines = "paragraphs that list facts",
-    note = "Key on the left, value on the right, a dotted leader between, one line each. The medical ID's eleven fields, a wearable's facts, the smart-home hook's last firing: each is a ledger and none is prose. Values that are quantities set in mono; words in body."
-) {
-    val colors = MaterialTheme.board
-    BoardPlate {
-        Column(Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.sm)) {
-            listOf(
-                "Blood group" to "B+", "Allergies" to "Penicillin", "Medication" to "Amlodipine 5 mg",
-                "Conditions" to "Hypertension", "Doctor" to "Dr Rao · 98765 43210", "Organ donor" to "—"
-            ).forEach { (k, v) ->
-                Row(Modifier.fillMaxWidth().heightIn(min = 36.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(k, style = MaterialTheme.typography.bodyMedium, color = colors.inkMuted)
-                    Spacer(Modifier.width(Spacing.sm))
-                    Box(Modifier.weight(1f).height(1.dp)) { DottedLeader() }
-                    Spacer(Modifier.width(Spacing.sm))
-                    Text(v, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.W600), color = colors.ink, textAlign = TextAlign.End)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-internal fun DottedLeader() {
-    val colors = MaterialTheme.board
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-        repeat(60) {
-            Box(Modifier.size(1.5.dp).clip(CircleShape).background(colors.hairline))
-        }
-    }
-}
-
-@Composable
-private fun C23TimelinePlate() = Candidate(
-    "2.23", "A timeline on the bus",
-    refines = "the trip page's record and the ladder plate",
-    note = "One vertical bus down the left, a lamp at each stop, the time in mono and what happened beside it. The trip's record and the ladder's rungs are both sequences, and a sequence reads as a line with stops, not as a bank of ways that happen to be in order."
-) {
-    val colors = MaterialTheme.board
-    BoardPlate(modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(Spacing.lg)) {
-            listOf(
-                Triple("04:31", "Fall detected", LampState.TRIP),
-                Triple("04:31", "Countdown 30 s · not cancelled", LampState.ATTENTION),
-                Triple("04:32", "Dialer opened with Meera", LampState.LIVE),
-                Triple("04:35", "Dialer opened with Arun", LampState.LIVE),
-                Triple("04:41", "Meera marked it handled", LampState.LIVE)
-            ).forEachIndexed { i, (time, what, state) ->
-                Row(Modifier.height(IntrinsicSize.Min)) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(20.dp).fillMaxHeight()) {
-                        if (i > 0) Box(Modifier.width(2.dp).height(8.dp).background(colors.hairline))
-                        PilotLamp(state, size = 12.dp)
-                        if (i < 4) Box(Modifier.width(2.dp).weight(1f).background(colors.hairline))
-                    }
-                    Spacer(Modifier.width(Spacing.md))
-                    Column(Modifier.padding(top = if (i > 0) 8.dp else 0.dp, bottom = if (i < 4) Spacing.md else 0.dp)) {
-                        Text(time, style = MaterialTheme.boardType.readout, color = colors.inkMuted)
-                        Text(what, style = MaterialTheme.typography.bodyMedium, color = colors.ink)
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun C24SegmentedChoice() = Candidate(
-    "2.24", "A segmented choice",
-    refines = "OptionWay for two to four options",
-    note = "Three named behaviours as three plates in one channel, the chosen one raised to plate colour with an ink border and the rest recessed. The chosen option's consequence is the one line under the control. Fall sensitivity's three rows with three sentences become one control and one sentence."
-) {
-    val colors = MaterialTheme.board
-    var chosen by remember { mutableIntStateOf(1) }
-    val options = listOf("Low", "Medium", "High")
-    val lines = listOf(
-        "Trips at 2.6 g. Fewer false calls; a soft fall may be missed.",
-        "Trips at 1.9 g. Recommended for an elderly wearer.",
-        "Trips at 1.4 g. Catches a slide off a chair; sitting down hard can trip it."
-    )
-    Column {
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(Radius.plate))
-                .background(colors.recess)
-                .border(Stroke.hairline, colors.hairline, RoundedCornerShape(Radius.plate))
-                .padding(3.dp),
-            horizontalArrangement = Arrangement.spacedBy(3.dp)
-        ) {
-            options.forEachIndexed { i, name ->
-                val on = i == chosen
-                Box(
-                    Modifier
-                        .weight(1f)
-                        .heightIn(min = 44.dp)
-                        .clip(RoundedCornerShape(Radius.tight))
-                        .background(if (on) colors.plate else Color.Transparent)
-                        .border(Stroke.hairline, if (on) colors.ink else Color.Transparent, RoundedCornerShape(Radius.tight))
-                        .rowClickable(role = Role.RadioButton, onClick = { chosen = i }),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(name, style = MaterialTheme.boardType.nameplate, color = if (on) colors.ink else colors.inkMuted)
-                }
-            }
-        }
-        Spacer(Modifier.height(Spacing.sm))
-        Text(lines[chosen], style = MaterialTheme.boardType.rowDetail, color = colors.inkMuted)
-    }
-}
-
 // ============================================
 // 2.0 · EXPLAINERS
 // ============================================
 
-@Composable
-private fun C25Footnote() = Candidate(
-    "2.25", "A footnote under the bank",
-    refines = "the explanatory plate above a bank",
-    note = "The one sentence a bank needs, in faint ink with an info glyph, under the plate instead of a paragraph plate above it. It is read after the rows, which is when a person wants it, and it takes 20dp instead of 90."
-) {
-    Column {
-        BoardPlate {
-            Way(name = "Fall detection", state = LampState.LIVE, stateLabel = "Medium", icon = SafeShadeIcons.FallDetection, sealed = true, onClick = {})
-            Hairline()
-            Way(name = "Call after a fall", state = LampState.LIVE, stateLabel = "Live", detail = "Calls Meera if the countdown runs out.", icon = SafeShadeIcons.CallAfterAFall, onClick = {})
-        }
-        Spacer(Modifier.height(Spacing.sm))
-        Footnote("Sealed rows are hidden on the wearable in Elderly mode, so Baba cannot turn them down.")
-    }
-}
-
-@Composable
-internal fun Footnote(text: String) {
-    val colors = MaterialTheme.board
-    Row(Modifier.padding(horizontal = Spacing.xs)) {
-        Icon(SafeShadeIcons.Info, contentDescription = null, tint = colors.inkFaint, modifier = Modifier.padding(top = 1.dp).size(14.dp))
-        Spacer(Modifier.width(Spacing.sm))
-        Text(text, style = MaterialTheme.boardType.rowDetail, color = colors.inkFaint)
-    }
-}
-
-@Composable
-private fun C26Callout() = Candidate(
-    "2.26", "A callout",
-    refines = "the paragraph that states a consequence",
-    note = "A lead of three or four words in the nameplate voice, one sentence after it, an accent rule down the leading edge. For the one thing on a page a person must not miss: that the emergency number is never dialled by itself, that a recording stays on the phone. Prose that is not this important is a footnote or is cut."
-) {
-    val colors = MaterialTheme.board
-    Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-        CalloutPlate("Never dials by itself.", "The dialer opens with the number ready; a person places the call.", colors.accentFor("Never"))
-        CalloutPlate("Stays on this phone.", "A recording leaves only if the rocker below says so, and one made while it is off stays here for good.", colors.accentFor("Stays"))
-    }
-}
-
-@Composable
-internal fun CalloutPlate(lead: String, sentence: String, accent: Color) {
-    val colors = MaterialTheme.board
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(Radius.plate))
-            .background(colors.plate)
-            .border(Stroke.hairline, colors.hairline, RoundedCornerShape(Radius.plate))
-            .height(IntrinsicSize.Min)
-    ) {
-        Box(Modifier.width(Stroke.heavy).fillMaxHeight().background(accent))
-        Column(Modifier.padding(horizontal = Spacing.md, vertical = Spacing.sm)) {
-            Text(lead, style = MaterialTheme.boardType.nameplate, color = colors.ink)
-            Text(sentence, style = MaterialTheme.boardType.rowDetail, color = colors.inkMuted)
-        }
-    }
-}
-
-@Composable
-private fun C27WhatHappensChain() = Candidate(
-    "2.27", "What happens, as a chain",
-    refines = "the sentence that describes a sequence",
-    note = "Three or four stops across one line, each a glyph on a disc with a word under it and an arrow between. 'A fall is detected, thirty seconds pass, Meera is called, then the ladder' is read in one glance. For the top of Safety and of the ladder page, in place of the paragraph."
-) {
-    val colors = MaterialTheme.board
-    BoardPlate {
-        Row(
-            Modifier.fillMaxWidth().padding(Spacing.lg),
-            verticalAlignment = Alignment.Top
-        ) {
-            listOf(
-                Triple(SafeShadeIcons.FallDetection, "Fall", "detected"),
-                Triple(SafeShadeIcons.HourglassTimer, "30 s", "to cancel"),
-                Triple(SafeShadeIcons.TelephoneCall, "Meera", "is called"),
-                Triple(SafeShadeIcons.RepeatingCheckIn, "Ladder", "if unanswered")
-            ).forEachIndexed { i, (icon, word, sub) ->
-                if (i > 0) {
-                    Icon(SafeShadeIcons.ArrowRight01, contentDescription = null, tint = colors.inkFaint, modifier = Modifier.padding(top = 11.dp).size(14.dp))
-                }
-                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                    IconDisc(icon, colors.accentFor(word))
-                    Spacer(Modifier.height(Spacing.xs))
-                    Text(word, style = MaterialTheme.boardType.nameplateSmall, color = colors.ink, textAlign = TextAlign.Center)
-                    Text(sub, style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.W400), color = colors.inkFaint, textAlign = TextAlign.Center)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun C28RowHelp() = Candidate(
-    "2.28", "Help on the row that needs it",
-    refines = "WhyDisclosure",
-    note = "The long explanation lives on the row it is about, behind a small help glyph at the end of the title, and opens under that row. The page keeps no paragraph at all. A person who wants to know why the countdown is thirty seconds asks the countdown, not the page."
-) {
-    val colors = MaterialTheme.board
-    var open by remember { mutableStateOf(false) }
-    BoardPlate {
-        Column {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth().padding(start = Spacing.lg, end = Spacing.md, top = Spacing.md, bottom = Spacing.md).height(IntrinsicSize.Min)
-            ) {
-                Icon(SafeShadeIcons.HourglassTimer, contentDescription = null, tint = colors.accentFor("Countdown"), modifier = Modifier.size(20.dp))
-                Spacer(Modifier.width(Spacing.md))
-                Column(Modifier.weight(1f)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Nameplate("Countdown")
-                        Spacer(Modifier.width(Spacing.xs))
-                        Icon(
-                            SafeShadeIcons.HelpCircle, contentDescription = "Why",
-                            tint = if (open) colors.ink else colors.inkFaint,
-                            modifier = Modifier.size(16.dp).rowClickable(role = Role.Button, onClick = { open = !open })
-                        )
-                    }
-                    Spacer(Modifier.height(Spacing.xs))
-                    Text("30 seconds", style = MaterialTheme.boardType.rowDetail, color = colors.inkFaint)
-                }
-                Spacer(Modifier.width(Spacing.md))
-                StateWord("30 s", LampState.LIVE)
-                Spacer(Modifier.width(Spacing.md))
-                BusTick(LampState.LIVE, Modifier.fillMaxHeight())
-            }
-            if (open) {
-                Text(
-                    "Thirty seconds is long enough to find the button after a stumble and short enough that a person who cannot move is called for before the fourth minute, which is when a fall on a hard floor starts to cost. The wearable buzzes through the whole count.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colors.inkMuted,
-                    modifier = Modifier.background(colors.recess).fillMaxWidth().padding(horizontal = Spacing.lg, vertical = Spacing.md)
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun C29QualifierChips() = Candidate(
-    "2.29", "Qualifier chips",
-    refines = "the seal, generalised",
-    note = "The seal is the one chip the kit has, and it works. Four more of its kind, in the same micro-caps: NEEDS SIM, DEVICE-ONLY, PLUS, SIGNED OUT. Each replaces a sentence under a row with a stamp beside its title, and each is a fact the row cannot change."
-) {
-    val colors = MaterialTheme.board
-    BoardPlate(modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
-            listOf(
-                Triple("Call", "Needs SIM", SafeShadeIcons.SimAndSms),
-                Triple("Brake light", "Device-only", SafeShadeIcons.Lights),
-                Triple("Community map", "Plus", SafeShadeIcons.RadarBroadcast),
-                Triple("Reports", "Signed out", SafeShadeIcons.CloudOffUnavailable)
-            ).forEach { (name, chip, icon) ->
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(icon, contentDescription = null, tint = colors.accentFor(name), modifier = Modifier.size(20.dp))
-                    Spacer(Modifier.width(Spacing.md))
-                    Nameplate(name)
-                    Spacer(Modifier.width(Spacing.xs))
-                    QualifierChip(chip)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-internal fun QualifierChip(text: String) {
-    val colors = MaterialTheme.board
-    Text(
-        text.uppercase(),
-        style = MaterialTheme.boardType.sealPlate,
-        color = colors.inkMuted,
-        modifier = Modifier
-            .clip(RoundedCornerShape(Radius.tight))
-            .background(colors.brass.copy(alpha = if (colors.isDark) 0.28f else 0.20f))
-            .padding(horizontal = 5.dp, vertical = 1.dp)
-    )
-}
-
 // ============================================
 // 2.0 · ACTIONS AND NAVIGATION
 // ============================================
-
-@Composable
-private fun C30CaptionedStrip() = Candidate(
-    "2.30", "Glyph buttons with a caption",
-    refines = "BoardIconButton",
-    note = "The three glyph buttons the dashboard now has, each with its word under the glyph in the small nameplate voice. Taller by 16dp; the word never wraps because it sits on its own line. The alternative to a glyph alone."
-) {
-    val colors = MaterialTheme.board
-    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-        listOf(
-            Triple(SafeShadeIcons.SendMessage, "Message", true),
-            Triple(SafeShadeIcons.WhereNavigation, "Where", true),
-            Triple(SafeShadeIcons.TelephoneCall, "Call", false)
-        ).forEach { (icon, word, enabled) ->
-            Column(
-                Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(Radius.plate))
-                    .background(if (enabled) colors.ground else colors.recess)
-                    .border(Stroke.hairline, colors.hairline, RoundedCornerShape(Radius.plate))
-                    .plateClickable(enabled = enabled, onClick = {})
-                    .padding(vertical = Spacing.md),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Icon(icon, contentDescription = null, tint = if (enabled) colors.ink else colors.inkFaint, modifier = Modifier.size(26.dp))
-                Spacer(Modifier.height(Spacing.xs))
-                Text(word, style = MaterialTheme.boardType.nameplateSmall, color = if (enabled) colors.ink else colors.inkFaint)
-            }
-        }
-    }
-}
-
-@Composable
-private fun C31FigureButton() = Candidate(
-    "2.31", "A button that carries a figure",
-    refines = "BoardButton",
-    note = "The label at the left, a mono figure at the right edge: Save · 3 changes, Send · 2 contacts, Sweep · 20 s. A commit button that says how much it is about to commit needs no sentence under it."
-) {
-    val colors = MaterialTheme.board
-    Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-        FigureButton("Save and Send to the Device", "3 changes", colors.lampLive, com.safeshade.ui.theme.BrandCharcoal)
-        FigureButton("Send the Invitation", "2 people", colors.ink, colors.plate)
-        FigureButton("Sweep for Wearables", "20 s", colors.plate, colors.ink, bordered = true)
-    }
-}
-
-@Composable
-internal fun FigureButton(label: String, figure: String, container: Color, content: Color, bordered: Boolean = false) {
-    val colors = MaterialTheme.board
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .fillMaxWidth()
-            .plateClickable(onClick = {})
-            .clip(RoundedCornerShape(Radius.plate))
-            .background(container)
-            .border(Stroke.hairline, if (bordered) colors.hairline else container, RoundedCornerShape(Radius.plate))
-            .defaultMinSize(minHeight = 56.dp)
-            .padding(horizontal = Spacing.lg, vertical = Spacing.md)
-    ) {
-        Text(label, style = MaterialTheme.boardType.nameplate.copy(fontWeight = FontWeight.W700), color = content, modifier = Modifier.weight(1f))
-        Text(figure, style = MaterialTheme.boardType.readout, color = content.copy(alpha = 0.8f))
-    }
-}
 
 @Composable
 private fun C32BarWithWords() = Candidate(
@@ -1411,35 +818,6 @@ internal fun MockBar(words: Boolean, rule: Boolean) {
                     }
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun C34FootCommitBar() = Candidate(
-    "2.34", "A foot bar for editors",
-    refines = "the COMMIT button at the end of a long editor",
-    note = "On a page that ends in one commit, the button sits in a plate pinned to the foot with a hairline above it and a one-line status beside it: what is unsaved, or the repository's answer. It is never off screen, so a person three fields into the medical ID can always see the way out."
-) {
-    val colors = MaterialTheme.board
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(Radius.card))
-            .background(colors.plate)
-            .border(Stroke.hairline, colors.hairline, RoundedCornerShape(Radius.card))
-    ) {
-        Box(Modifier.fillMaxWidth().height(72.dp).background(colors.ground), contentAlignment = Alignment.Center) {
-            Text("(the editor scrolls under it)", style = MaterialTheme.boardType.rowDetail, color = colors.inkFaint)
-        }
-        Hairline()
-        Row(Modifier.padding(Spacing.md), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text("3 fields changed", style = MaterialTheme.boardType.nameplateSmall, color = colors.ink)
-                Text("Not yet on the wearable", style = MaterialTheme.boardType.rowDetail, color = colors.inkFaint)
-            }
-            Spacer(Modifier.width(Spacing.md))
-            BoardButton("Save", onClick = {}, weight = ButtonWeight.COMMIT, icon = SafeShadeIcons.Tick02)
         }
     }
 }
@@ -1560,45 +938,6 @@ internal fun StatusWell(state: LampState, word: String, reason: String) {
                 }
             )
             Text(reason, style = MaterialTheme.boardType.rowDetail, color = colors.inkMuted)
-        }
-    }
-}
-
-@Composable
-private fun C38BarsPlate() = Candidate(
-    "2.38", "Twenty-four bars",
-    refines = "the history rows on Vitals and the ride log",
-    note = "A day as twenty-four flat bars in one plate, each the hour's reading, the threshold as a hairline across, breaches in attention ink. A list of readings is a ledger; a day of readings is a shape, and a shape is read in a glance."
-) {
-    val colors = MaterialTheme.board
-    val values = listOf(0.45f, 0.42f, 0.40f, 0.41f, 0.43f, 0.48f, 0.55f, 0.62f, 0.58f, 0.60f, 0.66f, 0.71f, 0.68f, 0.83f, 0.87f, 0.74f, 0.66f, 0.63f, 0.61f, 0.58f, 0.52f, 0.48f, 0.46f, 0.44f)
-    BoardPlate {
-        Column(Modifier.padding(Spacing.lg)) {
-            Row(verticalAlignment = Alignment.Bottom) {
-                Column(Modifier.weight(1f)) {
-                    Text("Heart rate · today", style = MaterialTheme.boardType.nameplateSmall, color = colors.inkMuted)
-                    Text("72", style = MaterialTheme.boardType.readoutLarge, color = colors.ink)
-                }
-                Text("2 above 110", style = MaterialTheme.boardType.rowDetail, color = colors.inkAttention)
-            }
-            Spacer(Modifier.height(Spacing.sm))
-            Box(Modifier.fillMaxWidth().height(64.dp)) {
-                Row(Modifier.fillMaxWidth().fillMaxHeight(), horizontalArrangement = Arrangement.spacedBy(3.dp), verticalAlignment = Alignment.Bottom) {
-                    values.forEach { v ->
-                        Box(
-                            Modifier
-                                .weight(1f)
-                                .fillMaxHeight(v)
-                                .clip(RoundedCornerShape(1.dp))
-                                .background(if (v > 0.8f) colors.lampAttention else colors.inkFaint)
-                        )
-                    }
-                }
-                Box(Modifier.fillMaxWidth().padding(top = (64 * 0.2f).dp).height(1.dp).background(colors.hairline))
-            }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                listOf("00", "06", "12", "18", "24").forEach { Text(it, style = MaterialTheme.boardType.readout.copy(fontSize = 11.sp), color = colors.inkFaint) }
-            }
         }
     }
 }

@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -13,6 +14,10 @@ import com.safeshade.ui.theme.board
 
 /**
  * Whether one record has reached SafeShade Cloud, as a 6dp lamp.
+ *
+ * Square, like the pilot lamp it is a miniature of: a 6dp square at the
+ * tight radius, so a row's sync mark and the lamp on the plate above it read
+ * as the same object at two sizes.
  *
  * Drawn only when there is something to say: a record with no cloud
  * history draws nothing, because "not synced" on a phone that is not
@@ -36,7 +41,7 @@ fun SyncDot(state: SyncState?, modifier: Modifier = Modifier) {
             .size(6.dp)
             .semantics { contentDescription = word }
     ) {
-        drawCircle(color = fill)
+        drawRoundRect(color = fill, cornerRadius = CornerRadius(1.5.dp.toPx()))
     }
 }
 

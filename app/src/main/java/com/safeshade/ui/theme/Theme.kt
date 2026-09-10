@@ -52,23 +52,26 @@ private val LightScheme = lightColorScheme(
     onError = Color(0xFFFBF9F5)
 )
 
+// The same deeper night as DarkBoardColors, so a stock Material surface that
+// slips through (a dialog scrim, a text selection handle) lands on the same
+// ground the plates sit on.
 private val DarkScheme = darkColorScheme(
     primary = Color(0xFFECEFF1),
-    onPrimary = Color(0xFF14171A),
-    primaryContainer = Color(0xFF2A3138),
+    onPrimary = Color(0xFF0B0D0F),
+    primaryContainer = Color(0xFF22282E),
     onPrimaryContainer = Color(0xFFECEFF1),
     secondary = Color(0xFFA0A8B0),
-    onSecondary = Color(0xFF14171A),
-    background = Color(0xFF14171A),
+    onSecondary = Color(0xFF0B0D0F),
+    background = Color(0xFF0B0D0F),
     onBackground = Color(0xFFECEFF1),
-    surface = Color(0xFF1C2126),
+    surface = Color(0xFF181C20),
     onSurface = Color(0xFFECEFF1),
-    surfaceVariant = Color(0xFF2A3138),
+    surfaceVariant = Color(0xFF22282E),
     onSurfaceVariant = Color(0xFFA0A8B0),
     outline = Color(0xFF8A7A5E),
-    outlineVariant = Color(0xFF353C43),
+    outlineVariant = Color(0xFF2A3036),
     error = Color(0xFFFF8A8D),
-    onError = Color(0xFF14171A)
+    onError = Color(0xFF0B0D0F)
 )
 
 /**

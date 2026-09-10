@@ -126,7 +126,7 @@ class SafeShadeWidget : GlanceAppWidget() {
 // trip-red is deliberately the same in both - an open alert should not read
 // differently by time of day), so both still go through the two-arg
 // constructor rather than pulling in the separate single-colour overload.
-private val BonePlate = ColorProvider(day = Color(0xFFFBF9F5), night = Color(0xFF22282E))
+private val BonePlate = ColorProvider(day = Color(0xFFFBF9F5), night = Color(0xFF181C20))
 private val InkColor = ColorProvider(day = Color(0xFF22282E), night = Color(0xFFECEFF1))
 private val TealAccent = ColorProvider(day = Color(0xFF6FD3CC), night = Color(0xFF6FD3CC))
 private val TripRed = ColorProvider(day = Color(0xFFE5484D), night = Color(0xFFE5484D))

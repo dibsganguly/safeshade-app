@@ -61,11 +61,6 @@ import com.safeshade.ui.theme.BoardCondensed
 import com.safeshade.ui.theme.BoardMono
 import com.safeshade.ui.theme.BoardSans
 import com.safeshade.ui.theme.BrandCharcoal
-import com.safeshade.ui.theme.CandidateFigtree
-import com.safeshade.ui.theme.CandidateInter
-import com.safeshade.ui.theme.CandidateJetBrainsMono
-import com.safeshade.ui.theme.CandidateOutfit
-import com.safeshade.ui.theme.CandidateSpaceGrotesk
 import com.safeshade.ui.theme.Radius
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.Stroke
@@ -85,11 +80,7 @@ import com.safeshade.ui.theme.boardType
  * group deleted. Helpers shared with the first file are `internal` there.
  */
 fun LazyListScope.kitCandidates2() {
-    item { SectionPlate("2.0 · Type and spacing, second set", accent = Color.Unspecified) }
-    item { C42SpaceFigtree() }
-    item { C43Outfit() }
-    item { C44Inter() }
-    item { C45JetBrainsMono() }
+    item { SectionPlate("2.0 · Spacing", accent = Color.Unspecified) }
     item { C46HeaderRhythm() }
     item { C47RowRhythm() }
     item { C48BankRhythm() }
@@ -99,13 +90,11 @@ fun LazyListScope.kitCandidates2() {
     item { C50StrongerHubGrounds() }
     item { C51HubBand() }
     item { C52HubRuleAtTop() }
-    item { C53HubTintedPlates() }
     item { C54HubInkSections() }
     item { C55WarmNight() }
     item { C56PaperGrain() }
 
     item { SectionPlate("2.0 · Pilot lamps", accent = Color.Unspecified) }
-    item { C57SquareLamp() }
     item { C58BezelLamp() }
     item { C59LampCluster() }
     item { C60LampWithCount() }
@@ -113,11 +102,7 @@ fun LazyListScope.kitCandidates2() {
 
     item { SectionPlate("2.0 · Buttons, second set", accent = Color.Unspecified) }
     item { C62OutlinedHued() }
-    item { C63DiscGlyphButton() }
-    item { C64SplitButton() }
-    item { C65ActionPair() }
     item { C66ProgressButton() }
-    item { C67HoldToConfirm() }
 
     item { SectionPlate("2.0 · Readouts and gauges, second set", accent = Color.Unspecified) }
     item { C68TrendReadout() }
@@ -137,28 +122,16 @@ fun LazyListScope.kitCandidates2() {
     item { C80MainsWithPlace() }
 
     item { SectionPlate("2.0 · Banks and rows, second set", accent = Color.Unspecified) }
-    item { C81BankWithHeaderRow() }
     item { C82ZebraBank() }
-    item { C83NumberedRows() }
-    item { C84TileGrid() }
     item { C85RowWithSwitchAndWord() }
     item { C86RowWithMeter() }
     item { C87RowWithLeadingLamp() }
-    item { C88RowWithFaces() }
 
     item { SectionPlate("2.0 · Cards", accent = Color.Unspecified) }
     item { C89AccentBandCard() }
-    item { C90CornerTagCard() }
-    item { C91EngravedTitleCard() }
-    item { C92FooterActionCard() }
     item { C93NestedCard() }
-    item { C94WatermarkCard() }
-    item { C95CardStrip() }
 
     item { SectionPlate("2.0 · Actions and explainers, second set", accent = Color.Unspecified) }
-    item { C96Steps() }
-    item { C97ExpandableRowWithPreview() }
-    item { C98PageTabs() }
     item { C99StickyBankHeader() }
     item { C100EmptyBayWithDisc() }
     item { C101SnackbarWithLamp() }
@@ -167,48 +140,6 @@ fun LazyListScope.kitCandidates2() {
 // ============================================
 // TYPE AND SPACING
 // ============================================
-
-@Composable
-private fun C42SpaceFigtree() = Candidate(
-    "2.42", "Space Grotesk titles, Figtree body",
-    refines = "the whole scale",
-    note = "Space Grotesk has a machined edge to its round letters that suits a panel; Figtree under it is soft and very legible at 13sp. The condensed voice stays Archivo's."
-) {
-    TypeSpecimen(CandidateSpaceGrotesk, CandidateFigtree, BoardCondensed, BoardMono)
-}
-
-@Composable
-private fun C43Outfit() = Candidate(
-    "2.43", "Outfit throughout",
-    refines = "the whole scale",
-    note = "Geometric and light in colour, so a screen of it reads airier than Archivo at the same sizes. The single-storey a is the tell. Watch the lowercase l against the figure 1 in the mono strip."
-) {
-    TypeSpecimen(CandidateOutfit, CandidateOutfit, BoardCondensed, BoardMono)
-}
-
-@Composable
-private fun C44Inter() = Candidate(
-    "2.44", "Inter throughout",
-    refines = "the whole scale",
-    note = "The plain UI face. Nobody will notice it, which is the argument for and against. Shown with its optical-size axis at text size; titles would take the display cut."
-) {
-    TypeSpecimen(CandidateInter, CandidateInter, BoardCondensed, BoardMono)
-}
-
-@Composable
-private fun C45JetBrainsMono() = Candidate(
-    "2.45", "JetBrains Mono for readouts",
-    refines = "Readout, Gauge, countdown",
-    note = "Taller and rounder than Azeret, with a slashed zero. Wider per character, so a coordinate pair takes more of a strip. Compare 2.06."
-) {
-    BoardPlate(modifier = Modifier.fillMaxWidth()) {
-        Row(Modifier.padding(Spacing.lg)) {
-            MonoColumn("Azeret (now)", BoardMono, Modifier.weight(1f))
-            Spacer(Modifier.width(Spacing.lg))
-            MonoColumn("JetBrains Mono", CandidateJetBrainsMono, Modifier.weight(1f))
-        }
-    }
-}
 
 @Composable
 private fun HeaderSample(gap: Dp, subtitleStyle: TextStyle, label: String) {
@@ -333,7 +264,6 @@ private fun C49WideGutter() = Candidate(
 // COLOUR AND GROUNDS
 // ============================================
 
-
 /** The four hubs' real tab accents, so a hub mock wears the colour its tab does. */
 @Composable
 private fun hubAccent(name: String): Color {
@@ -346,17 +276,17 @@ private fun hubAccent(name: String): Color {
     }
 }
 
-private data class Hub(val name: String, val icon: ImageVector, val lightGround: Color, val darkGround: Color)
+private data class HubMock(val name: String, val icon: ImageVector, val lightGround: Color, val darkGround: Color)
 
 private val HubsStrong = listOf(
-    Hub("Board", SafeShadeIcons.NavbarBoard, Color(0xFFEFEBE3), Color(0xFF14171A)),
-    Hub("Circle", SafeShadeIcons.NavbarCircle, Color(0xFFF3E6DA), Color(0xFF1E1713)),
-    Hub("Safety", SafeShadeIcons.NavbarSafety, Color(0xFFE4EDE1), Color(0xFF121D15)),
-    Hub("Device", SafeShadeIcons.NavbarDevice, Color(0xFFE3E7EF), Color(0xFF131722))
+    HubMock("Board", SafeShadeIcons.NavbarBoard, Color(0xFFEFEBE3), Color(0xFF14171A)),
+    HubMock("Circle", SafeShadeIcons.NavbarCircle, Color(0xFFF3E6DA), Color(0xFF1E1713)),
+    HubMock("Safety", SafeShadeIcons.NavbarSafety, Color(0xFFE4EDE1), Color(0xFF121D15)),
+    HubMock("Device", SafeShadeIcons.NavbarDevice, Color(0xFFE3E7EF), Color(0xFF131722))
 )
 
 @Composable
-private fun HubGroundRow(hubs: List<Hub>, content: @Composable (Hub, Color) -> Unit) {
+private fun HubGroundRow(hubs: List<HubMock>, content: @Composable (HubMock, Color) -> Unit) {
     val colors = MaterialTheme.board
     Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
         hubs.forEach { hub ->
@@ -430,38 +360,6 @@ private fun C52HubRuleAtTop() = Candidate(
             }
         }
     }
-}
-
-@Composable
-private fun C53HubTintedPlates() = Candidate(
-    "2.53", "Plates tinted per hub",
-    refines = "BoardPlate",
-    note = "The inverse of 2.08: the ground stays bone and every plate on a hub takes the hub's accent at 0.06 alpha. Subtler than a washed plate, and it colours what the eye reads rather than what it ignores. The hairline takes the accent at 0.35."
-) {
-    val colors = MaterialTheme.board
-    Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-        listOf("Circle" to "Baba", "Safety" to "Fall detection", "Device" to "SafeShade S1").forEach { (hub, row) ->
-            val accent = hubAccent(hub)
-            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(Radius.card)).background(accent.copy(alpha = 0.06f).compositeOverPlate(colors.plate)).border(Stroke.hairline, accent.copy(alpha = 0.35f), RoundedCornerShape(Radius.card))) {
-                Row(Modifier.padding(Spacing.lg), verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text(row, style = MaterialTheme.boardType.nameplate, color = colors.ink)
-                        Text("On the $hub hub", style = MaterialTheme.boardType.rowDetail, color = colors.inkFaint)
-                    }
-                    StateWord("Live", LampState.LIVE)
-                }
-            }
-        }
-    }
-}
-
-private fun Color.compositeOverPlate(plate: Color): Color {
-    val a = alpha
-    return Color(
-        red = red * a + plate.red * (1 - a),
-        green = green * a + plate.green * (1 - a),
-        blue = blue * a + plate.blue * (1 - a)
-    )
 }
 
 @Composable
@@ -564,23 +462,6 @@ private fun LampRow(content: @Composable (LampState) -> Unit) {
                     Text(state.name, style = MaterialTheme.typography.labelSmall, color = colors.inkFaint)
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun C57SquareLamp() = Candidate(
-    "2.57", "A square lamp",
-    refines = "PilotLamp",
-    note = "The same five states as a 14dp square at the tight radius, matching the rocker's chip and the bus tick's corners. The round lamp is the one circle in the system; this removes it. Lit states carry the flat halo as a square too."
-) {
-    val colors = MaterialTheme.board
-    LampRow { state ->
-        val glass = LampGlass(state)
-        val lit = state == LampState.LIVE || state == LampState.ATTENTION || state == LampState.TRIP
-        Box(contentAlignment = Alignment.Center, modifier = Modifier.size(28.dp)) {
-            if (lit) Box(Modifier.size(28.dp).clip(RoundedCornerShape(3.dp)).background(glass.copy(alpha = 0.22f)))
-            Box(Modifier.size(16.dp).clip(RoundedCornerShape(Radius.tight)).background(glass).border(Stroke.hairline, if (lit) glass else colors.hairline, RoundedCornerShape(Radius.tight)))
         }
     }
 }
@@ -689,77 +570,6 @@ private fun C62OutlinedHued() = Candidate(
 }
 
 @Composable
-private fun C63DiscGlyphButton() = Candidate(
-    "2.63", "A button with its glyph on a disc",
-    refines = "BoardButton",
-    note = "The glyph on a 32dp disc of the button's own content colour at 0.14 alpha, at the leading edge, the label after it left-aligned. The disc gives a full-width button a place for the eye to land; centred label-plus-glyph gives it none."
-) {
-    val colors = MaterialTheme.board
-    Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-        listOf(Triple(SafeShadeIcons.UserAdd, "Add a Person", colors.ink to colors.plate), Triple(SafeShadeIcons.MailSendInvite, "Send the Invitation", colors.lampLive to BrandCharcoal), Triple(SafeShadeIcons.WalkingPerson, "Start the Journey", colors.plate to colors.ink)).forEach { (icon, label, pair) ->
-            val (container, content) = pair
-            Row(Modifier.fillMaxWidth().plateClickable(onClick = {}).clip(RoundedCornerShape(Radius.plate)).background(container).border(Stroke.hairline, if (container == colors.plate) colors.hairline else container, RoundedCornerShape(Radius.plate)).defaultMinSize(minHeight = 56.dp).padding(horizontal = Spacing.md, vertical = Spacing.sm), verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(32.dp).clip(CircleShape).background(content.copy(alpha = 0.14f)), contentAlignment = Alignment.Center) {
-                    Icon(icon, contentDescription = null, tint = content, modifier = Modifier.size(18.dp))
-                }
-                Spacer(Modifier.width(Spacing.md))
-                Text(label, style = MaterialTheme.boardType.nameplate.copy(fontWeight = FontWeight.W700), color = content)
-            }
-        }
-    }
-}
-
-@Composable
-private fun C64SplitButton() = Candidate(
-    "2.64", "A split button",
-    refines = "BoardButton with a second choice",
-    note = "The main action fills most of the width; a hairline divides off a narrow trailing cell with a chevron for the variant. Call, and beside it who else; Start the journey, and beside it Walk Home. Two targets, one object, no second row."
-) {
-    val colors = MaterialTheme.board
-    Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-        listOf("Call Meera" to colors.lampTrip, "Start the Journey" to colors.ink).forEach { (label, container) ->
-            val content = if (container == colors.ink) colors.plate else colors.plate
-            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(Radius.plate)).background(container).height(IntrinsicSize.Min)) {
-                Box(Modifier.weight(1f).plateClickable(onClick = {}).defaultMinSize(minHeight = 56.dp).padding(horizontal = Spacing.lg), contentAlignment = Alignment.Center) {
-                    Text(label, style = MaterialTheme.boardType.nameplate.copy(fontWeight = FontWeight.W700), color = content)
-                }
-                Box(Modifier.width(Stroke.hairline).fillMaxHeight().background(content.copy(alpha = 0.35f)))
-                Box(Modifier.width(52.dp).fillMaxHeight().plateClickable(onClick = {}), contentAlignment = Alignment.Center) {
-                    Icon(SafeShadeIcons.ArrowDown01, contentDescription = "More", tint = content, modifier = Modifier.size(20.dp))
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun C65ActionPair() = Candidate(
-    "2.65", "An action pair",
-    refines = "two buttons at the foot of a page",
-    note = "One object: a primary cell and a quiet cell joined at a hairline, the primary two-thirds wide. Save beside Discard, I am OK beside Call now. Two loose buttons of different weights read as two decisions; a pair reads as one decision with a default."
-) {
-    val colors = MaterialTheme.board
-    Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(Radius.plate)).border(Stroke.hairline, colors.hairline, RoundedCornerShape(Radius.plate)).height(IntrinsicSize.Min)) {
-            Box(Modifier.weight(2f).background(colors.lampLive).plateClickable(onClick = {}).defaultMinSize(minHeight = 56.dp), contentAlignment = Alignment.Center) {
-                Text("Save", style = MaterialTheme.boardType.nameplate.copy(fontWeight = FontWeight.W700), color = BrandCharcoal)
-            }
-            Box(Modifier.weight(1f).background(colors.ground).plateClickable(onClick = {}).defaultMinSize(minHeight = 56.dp), contentAlignment = Alignment.Center) {
-                Text("Discard", style = MaterialTheme.boardType.nameplate, color = colors.inkMuted)
-            }
-        }
-        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(Radius.plate)).border(Stroke.hairline, colors.hairline, RoundedCornerShape(Radius.plate)).height(IntrinsicSize.Min)) {
-            Box(Modifier.weight(2f).background(colors.ink).plateClickable(onClick = {}).defaultMinSize(minHeight = 56.dp), contentAlignment = Alignment.Center) {
-                Text("I am OK", style = MaterialTheme.boardType.nameplate.copy(fontWeight = FontWeight.W700), color = colors.plate)
-            }
-            Box(Modifier.weight(1f).background(colors.lampTrip).plateClickable(onClick = {}).defaultMinSize(minHeight = 56.dp), contentAlignment = Alignment.Center) {
-                Text("Call now", style = MaterialTheme.boardType.nameplate.copy(fontWeight = FontWeight.W700), color = colors.plate)
-            }
-        }
-    }
-}
-
-@Composable
 private fun C66ProgressButton() = Candidate(
     "2.66", "A button that shows its progress",
     refines = "BoardButton while working",
@@ -773,23 +583,6 @@ private fun C66ProgressButton() = Candidate(
         Row(Modifier.fillMaxWidth().defaultMinSize(minHeight = 56.dp).padding(horizontal = Spacing.lg), verticalAlignment = Alignment.CenterVertically) {
             Text(if (anim >= 1f) "Sent" else "Sending…", style = MaterialTheme.boardType.nameplate.copy(fontWeight = FontWeight.W700), color = colors.ink, modifier = Modifier.weight(1f))
             Text("${(anim * 100).toInt()}%", style = MaterialTheme.boardType.readout, color = colors.inkMuted)
-        }
-    }
-}
-
-@Composable
-private fun C67HoldToConfirm() = Candidate(
-    "2.67", "Hold to confirm",
-    refines = "ButtonWeight DANGER",
-    note = "For the one action that cannot be undone: the plate fills from the leading edge while the finger stays down and fires only when the fill reaches the end. A slip does nothing. Tap here advances the fill a step so it can be judged still."
-) {
-    val colors = MaterialTheme.board
-    var frac by remember { mutableFloatStateOf(0.55f) }
-    val anim by animateFloatAsState(frac, tween(300), label = "hold")
-    Box(Modifier.fillMaxWidth().plateClickable(onClick = { frac = if (frac >= 1f) 0.15f else (frac + 0.25f).coerceAtMost(1f) }).clip(RoundedCornerShape(Radius.plate)).background(colors.plate).border(Stroke.rule, colors.lampTrip, RoundedCornerShape(Radius.plate)).defaultMinSize(minHeight = 56.dp)) {
-        Box(Modifier.fillMaxWidth(anim).fillMaxHeight().background(colors.lampTrip))
-        Box(Modifier.fillMaxWidth().defaultMinSize(minHeight = 56.dp), contentAlignment = Alignment.Center) {
-            Text(if (anim >= 1f) "Deleted" else "Hold to Delete This Person", style = MaterialTheme.boardType.nameplate.copy(fontWeight = FontWeight.W700), color = if (anim > 0.5f) colors.plate else colors.inkTrip)
         }
     }
 }
@@ -1147,29 +940,6 @@ private fun C80MainsWithPlace() = Candidate(
 // ============================================
 
 @Composable
-private fun C81BankWithHeaderRow() = Candidate(
-    "2.81", "A bank with its header inside",
-    refines = "SectionPlate over BoardPlate",
-    note = "The section title moves inside the plate as its first row: title in the nameplate voice, a count in mono, a small action at the end, a heavier rule under it. The brass-ruled plate above the bank goes. One object per bank instead of a label floating over a box."
-) {
-    val colors = MaterialTheme.board
-    BoardPlate(modifier = Modifier.fillMaxWidth()) {
-        Row(Modifier.fillMaxWidth().padding(start = Spacing.lg, end = Spacing.sm, top = Spacing.sm, bottom = Spacing.sm), verticalAlignment = Alignment.CenterVertically) {
-            Text("Safe zones", style = MaterialTheme.typography.titleMedium, color = colors.ink, modifier = Modifier.weight(1f))
-            Text("2", style = MaterialTheme.boardType.readout, color = colors.inkFaint)
-            Spacer(Modifier.width(Spacing.sm))
-            Box(Modifier.size(36.dp).clip(RoundedCornerShape(Radius.plate)).plateClickable(onClick = {}).border(Stroke.hairline, colors.hairline, RoundedCornerShape(Radius.plate)), contentAlignment = Alignment.Center) {
-                Icon(SafeShadeIcons.PlusAdd, contentDescription = "Add a zone", tint = colors.ink, modifier = Modifier.size(18.dp))
-            }
-        }
-        Box(Modifier.fillMaxWidth().height(Stroke.rule).background(colors.hairline))
-        Way(name = "Home", state = LampState.LIVE, stateLabel = "Inside", detail = "200 m · told when leaving", icon = SafeShadeIcons.FavouritePlace, onClick = {})
-        Hairline()
-        Way(name = "Park", state = LampState.OFF, stateLabel = "Away", detail = "500 m · told when entering", icon = SafeShadeIcons.AddNewPlace, onClick = {})
-    }
-}
-
-@Composable
 private fun C82ZebraBank() = Candidate(
     "2.82", "A bank with alternating rows",
     refines = "Hairline between ways",
@@ -1180,66 +950,6 @@ private fun C82ZebraBank() = Candidate(
         listOf(Triple("Meera", "Daughter · 98765 43210", LampState.LIVE), Triple("Arun", "Son · 91234 56780", LampState.LIVE), Triple("Dr Rao", "Doctor · 98700 11223", LampState.OFF), Triple("Neighbour", "No number", LampState.OFF)).forEachIndexed { i, (n, d, s) ->
             Box(Modifier.background(if (i % 2 == 1) colors.recess.copy(alpha = 0.6f) else Color.Transparent)) {
                 Way(name = n, state = s, stateLabel = if (s == LampState.LIVE) "Called" else "Not called", detail = d, onClick = {})
-            }
-        }
-    }
-}
-
-@Composable
-private fun C83NumberedRows() = Candidate(
-    "2.83", "Numbered rows",
-    refines = "Way, for a sequence",
-    note = "The rung number in a 28dp ring at the leading edge instead of a glyph, in mono. The ladder, the onboarding steps, a set of instructions: anything whose order is the point wears its number where a way wears its glyph."
-) {
-    val colors = MaterialTheme.board
-    BoardPlate(modifier = Modifier.fillMaxWidth()) {
-        listOf(Triple("Meera", "Waits 60 s for an answer", LampState.LIVE), Triple("Arun", "Waits 60 s", LampState.LIVE), Triple("112", "The dialer opens; nobody is called by itself", LampState.ATTENTION)).forEachIndexed { i, (n, d, s) ->
-            if (i > 0) Hairline()
-            Row(Modifier.fillMaxWidth().padding(start = Spacing.lg, end = Spacing.md, top = Spacing.md, bottom = Spacing.md).height(IntrinsicSize.Min), verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(28.dp).clip(CircleShape).border(Stroke.rule, colors.inkMuted, CircleShape), contentAlignment = Alignment.Center) {
-                    Text("${i + 1}", style = MaterialTheme.boardType.readout.copy(fontSize = 13.sp, lineHeight = 13.sp), color = colors.ink)
-                }
-                Spacer(Modifier.width(Spacing.md))
-                Column(Modifier.weight(1f)) {
-                    Nameplate(n)
-                    Text(d, style = MaterialTheme.boardType.rowDetail, color = colors.inkFaint)
-                }
-                Spacer(Modifier.width(Spacing.md))
-                BusTick(s, Modifier.fillMaxHeight())
-            }
-        }
-    }
-}
-
-@Composable
-private fun C84TileGrid() = Candidate(
-    "2.84", "Ways as tiles",
-    refines = "a bank of navigating ways",
-    note = "Two across: each way a small plate with its glyph on a disc, its title, and its state word under it. For a hub's list of places to go, where every row today has the same shape and a dash. Rows for settings, tiles for destinations."
-) {
-    val colors = MaterialTheme.board
-    val tiles = listOf(
-        Triple(SafeShadeIcons.PairedDevices, "Paired devices", "1 saved" to LampState.LIVE),
-        Triple(SafeShadeIcons.FindTheDevice, "Find the device", "Ready" to LampState.OFF),
-        Triple(SafeShadeIcons.AdaptiveMode, "Adaptive mode", "Elderly" to LampState.OFF),
-        Triple(SafeShadeIcons.Lights, "Lights", "Torch" to LampState.OFF),
-        Triple(SafeShadeIcons.CpuChip, "Firmware", "—" to LampState.UNKNOWN),
-        Triple(SafeShadeIcons.Bicycle01, "Ride log", "None" to LampState.OFF)
-    )
-    Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-        tiles.chunked(2).forEach { pair ->
-            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                pair.forEach { (icon, title, st) ->
-                    BoardPlate(modifier = Modifier.weight(1f).plateClickable(onClick = {})) {
-                        Column(Modifier.padding(Spacing.md)) {
-                            IconDisc(icon, colors.accentFor(title))
-                            Spacer(Modifier.height(Spacing.sm))
-                            Nameplate(title)
-                            Spacer(Modifier.height(Spacing.xxs))
-                            StateWord(st.first, st.second)
-                        }
-                    }
-                }
             }
         }
     }
@@ -1314,32 +1024,6 @@ private fun C87RowWithLeadingLamp() = Candidate(
     }
 }
 
-@Composable
-private fun C88RowWithFaces() = Candidate(
-    "2.88", "A row with the faces it concerns",
-    refines = "Way, on the trip log and messages",
-    note = "A stack of 24dp faces at the trailing edge, overlapping by a third, for who was told, who answered, who is in the zone. A trip that says 'Meera and Arun were called' as two faces is read faster than the sentence and takes a third of the width."
-) {
-    val colors = MaterialTheme.board
-    BoardPlate(modifier = Modifier.fillMaxWidth()) {
-        listOf("Fall · 04:31" to "Countdown ran out · both were called", "SOS · Tuesday" to "Cancelled by Baba after 8 s").forEachIndexed { i, (n, d) ->
-            if (i > 0) Hairline()
-            Row(Modifier.fillMaxWidth().padding(start = Spacing.lg, end = Spacing.md, top = Spacing.md, bottom = Spacing.md), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Nameplate(n)
-                    Text(d, style = MaterialTheme.boardType.rowDetail, color = colors.inkFaint)
-                }
-                Spacer(Modifier.width(Spacing.md))
-                Box {
-                    Avatar(avatarId = AvatarSpec.PRESETS[5].encode(), name = "Meera", size = 24.dp)
-                    if (i == 0) Box(Modifier.offset(x = 16.dp)) { Avatar(avatarId = AvatarSpec.PRESETS[9].encode(), name = "Arun", size = 24.dp) }
-                }
-                if (i == 0) Spacer(Modifier.width(16.dp))
-            }
-        }
-    }
-}
-
 // ============================================
 // CARDS
 // ============================================
@@ -1360,71 +1044,6 @@ private fun C89AccentBandCard() = Candidate(
                     Text(l, style = MaterialTheme.boardType.rowDetail, color = colors.inkMuted)
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun C90CornerTagCard() = Candidate(
-    "2.90", "A card with a corner tag",
-    refines = "BoardPlate with a qualifier",
-    note = "The qualifier chip (2.29) set into the card's top-right corner with its top and right edges flush, like a stamp on a form. SEALED, PLUS, DEVICE-ONLY, YOUR PLAN. The card's own title keeps the whole width under it."
-) {
-    val colors = MaterialTheme.board
-    Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-        listOf(Triple("Elderly mode", "Hides the wearable's own Safety menu.", "Sealed"), Triple("Plus", "The community map and the weekly report.", "Your plan")).forEach { (t, l, tag) ->
-            BoardPlate(modifier = Modifier.fillMaxWidth()) {
-                Box {
-                    Column(Modifier.padding(Spacing.lg)) {
-                        Text(t, style = MaterialTheme.typography.titleMedium, color = colors.ink)
-                        Text(l, style = MaterialTheme.boardType.rowDetail, color = colors.inkMuted)
-                    }
-                    Text(
-                        tag.uppercase(), style = MaterialTheme.boardType.sealPlate, color = colors.inkMuted,
-                        modifier = Modifier.align(Alignment.TopEnd).clip(RoundedCornerShape(bottomStart = Radius.plate)).background(colors.brass.copy(alpha = if (colors.isDark) 0.28f else 0.20f)).padding(horizontal = Spacing.sm, vertical = 3.dp)
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun C91EngravedTitleCard() = Candidate(
-    "2.91", "A card with an engraved title plate",
-    refines = "BoardPlate with a heading",
-    note = "The card's title set in a recess strip across its top, in the section-plate voice, with the body on the plate below. The heading is machined into the card rather than printed on it; the card and its section plate become one thing."
-) {
-    val colors = MaterialTheme.board
-    BoardPlate(modifier = Modifier.fillMaxWidth()) {
-        Box(Modifier.fillMaxWidth().background(colors.recess).padding(horizontal = Spacing.lg, vertical = Spacing.sm)) {
-            Text("WHAT THE MICROPHONE HEARD", style = MaterialTheme.boardType.sectionPlate, color = colors.inkMuted)
-        }
-        Hairline()
-        Way(name = "Test recording", state = LampState.OFF, stateLabel = "On this phone", detail = "10 s · 43 KB", icon = SafeShadeIcons.Microphone, onClick = {})
-        Hairline()
-        Way(name = "Sound level", state = LampState.LIVE, stateLabel = "53 dB", detail = "Uncalibrated", icon = SafeShadeIcons.AudioWave)
-    }
-}
-
-@Composable
-private fun C92FooterActionCard() = Candidate(
-    "2.92", "A card with a footer action",
-    refines = "BoardPlate with a button under it",
-    note = "The card's one action as its last row, under a hairline, in the nameplate voice with a chevron, full width. Not a button inside a card; the card's foot is the button. Open the map, Share as PDF, See all."
-) {
-    val colors = MaterialTheme.board
-    BoardPlate(modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(Spacing.lg)) {
-            Text("Fall · 04:31", style = MaterialTheme.typography.titleMedium, color = colors.ink)
-            Text("Countdown ran out · Meera and Arun were called · 20.2961, 85.8245", style = MaterialTheme.boardType.rowDetail, color = colors.inkMuted)
-        }
-        Hairline()
-        Row(Modifier.fillMaxWidth().rowClickable(role = Role.Button, onClick = {}).padding(horizontal = Spacing.lg, vertical = Spacing.md), verticalAlignment = Alignment.CenterVertically) {
-            Icon(SafeShadeIcons.Pdf, contentDescription = null, tint = colors.inkMuted, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(Spacing.sm))
-            Text("Share as PDF", style = MaterialTheme.boardType.nameplate, color = colors.ink, modifier = Modifier.weight(1f))
-            Icon(SafeShadeIcons.ArrowRight01, contentDescription = null, tint = colors.inkFaint, modifier = Modifier.size(18.dp))
         }
     }
 }
@@ -1452,146 +1071,9 @@ private fun C93NestedCard() = Candidate(
     }
 }
 
-@Composable
-private fun C94WatermarkCard() = Candidate(
-    "2.94", "A card with a watermark glyph",
-    refines = "BoardPlate",
-    note = "The card's glyph at 96dp in the accent at 0.08 alpha, bleeding off the bottom-right corner behind the text. Decoration that says what the card is about at a glance from a distance, and that costs the text nothing because it sits under it, not beside it."
-) {
-    val colors = MaterialTheme.board
-    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-        listOf(Triple("Journey", "To Home · 20 min", SafeShadeIcons.WalkingPerson), Triple("Check-in", "Next at 18:00", SafeShadeIcons.CheckIn)).forEach { (t, l, icon) ->
-            BoardPlate(modifier = Modifier.weight(1f)) {
-                Box(Modifier.fillMaxWidth().height(100.dp)) {
-                    Icon(icon, contentDescription = null, tint = colors.accentFor(t).copy(alpha = 0.10f), modifier = Modifier.align(Alignment.BottomEnd).offset(x = 20.dp, y = 20.dp).size(96.dp))
-                    Column(Modifier.padding(Spacing.md)) {
-                        Text(t, style = MaterialTheme.typography.titleMedium, color = colors.ink)
-                        Text(l, style = MaterialTheme.boardType.rowDetail, color = colors.inkMuted)
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun C95CardStrip() = Candidate(
-    "2.95", "A strip of cards",
-    refines = "a bank of similar things",
-    note = "Cards of a fixed 150dp width in a horizontal strip that scrolls under the gutter, each a zone or a wearable or a person with a lamp. Where a bank of four rows takes 200dp of height, a strip takes 110 and shows three at once. For the Circle's zones and the Device's wearables."
-) {
-    val colors = MaterialTheme.board
-    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-        listOf(Triple("Home", "Inside · 200 m", LampState.LIVE), Triple("Park", "Away · 500 m", LampState.OFF), Triple("Clinic", "Away · 300 m", LampState.OFF), Triple("Temple", "Away · 250 m", LampState.OFF)).forEach { (n, l, s) ->
-            BoardPlate(modifier = Modifier.width(150.dp).plateClickable(onClick = {})) {
-                Column(Modifier.padding(Spacing.md)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        PilotLamp(s, size = 10.dp)
-                        Spacer(Modifier.width(Spacing.xs))
-                        Text(n, style = MaterialTheme.typography.titleMedium, color = colors.ink)
-                    }
-                    Spacer(Modifier.height(Spacing.xs))
-                    Text(l, style = MaterialTheme.boardType.rowDetail, color = colors.inkMuted)
-                    Spacer(Modifier.height(Spacing.md))
-                    Box(Modifier.fillMaxWidth().height(36.dp).clip(RoundedCornerShape(Radius.plate)).background(colors.recess), contentAlignment = Alignment.Center) {
-                        Icon(SafeShadeIcons.SafeZone, contentDescription = null, tint = colors.accentFor(n), modifier = Modifier.size(20.dp))
-                    }
-                }
-            }
-        }
-    }
-}
-
 // ============================================
 // ACTIONS AND EXPLAINERS
 // ============================================
-
-@Composable
-private fun C96Steps() = Candidate(
-    "2.96", "Steps down the page",
-    refines = "the setup paragraphs",
-    note = "A vertical set of numbered steps: the number in a ring, a bold lead, one line, and a rule between steps with the done ones' rings filled. For pairing, Health Connect, NFC, and any page that is really a procedure. A paragraph hides that it is a procedure; this admits it."
-) {
-    val colors = MaterialTheme.board
-    BoardPlate(modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(Spacing.lg)) {
-            listOf(Triple("Install Health Connect", "From the Play Store; the button below opens it.", true), Triple("Allow SafeShade to read", "Heart rate, oxygen and temperature only.", true), Triple("Read now", "The first reading appears on this page.", false)).forEachIndexed { i, (lead, line, done) ->
-                if (i > 0) Box(Modifier.padding(start = 13.dp).width(2.dp).height(12.dp).background(colors.hairline))
-                Row(verticalAlignment = Alignment.Top) {
-                    Box(Modifier.size(28.dp).clip(CircleShape).background(if (done) colors.ink else Color.Transparent).border(Stroke.rule, if (done) colors.ink else colors.inkMuted, CircleShape), contentAlignment = Alignment.Center) {
-                        if (done) Icon(SafeShadeIcons.Tick02, contentDescription = "Done", tint = colors.plate, modifier = Modifier.size(14.dp))
-                        else Text("${i + 1}", style = MaterialTheme.boardType.readout.copy(fontSize = 13.sp, lineHeight = 13.sp), color = colors.ink)
-                    }
-                    Spacer(Modifier.width(Spacing.md))
-                    Column {
-                        Text(lead, style = MaterialTheme.boardType.nameplate, color = if (done) colors.inkMuted else colors.ink)
-                        Text(line, style = MaterialTheme.boardType.rowDetail, color = colors.inkFaint)
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun C97ExpandableRowWithPreview() = Candidate(
-    "2.97", "An expandable bank that previews its rows",
-    refines = "ExpandableSection",
-    note = "Closed, the bank shows its label, its count and the first row's state words in a line of small chips: 'Fall Medium · Call Live · Text Off'. A closed bank that shows nothing asks to be opened to find out; one that previews can stay closed."
-) {
-    val colors = MaterialTheme.board
-    var open by remember { mutableStateOf(false) }
-    BoardPlate(modifier = Modifier.fillMaxWidth()) {
-        Row(Modifier.fillMaxWidth().rowClickable(role = Role.Button, onClick = { open = !open }).padding(horizontal = Spacing.lg, vertical = Spacing.md), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Nameplate("More detection settings", muted = true)
-                if (!open) {
-                    Spacer(Modifier.height(Spacing.xs))
-                    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                        listOf("Sensitivity Medium" to LampState.LIVE, "Countdown 30 s" to LampState.LIVE, "Still 2 min" to LampState.OFF).forEach { (w, s) ->
-                            Text(w, style = MaterialTheme.boardType.rowDetail.copy(fontSize = 11.sp), color = LampInk(s), modifier = Modifier.clip(RoundedCornerShape(Radius.tight)).background(colors.recess).padding(horizontal = 6.dp, vertical = 2.dp))
-                        }
-                    }
-                }
-            }
-            Text("3", style = MaterialTheme.boardType.readout, color = colors.inkFaint)
-            Spacer(Modifier.width(Spacing.sm))
-            Icon(SafeShadeIcons.ArrowDown01, contentDescription = null, tint = colors.inkMuted, modifier = Modifier.size(20.dp))
-        }
-        if (open) {
-            Hairline()
-            Way(name = "Sensitivity", state = LampState.LIVE, stateLabel = "Medium", onClick = {})
-            Hairline()
-            Way(name = "Countdown", state = LampState.LIVE, stateLabel = "30 s", onClick = {})
-            Hairline()
-            Way(name = "Stillness", state = LampState.OFF, stateLabel = "2 min", onClick = {})
-        }
-    }
-}
-
-@Composable
-private fun C98PageTabs() = Candidate(
-    "2.98", "Tabs inside a page",
-    refines = "two lists on one page",
-    note = "Two or three words in a channel at the top of a bank, the chosen one raised, switching what the bank shows: Recent and All, Mine and Community, This week and Older. A page that stacks both lists is twice as long as a page that shows one."
-) {
-    val colors = MaterialTheme.board
-    var tab by remember { mutableIntStateOf(0) }
-    Column {
-        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(Radius.plate)).background(colors.recess).border(Stroke.hairline, colors.hairline, RoundedCornerShape(Radius.plate)).padding(3.dp), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-            listOf("Recent", "All", "Falls").forEachIndexed { i, w ->
-                val on = i == tab
-                Box(Modifier.weight(1f).heightIn(min = 36.dp).clip(RoundedCornerShape(Radius.tight)).background(if (on) colors.plate else Color.Transparent).border(Stroke.hairline, if (on) colors.hairline else Color.Transparent, RoundedCornerShape(Radius.tight)).rowClickable(role = Role.Tab, onClick = { tab = i }), contentAlignment = Alignment.Center) {
-                    Text(w, style = MaterialTheme.boardType.nameplateSmall, color = if (on) colors.ink else colors.inkMuted)
-                }
-            }
-        }
-        Spacer(Modifier.height(Spacing.sm))
-        BoardPlate(modifier = Modifier.fillMaxWidth()) {
-            Way(name = listOf("Fall · 04:31", "SOS · Tuesday", "Fall · 04:31")[tab], state = LampState.OFF, stateLabel = "Handled", detail = "Shown for the ${listOf("Recent", "All", "Falls")[tab]} tab", onClick = {})
-        }
-    }
-}
 
 @Composable
 private fun C99StickyBankHeader() = Candidate(

@@ -13,7 +13,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalInspectionMode
@@ -67,6 +69,14 @@ enum class LampState {
  * component does; and it is the one place in the whole app where saturated
  * colour is allowed, so it needs to be a single, auditable implementation
  * instead of a colour applied ad hoc across screens.
+ *
+ * **Square, since v2.8.0** (candidate 2.57). The round lamp was the one circle
+ * in a system whose every other form is a machined rectangle: the rocker's
+ * chip, the bus tick, the seal, the switch track all sit at the tight radius,
+ * and the lamp alone was a disc. It is now a square of glass at that same
+ * radius, seated in a square bezel, with the halo drawn as a larger square
+ * behind it. The three parts, their proportions, the warm-up and the trip
+ * breathing are exactly what the round lamp had; only the corners changed.
  *
  * Colour alone never carries the meaning: every caller pairs a lamp with a
  * state word, and the semantics below give a screen reader the same
@@ -123,34 +133,44 @@ fun PilotLamp(
             .size(size)
             .clearAndSetSemantics { stateDescription = spoken }
     ) {
-        val radius = this.size.minDimension / 2f
+        val side = this.size.minDimension
         val center = Offset(this.size.width / 2f, this.size.height / 2f)
 
-        // Halo: a flat low-alpha ring, not a radial gradient. The world is flat
-        // unmodulated colour throughout, and a glow gradient here would be the
-        // one soft edge on an otherwise machined surface.
+        // The corner radius scales with the lamp so a 10dp lamp in a strip and
+        // a 20dp lamp on a status well are the same shape, not the same
+        // number. At the default 14dp it lands on the kit's 2dp tight radius.
+        fun square(fraction: Float) = Size(side * fraction, side * fraction)
+        fun topLeft(fraction: Float) = Offset(center.x - side * fraction / 2f, center.y - side * fraction / 2f)
+        fun corner(fraction: Float) = CornerRadius(side * fraction * 0.2f)
+
+        // Halo: a flat low-alpha square, not a radial gradient. The world is
+        // flat unmodulated colour throughout, and a glow gradient here would be
+        // the one soft edge on an otherwise machined surface.
         if (litness > 0f) {
-            drawCircle(
+            drawRoundRect(
                 color = glass.copy(alpha = 0.18f * litness * pulse),
-                radius = radius * 1.55f,
-                center = center
+                topLeft = topLeft(1.55f),
+                size = square(1.55f),
+                cornerRadius = corner(1.55f)
             )
         }
 
         // Glass.
-        drawCircle(
+        drawRoundRect(
             color = lerpFlat(colors.lampOff, glass, litness * pulse),
-            radius = radius * 0.72f,
-            center = center
+            topLeft = topLeft(0.72f),
+            size = square(0.72f),
+            cornerRadius = corner(0.72f)
         )
 
-        // Bezel: the machined ring the lamp sits in. Always present, so an
+        // Bezel: the machined frame the lamp sits in. Always present, so an
         // unlit lamp still reads as a lamp rather than as a smudge.
-        drawCircle(
+        drawRoundRect(
             color = colors.ink.copy(alpha = if (colors.isDark) 0.55f else 0.28f),
-            radius = radius * 0.86f,
-            center = center,
-            style = Stroke(width = radius * 0.22f)
+            topLeft = topLeft(0.86f),
+            size = square(0.86f),
+            cornerRadius = corner(0.86f),
+            style = Stroke(width = side * 0.11f)
         )
     }
 }

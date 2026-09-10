@@ -1,6 +1,16 @@
 package com.safeshade.ui.board
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -70,6 +80,14 @@ import com.safeshade.ui.theme.boardType
  * @param deviceOnly marks the inverse: a setting this app genuinely cannot
  *   reach over BLE. Rendered as a readable value with no control, because a
  *   switch that silently does nothing is worse than no switch.
+ * @param help the long explanation, on the row it is about (candidate 2.28).
+ *   A small help glyph sits after the title and opens the text in a recess
+ *   under the row. The page keeps no paragraph at all: a person who wants
+ *   to know why the countdown is thirty seconds asks the countdown, not the
+ *   page. Spoken as a custom action on the row, so a screen reader reaches
+ *   it from the row's own actions menu.
+ * @param trailing a slot before the state word: a stack of faces, a small
+ *   readout. Rare; most rows say everything with the word and the tick.
  */
 @Composable
 fun Way(
@@ -91,11 +109,14 @@ fun Way(
      * `Color.Unspecified` to opt a single row back out to plain ink.
      */
     accent: Color? = null,
+    help: String? = null,
+    trailing: (@Composable () -> Unit)? = null,
     checked: Boolean? = null,
     onCheckedChange: ((Boolean) -> Unit)? = null,
     onClick: (() -> Unit)? = null
 ) {
     val colors = MaterialTheme.board
+    var helpOpen by rememberSaveable(name) { mutableStateOf(false) }
 
     // The whole row is one semantic node. Announcing nameplate, state and
     // switch separately makes a screen reader read three fragments where a
@@ -109,9 +130,10 @@ fun Way(
         if (deviceOnly) append(", change this on the device")
     }
 
+    Column(modifier = modifier.fillMaxWidth()) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = modifier
+        modifier = Modifier
             .fillMaxWidth()
             // A tonal press state, not a ripple — see `rowClickable`.
             .then(
@@ -127,6 +149,11 @@ fun Way(
                 contentDescription = spoken
                 if (checked != null) {
                     toggleableState = if (checked) ToggleableState.On else ToggleableState.Off
+                }
+                if (help != null) {
+                    customActions = listOf(
+                        CustomAccessibilityAction(if (helpOpen) "Hide why" else "Why") { helpOpen = !helpOpen; true }
+                    )
                 }
             }
     ) {
@@ -185,6 +212,25 @@ fun Way(
                     Spacer(Modifier.width(Spacing.xs))
                     Seal()
                 }
+                if (help != null) {
+                    Spacer(Modifier.width(Spacing.xs))
+                    // A 16dp glyph on a 28dp target, so it can be hit
+                    // without being the size of the title beside it.
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clip(RoundedCornerShape(Radius.tight))
+                            .rowClickable(role = Role.Button, onClick = { helpOpen = !helpOpen })
+                    ) {
+                        Icon(
+                            imageVector = SafeShadeIcons.HelpCircle,
+                            contentDescription = null,
+                            tint = if (helpOpen) colors.ink else colors.inkFaint,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
             }
             if (detail != null) {
                 // A real gap under the title, and a tighter leading inside the
@@ -201,6 +247,11 @@ fun Way(
         }
 
         Spacer(Modifier.width(Spacing.md))
+
+        if (trailing != null) {
+            trailing()
+            Spacer(Modifier.width(Spacing.md))
+        }
 
         if (checked != null && onCheckedChange != null && !deviceOnly) {
             WaySwitch(checked = checked, onCheckedChange = onCheckedChange)
@@ -224,6 +275,24 @@ fun Way(
         // the same thing twice; one coloured edge carries it, and dropping the
         // lamp buys the content real room on the left.
         BusTick(state = state, modifier = Modifier.fillMaxHeight())
+    }
+    if (help != null) {
+        AnimatedVisibility(
+            visible = helpOpen,
+            enter = expandVertically(tween(Motion.normal)) + fadeIn(tween(Motion.normal)),
+            exit = shrinkVertically(tween(Motion.fast)) + fadeOut(tween(Motion.fast))
+        ) {
+            Text(
+                text = help,
+                style = MaterialTheme.typography.bodySmall,
+                color = colors.inkMuted,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(colors.recess)
+                    .padding(horizontal = Spacing.lg, vertical = Spacing.md)
+            )
+        }
+    }
     }
 }
 

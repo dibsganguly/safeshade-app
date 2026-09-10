@@ -454,4 +454,4 @@ private fun BoardSnackbarHost(hostState: SnackbarHostState) {
  * panel with no shadow is invisible. This is the same value `night-plate`
  * carries in `DESIGN.md`.
  */
-private val NightPlateForSnackbar = Color(0xFF22282E)
+private val NightPlateForSnackbar = Color(0xFF181C20)

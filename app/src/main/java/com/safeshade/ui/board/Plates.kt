@@ -26,7 +26,9 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.safeshade.ui.theme.accentFor
+import com.safeshade.ui.theme.Hub
 import com.safeshade.ui.theme.Radius
+import com.safeshade.ui.theme.hubAccent
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.Stroke
 import com.safeshade.ui.theme.board
@@ -45,17 +47,37 @@ fun BoardPlate(
     modifier: Modifier = Modifier,
     shape: Shape = RoundedCornerShape(Radius.card),
     recessed: Boolean = false,
+    /**
+     * Tints the plate in a hub's accent (candidate 2.53): the fill takes the
+     * accent at 0.06 over the plate tone and the border takes it at 0.35.
+     * For the head plate of a hub only, the one plate on the screen that
+     * says which hub this is. Every plate tinted is no plate tinted.
+     */
+    hub: Hub? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
     val colors = MaterialTheme.board
+    val accent = hub?.let { colors.hubAccent(it) }
+    val fill = when {
+        recessed -> colors.recess
+        accent != null -> accent.copy(alpha = if (colors.isDark) 0.10f else 0.06f).over(colors.plate)
+        else -> colors.plate
+    }
     Column(
         modifier = modifier
             .clip(shape)
-            .background(if (recessed) colors.recess else colors.plate)
-            .border(Stroke.hairline, colors.hairline, shape),
+            .background(fill)
+            .border(Stroke.hairline, accent?.copy(alpha = 0.35f)?.over(colors.plate) ?: colors.hairline, shape),
         content = content
     )
 }
+
+/** Flat compositing, so a tinted plate is one opaque colour rather than a translucent layer. */
+private fun Color.over(base: Color): Color = Color(
+    red = red * alpha + base.red * (1 - alpha),
+    green = green * alpha + base.green * (1 - alpha),
+    blue = blue * alpha + base.blue * (1 - alpha)
+)
 
 /**
  * A circuit label — the title of a way, the caption on a gauge.

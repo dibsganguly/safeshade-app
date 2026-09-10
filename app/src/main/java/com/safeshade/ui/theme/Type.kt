@@ -15,18 +15,27 @@ import com.safeshade.R
 /**
  * Type for the Distribution Board world.
  *
- * Two voices, both drawn from one variable file each:
+ * Three voices, each drawn from one variable file:
  *
- *  - **Archivo** carries everything. Its `wdth` axis is what makes the system
- *    work: at width 100 it is a plain workhorse grotesk for body copy, and at
- *    width 78 it becomes the condensed, engraved label-plate voice used for
- *    nameplates. One family, two registers, no visual mismatch between them.
- *  - **Azeret Mono** carries numeric readouts only — telemetry, coordinates,
- *    signal strength, timers. Anything a person reads digit-by-digit.
+ *  - **Plus Jakarta Sans** is the display voice: screen titles, the mains
+ *    plate headline, the title of a card. Chosen from the v2.0 candidates
+ *    (2.04) for its face, and deliberately *not* used throughout: a geometric
+ *    with that much presence in every row reads as a brochure. It appears
+ *    where a heading appears and nowhere else.
+ *  - **Archivo** carries everything a person reads rather than glances at.
+ *    Its `wdth` axis is what makes the system work: at width 100 it is a
+ *    plain workhorse grotesk for body copy and row titles, and at width 78 it
+ *    becomes the condensed, engraved label-plate voice of section plates and
+ *    state words. One family, two registers, no mismatch between them.
+ *  - **JetBrains Mono** carries numeric readouts only — telemetry,
+ *    coordinates, signal strength, timers. Anything a person reads
+ *    digit-by-digit. It replaced Azeret Mono (candidate 2.45): a taller,
+ *    rounder mono with a slashed zero that stays legible at 12sp in a well.
  *
- * Both are bundled as .ttf in res/font rather than pulled through Downloadable
- * Fonts: the Play fonts provider is unreliable on emulator images, and a font
- * that sometimes fails to arrive makes screenshot verification non-deterministic.
+ * All three are bundled as .ttf in res/font rather than pulled through
+ * Downloadable Fonts: the Play fonts provider is unreliable on emulator
+ * images, and a font that sometimes fails to arrive makes screenshot
+ * verification non-deterministic.
  *
  * Sizes are deliberately one step larger than a typical phone scale. The
  * elderly wearer's guardian is often also elderly, and this app is read in a
@@ -44,8 +53,15 @@ private fun archivo(weight: Int, width: Float) = Font(
 )
 
 @OptIn(ExperimentalTextApi::class)
-private fun azeret(weight: Int) = Font(
-    resId = R.font.azeret_mono_variable,
+private fun jetbrains(weight: Int) = Font(
+    resId = R.font.jetbrains_mono_variable,
+    weight = FontWeight(weight),
+    variationSettings = FontVariation.Settings(FontVariation.weight(weight))
+)
+
+@OptIn(ExperimentalTextApi::class)
+private fun jakarta(weight: Int) = Font(
+    resId = R.font.plus_jakarta_sans_variable,
     weight = FontWeight(weight),
     variationSettings = FontVariation.Settings(FontVariation.weight(weight))
 )
@@ -81,11 +97,26 @@ val BoardCondensed = FontFamily(
     archivo(700, 78f)
 )
 
+/**
+ * Display voice — Plus Jakarta Sans. Headings only.
+ *
+ * Carried by the Material display, headline and title steps and by nothing in
+ * [BoardType]: a nameplate, a row detail, a state word and a readout all keep
+ * their own faces, so a heading is the one thing on a screen set in this
+ * family and reads as one.
+ */
+val BoardDisplay = FontFamily(
+    jakarta(500),
+    jakarta(600),
+    jakarta(700),
+    jakarta(800)
+)
+
 /** Readout voice — digits you read one at a time. */
 val BoardMono = FontFamily(
-    azeret(400),
-    azeret(500),
-    azeret(700)
+    jetbrains(400),
+    jetbrains(500),
+    jetbrains(700)
 )
 
 /**
@@ -199,24 +230,34 @@ val BoardType = BoardTypography(
     )
 )
 
-/** The Material 3 scale, set in the board's own voice. */
+/**
+ * The Material 3 scale, set in the board's own voices.
+ *
+ * Display, headline and title steps take [BoardDisplay]; body and label steps
+ * stay in [BoardSans]. The split is the whole point of having a display face:
+ * it marks the one line on a screen that names the screen or the card, and it
+ * can only do that if nothing else on the screen is set in it. Jakarta's
+ * x-height sits a touch lower than Archivo's, so the heading steps each gained
+ * a point, and the display steps lost half their negative tracking, which is
+ * what stops a geometric face from reading as squeezed beside the emblem.
+ */
 val BoardMaterialTypography = Typography(
-    displayLarge = TextStyle(fontFamily = BoardSans, fontWeight = FontWeight.W700, fontSize = 40.sp, lineHeight = 46.sp, letterSpacing = (-0.02).em),
-    displayMedium = TextStyle(fontFamily = BoardSans, fontWeight = FontWeight.W700, fontSize = 32.sp, lineHeight = 38.sp, letterSpacing = (-0.02).em),
-    displaySmall = TextStyle(fontFamily = BoardSans, fontWeight = FontWeight.W700, fontSize = 28.sp, lineHeight = 34.sp, letterSpacing = (-0.01).em),
+    displayLarge = TextStyle(fontFamily = BoardDisplay, fontWeight = FontWeight.W700, fontSize = 40.sp, lineHeight = 46.sp, letterSpacing = (-0.01).em),
+    displayMedium = TextStyle(fontFamily = BoardDisplay, fontWeight = FontWeight.W700, fontSize = 32.sp, lineHeight = 38.sp, letterSpacing = (-0.01).em),
+    displaySmall = TextStyle(fontFamily = BoardDisplay, fontWeight = FontWeight.W700, fontSize = 29.sp, lineHeight = 36.sp, letterSpacing = (-0.01).em),
 
     // The board masthead and nothing else. Larger than the Material step it
     // occupies, because on the home screen it is a wordmark set beside a 52dp
     // emblem rather than a heading over a paragraph, and at 26sp the emblem
     // was winning. No negative tracking: that is what made the intro wordmark
     // read as squeezed, and this one sits beside the same emblem.
-    headlineLarge = TextStyle(fontFamily = BoardSans, fontWeight = FontWeight.W700, fontSize = 32.sp, lineHeight = 38.sp),
-    headlineMedium = TextStyle(fontFamily = BoardSans, fontWeight = FontWeight.W600, fontSize = 22.sp, lineHeight = 28.sp),
-    headlineSmall = TextStyle(fontFamily = BoardSans, fontWeight = FontWeight.W600, fontSize = 19.sp, lineHeight = 26.sp),
+    headlineLarge = TextStyle(fontFamily = BoardDisplay, fontWeight = FontWeight.W700, fontSize = 32.sp, lineHeight = 38.sp),
+    headlineMedium = TextStyle(fontFamily = BoardDisplay, fontWeight = FontWeight.W700, fontSize = 23.sp, lineHeight = 30.sp),
+    headlineSmall = TextStyle(fontFamily = BoardDisplay, fontWeight = FontWeight.W700, fontSize = 20.sp, lineHeight = 27.sp),
 
-    titleLarge = TextStyle(fontFamily = BoardSans, fontWeight = FontWeight.W600, fontSize = 20.sp, lineHeight = 26.sp),
-    titleMedium = TextStyle(fontFamily = BoardSans, fontWeight = FontWeight.W600, fontSize = 17.sp, lineHeight = 24.sp),
-    titleSmall = TextStyle(fontFamily = BoardSans, fontWeight = FontWeight.W600, fontSize = 15.sp, lineHeight = 20.sp),
+    titleLarge = TextStyle(fontFamily = BoardDisplay, fontWeight = FontWeight.W700, fontSize = 20.sp, lineHeight = 26.sp),
+    titleMedium = TextStyle(fontFamily = BoardDisplay, fontWeight = FontWeight.W700, fontSize = 17.sp, lineHeight = 24.sp),
+    titleSmall = TextStyle(fontFamily = BoardDisplay, fontWeight = FontWeight.W700, fontSize = 15.sp, lineHeight = 20.sp),
 
     bodyLarge = TextStyle(fontFamily = BoardSans, fontWeight = FontWeight.W400, fontSize = 16.sp, lineHeight = 24.sp),
     bodyMedium = TextStyle(fontFamily = BoardSans, fontWeight = FontWeight.W400, fontSize = 15.sp, lineHeight = 22.sp),

@@ -13,11 +13,11 @@ colors:
   ink-light: "#22282E"
   ink-muted-light: "#55514B"
   ink-faint-light: "#69655F"
-  night-ground: "#14171A"
-  night-plate: "#22282E"
-  night-recess: "#0E1113"
+  night-ground: "#0B0D0F"
+  night-plate: "#181C20"
+  night-recess: "#050607"
   brass-rule-dark: "#8A7A5E"
-  hairline-dark: "#353C43"
+  hairline-dark: "#2A3036"
   ink-dark: "#ECEFF1"
   ink-muted-dark: "#B4AEA4"
   ink-faint-dark: "#948F86"
@@ -25,7 +25,7 @@ colors:
   lamp-attention-glass: "#F5A623"
   lamp-trip-glass: "#E5484D"
   lamp-off-light: "#C8C2B4"
-  lamp-off-dark: "#31383E"
+  lamp-off-dark: "#2C3238"
   ink-live-light: "#0F7A72"
   ink-live-dark: "#7EDCD5"
   ink-attention-light: "#8A5300"
@@ -34,21 +34,21 @@ colors:
   ink-trip-dark: "#FF8A8D"
 typography:
   display:
-    fontFamily: "Archivo Variable (wdth 100)"
+    fontFamily: "Plus Jakarta Sans Variable"
     fontSize: "40sp"
     fontWeight: 700
     lineHeight: "46sp"
-    letterSpacing: "-0.02em"
+    letterSpacing: "-0.01em"
   headline:
-    fontFamily: "Archivo Variable (wdth 100)"
-    fontSize: "19sp"
-    fontWeight: 600
-    lineHeight: "26sp"
+    fontFamily: "Plus Jakarta Sans Variable"
+    fontSize: "20sp"
+    fontWeight: 700
+    lineHeight: "27sp"
     letterSpacing: "normal"
   title:
-    fontFamily: "Archivo Variable (wdth 100)"
+    fontFamily: "Plus Jakarta Sans Variable"
     fontSize: "17sp"
-    fontWeight: 600
+    fontWeight: 700
     lineHeight: "24sp"
     letterSpacing: "normal"
   body:
@@ -88,19 +88,19 @@ typography:
     lineHeight: "16sp"
     letterSpacing: "0.10em"
   readout:
-    fontFamily: "Azeret Mono Variable"
+    fontFamily: "JetBrains Mono Variable"
     fontSize: "14sp"
     fontWeight: 500
     lineHeight: "20sp"
     letterSpacing: "-0.01em"
   readout-large:
-    fontFamily: "Azeret Mono Variable"
+    fontFamily: "JetBrains Mono Variable"
     fontSize: "34sp"
     fontWeight: 500
     lineHeight: "38sp"
     letterSpacing: "-0.03em"
   countdown:
-    fontFamily: "Azeret Mono Variable"
+    fontFamily: "JetBrains Mono Variable"
     fontSize: "64sp"
     fontWeight: 700
     lineHeight: "68sp"
@@ -253,14 +253,16 @@ SafeShade is a consumer panel, not a wellness dashboard and not a tactical HUD. 
 
 The density is deliberately generous. Type sits one step larger than a typical phone scale because the guardian of an elderly wearer is often elderly too, and this app gets read in a hurry. Every row — tappable or not — clears a 48dp floor. The board is achromatic almost everywhere, which is what gives the three state hues their force: when something on this screen is coloured, a reader is entitled to assume it is telling them about a live circuit.
 
-Confirmed rejections, all visible in the build: frosted glass and blur (replaced by flat plates with hairline borders), gradients of any kind (the pilot lamp's halo is a flat low-alpha ring, and a local flat interpolation exists specifically so no caller reaches for a gradient brush), 20–28dp pill corners, Material You dynamic colour, per-mode accent hues, and any decorative accent token at all.
+Confirmed rejections, all visible in the build: frosted glass and blur (replaced by flat plates with hairline borders), gradients of any kind (the pilot lamp's halo is a flat low-alpha square, and a local flat interpolation exists specifically so no caller reaches for a gradient brush), 20–28dp pill corners, Material You dynamic colour, and per-mode accent hues.
+
+v2.8.0 is the second edition of this system. A hundred and one numbered candidates were drawn in the Kit gallery, the user chose thirty-three by number, and each of those is now a kit member with its rule written into the section it belongs to. The appendix at the end records which candidate became what.
 
 **Key Characteristics:**
 - Colour means circuit state and nothing else
-- Two grounds, one system: bone panel by day, night plate after dark
-- Machined corners (2–8dp in practice, 14dp ceiling)
+- Two grounds, one system: bone panel by day, a deep night plate after dark
+- Machined corners (2–8dp in practice, 14dp ceiling); even the pilot lamp is square
 - Separation by hairline and brass rule, never by shadow
-- One variable type family at two width axes, plus a mono for readouts
+- Three voices: a geometric display face for headings only, one workhorse grotesk at two widths for everything read, a mono for readouts
 - Mechanical motion: switches throw, lamps warm up
 - Honest by construction: sealed, device-only, and unknown are all first-class states
 
@@ -309,7 +311,7 @@ Used at full strength for icons, section rules and identity type; at 0.10–0.18
 
 ### Neutral
 
-- **Bone Ground / Night Ground** (`{colors.bone-ground}` / `{colors.night-ground}`): the panel behind everything.
+- **Bone Ground / Night Ground** (`{colors.bone-ground}` / `{colors.night-ground}`): the panel behind everything. The night went deeper in v2.8.0 (candidate 2.10): ground `#0B0D0F`, plate `#181C20`, recess `#050607`, hairline `#2A3036`. The old night sat close enough to the plate that a plate barely rose off its ground on a phone in a dark room; the new one keeps the same three-register structure two steps darker, and the inks measure 14.1:1, 8.5:1 and 5.9:1 on the new plate. The light theme did not change.
 - **Bone Plate / Night Plate** (`{colors.bone-plate}` / `{colors.night-plate}`): a raised plate — a way row, a card, a section body, the bottom bar.
 - **Bone Recess / Night Recess** (`{colors.bone-recess}` / `{colors.night-recess}`): a routed channel. Text inputs, switch tracks, wells — anything set *into* the panel rather than onto it.
 - **Hairline** (`{colors.hairline-light}` / `{colors.hairline-dark}`): the structural separator between ways and the border of every plate.
@@ -320,7 +322,11 @@ Used at full strength for icons, section rules and identity type; at 0.10–0.18
 
 **The Colour-Means-State Rule.** Teal, amber and red appear in pilot lamps, bus ticks, seals, thrown switch chips, trip banners and state words. Grounds, plates, rules and body type are achromatic. Audit test: point at any saturated pixel and name what it reports; if you cannot, it does not belong.
 
-The rule was once "colour means circuit state and nothing else", and it is now one step weaker on purpose. A hued **action** is permitted where a screen has exactly one thing worth doing and every plate on it looked identical — an amber Connect, a teal Save, a red Emergency numbers. Three exceptions exist, all of them buttons, all of them stating their action in words as well. The saturation rule still separates these from the twelve decorative accents, and nothing else may take a hue on this argument: a hued row, a hued heading or a hued icon that is not reporting something is still wrong.
+The rule was once "colour means circuit state and nothing else", and it is now one step weaker on purpose. A hued **action** is permitted where a screen has exactly one thing worth doing and every plate on it looked identical — an amber Connect, a teal Send, a red Emergency numbers. Three exceptions exist, all of them buttons, all of them stating their action in words as well. The saturation rule still separates these from the twelve decorative accents, and nothing else may take a hue on this argument: a hued row, a hued heading or a hued icon that is not reporting something is still wrong.
+
+**Save is amber.** The foot of every editor is an action pair whose primary cell is the attention weight, because once a person has changed three fields, saving is the one thing to do next on that page, which is exactly what amber means. Teal stays the colour of a standalone commit that is not the end of an editor (Send the Invitation, Pair). Discard beside it is a quiet cell whose word is in trip ink: red text without a red fill, because a filled red cell is a call button and this is not one.
+
+**A watermark may carry a state hue.** A plate or tile about a circuit may draw its own glyph at low alpha in the circuit's lamp glass, the same colour its bus tick would carry; a plate about a thing draws it in the thing's accent. OFF and UNKNOWN take the hairline, never an accent, so a dead circuit is not decorated. One per bank.
 
 Two glyphs carry a state hue while reporting nothing: the back chevron (amber) and the Circle screen's location-refresh control (red). Both were asked for, both take an **ink** token rather than a lamp glass, and both are listed here so that finding one in the source is not mistaken for a licence.
 
@@ -336,19 +342,20 @@ This is what settles every "make it amber" request. Brand amber on the bone pane
 
 ## Typography
 
-**Display / Body Font:** Archivo Variable at width axis 100 (bundled TTF)
+**Display Font:** Plus Jakarta Sans Variable (bundled TTF) — display, headline and title steps only
+**Body Font:** Archivo Variable at width axis 100 (bundled TTF)
 **Nameplate Font:** Archivo Variable at width axis 78 — the same file, condensed
-**Readout Font:** Azeret Mono Variable (bundled TTF)
+**Readout Font:** JetBrains Mono Variable (bundled TTF)
 
-**Character:** One workhorse grotesk doing two jobs. At normal width Archivo is plain, legible body copy; pulled to width 78 and set uppercase with heavy tracking it becomes the engraved label-plate voice of the board. Because both registers come from one file there is no pairing mismatch to manage. Azeret Mono handles anything a person reads digit by digit — telemetry, coordinates, signal strength, timers — so a changing battery percentage does not jitter the label beside it.
+**Character:** A geometric with presence for the one line that names a screen or a card, and a workhorse grotesk for everything a person reads rather than glances at. Plus Jakarta Sans (candidate 2.04) was chosen for its face and deliberately confined to headings: set throughout, it reads as a brochure, and a heading can only mark the top of a screen if nothing else on the screen is set in it. Archivo at normal width is plain, legible body copy and every row title; pulled to width 78 and set uppercase with tracking it is the engraved label-plate voice of section plates and state words. JetBrains Mono (candidate 2.45, replacing Azeret) handles anything a person reads digit by digit — telemetry, coordinates, signal strength, timers — so a changing battery percentage does not jitter the label beside it; it is taller and rounder than Azeret and its slashed zero survives 11sp in a well.
 
-Both families are bundled as `.ttf` rather than pulled through Downloadable Fonts, so screenshot verification is deterministic.
+All three families are bundled as `.ttf` rather than pulled through Downloadable Fonts, so screenshot verification is deterministic. The eleven candidate families are gone with their files.
 
 ### Hierarchy
 
-- **Display** (700, 40 / 32 / 28sp, tight negative tracking): rare, for full-frame moments.
-- **Headline** (600–700, 32 / 22 / 19sp): screen titles and the mains plate headline. The largest step is the Board masthead alone, sized against a 52dp emblem rather than against a paragraph.
-- **Title** (600, 20 / 17 / 15sp): plate headings inside a card.
+- **Display** (Jakarta 700, 40 / 32 / 29sp, light negative tracking): hub titles and full-frame moments.
+- **Headline** (Jakarta 700, 32 / 23 / 20sp): pushed-screen titles and the mains plate headline. The largest step is the Board masthead alone, sized against a 52dp emblem rather than against a paragraph. Each step is a point larger than it was in Archivo, because Jakarta's x-height sits lower.
+- **Title** (Jakarta 700, 20 / 17 / 15sp): the title of a card, a bank header, a callout's lead.
 - **Body** (400, 16 / 15 / 13sp): explanatory copy, used heavily and on purpose — every switch on a safety screen changes what happens to a person, and a toggle whose consequence is not spelled out is a toggle nobody dares touch.
 - **Nameplate** (600, 15sp, +0.12em, uppercase): the engraved circuit label. Uppercasing happens inside the component, not at the call site.
 - **Nameplate Small** (600, 12sp, +0.14em, uppercase): sub-rows, inline labels, seals, nav labels.
@@ -358,7 +365,7 @@ Both families are bundled as `.ttf` rather than pulled through Downloadable Font
 
 ### Named Rules
 
-**The One-Family-Two-Widths Rule.** Nameplates are Archivo condensed; body is Archivo normal. Do not introduce a second display face to get a condensed look, and do not fake condensation with letter-spacing on the normal width.
+**The Three-Voices Rule.** Headings are Jakarta; everything read is Archivo, condensed for section plates and state words and normal for the rest; digits are mono. A nameplate, a row detail, a button label and a state word never take the display face, and a heading never takes Archivo. Do not fake condensation with letter-spacing on the normal width, and do not reach for Jakarta to make a row look important: a row is made important by its state, not its face. The intro wordmark stays in Archivo, because its proportions were measured off the emblem in that face.
 
 **The Engraving Rule.** Uppercase plus tracking is reserved for **section plates and state words**, and for nothing else. Caps mean something here precisely because they are rare.
 
@@ -368,7 +375,7 @@ Row titles were uppercase condensed through v2.0 and are now sentence case in th
 
 **An em dash in prose is an en dash.** The long dash was set throughout and reads as a gap in a column of 15sp type. The exception is the standalone dash a gauge shows where it has no reading, which is a glyph standing in for a value and not punctuation at all.
 
-**The Digits-Are-Mono Rule.** Any number a person reads one character at a time is set in Azeret Mono. Prose containing a number is not.
+**The Digits-Are-Mono Rule.** Any number a person reads one character at a time is set in JetBrains Mono. Prose containing a number is not. The mono is wider than the one it replaced, so a readout strip that fit three values in Azeret is checked at 1.3x before it ships.
 
 **The One-Step-Larger Rule.** The scale sits one step above a typical phone scale, and every field and row grows with the system font scale rather than clipping — heights are floors, never fixed.
 
@@ -408,7 +415,7 @@ Depth is expressed the way a real panel expresses it, in three registers:
 
 ## Shapes
 
-Corners are machined, not soft. The scale is 2dp (tight — switch tracks, chips, seals, bus ticks), 4dp (plate — buttons and text fields), 8dp (card — plates, gauges, sheets) and a 14dp ceiling. Observed usage never exceeds 8dp outside the Material shape mapping; the 20–28dp pill corners of a consumer wellness app read as the wrong material entirely. The one circular form in the system is the pilot lamp, which is a circle by definition: flat glass disc, a bezel ring always drawn so an unlit lamp still reads as a lamp rather than a smudge, and a flat halo when lit.
+Corners are machined, not soft. The scale is 2dp (tight — switch tracks, chips, seals, bus ticks, the pilot lamp), 4dp (plate — buttons and text fields), 8dp (card — plates, gauges, sheets) and a 14dp ceiling. Observed usage never exceeds 8dp outside the Material shape mapping; the 20–28dp pill corners of a consumer wellness app read as the wrong material entirely. The pilot lamp is square since v2.8.0 (candidate 2.57): a square of glass at the tight radius seated in a square bezel with a square halo, the same three parts and proportions the round lamp had. The round forms that remain are badges and faces — a glyph on a soft accent disc, an avatar, the SOS disc on the bar — because a badge is round the way a lamp is square.
 
 Silhouettes are rectangular and wide. Buttons are square-shouldered plates, wide and low, minimum 56dp tall. Switch tracks are 52×30dp rectangles with a 22dp rectangular chip. Nothing in the system is a pill.
 
@@ -425,7 +432,16 @@ Silhouettes are rectangular and wide. Buttons are square-shouldered plates, wide
 - All three hued weights carry **charcoal** ink, which is not a style choice: the three glasses are light hues that do not darken for the night panel, so charcoal is the only pairing that measures in both themes.
 - **Disabled:** recess container, faint ink.
 - **Press:** a 0.985 scale-down over 120ms with the ripple indication removed.
-- **Icon-only (`BoardIconButton`):** the same plate, weights, floor and press with no word on it, the glyph at 28dp centred and the word carried as the spoken description, which is required. For a strip of two or three actions on a plate too narrow for words: the family dashboard's Message, Where and Call, whose labels wrapped mid-word at the phone's own width. Not for a button that stands alone, where the word is the label.
+- **Icon-only (`BoardIconButton`):** the same plate, weights, floor and press with no word on it, the glyph at 28dp centred and the word carried as the spoken description, which is required. For a strip of two or three actions on a plate too narrow for words: the family dashboard's Message, Where and Call, whose labels wrapped mid-word at the phone's own width. With `caption` (2.30) the word sits under a 26dp glyph on its own line, 16dp taller and never wrapping; use it where the glyphs are not universal.
+- **With a figure (2.31):** `figure` puts a mono quantity at the trailing edge and the label at the leading edge: Save and Send · 3 changes, Sweep · 20 s. A commit button that says how much it commits needs no sentence under it.
+- **Glyph on a disc (2.63):** `glyphOnDisc` sets the glyph on a 32dp disc of the content colour at 0.14 alpha at the leading edge, the label left-aligned after it. For the one or two prominent actions on a hub; a page of these is a page of badges.
+
+**Compound actions** (`ui/board/Actions.kt`), each built from the same plate and 56dp floor:
+
+- **Action pair (2.65):** one object, a primary cell two-thirds wide and a quiet cell beside it, divided by a 2dp near-white bar the full height of the button. Save beside Discard, I am OK beside Call now. Two loose buttons of different weights read as two decisions; a pair reads as one decision with a default. The primary defaults to amber (see Save is amber, above); the secondary is quiet, with trip ink when destructive, or takes a hued weight for the trip banner's Call now.
+- **Split button (2.64):** the main action fills most of the width and a 56dp trailing cell with a chevron offers the variant, in the same fill, behind the same near-white divider. Call Meera and beside it who else. The trailing cell has its own spoken name.
+- **Hold to confirm (2.67):** for the one action on a page that cannot be undone. A plate with the label in trip ink and a faint red edge; while the finger stays down a 3dp trip-red line traces the perimeter from the top-left corner anticlockwise (down the left, along the foot, up the right, back across the top) over 1.1 s and the action fires when it rejoins. Lifting early winds it back. The label says "Hold to"; TalkBack fires it on a plain double-tap, which already carries its own deliberateness. Only for delete-a-person, delete-a-recording, sign-out-and-forget; never for Save.
+- **Editor foot (2.34, `EditorFootBar` in `EditorScaffold`):** every editor ends in a plate pinned to the foot of the screen, above the keyboard, with two short lines above the pair and the pair under them: what is unsaved at the left ("3 fields changed", in the small nameplate), where the record stands at the right ("Not yet on the wearable", in a state ink). The scaffold measures the foot and pads the content by its height, so the last field scrolls clear and no editor invents its own pin.
 
 ### Way (signature component)
 
@@ -435,11 +451,14 @@ The atomic row the whole interface is built from: a bus tick, an optional icon, 
 - **Semantics:** the entire row is one node, spoken as "name, state, detail" plus its sealed or device-only qualifier. Announcing nameplate, state and switch separately reads three fragments where a sighted user takes in one line.
 - **Sealed:** a brass-tinted SEALED chip beside the nameplate, marking a way the wearer cannot change on the device itself.
 - **Device-only:** the same row with no control at all, plus the location of the setting on the wearable. A switch that silently does nothing is worse than no switch.
-- **Selection:** a mutually exclusive choice renders as a way that is LIVE / "In use" or OFF / "Not chosen" — never "Off", which would read as the feature being disabled.
+- **Selection:** a mutually exclusive choice of two to four *behaviours* is a `SegmentedChoice` (below); a longer set, or one whose options each need a detail line, stays a bank of `OptionWay`s that are LIVE / "In use" or OFF / "Not chosen" — never "Off", which would read as the feature being disabled.
+- **Help on the row (2.28):** `help` puts a 16dp help glyph after the title and opens the long explanation in a recess under the row. The page keeps no paragraph: a person who wants to know why the countdown is thirty seconds asks the countdown. The row exposes it to TalkBack as a custom action. `WhyDisclosure` is retired in favour of this everywhere the explanation was about one row.
+- **Trailing slot:** a stack of faces (2.88, `FaceStack`, 28dp faces overlapping by a third, "+2" for the rest) or a small readout before the state word. A trip that says "Meera and Arun were called" as two faces is read faster than the sentence.
+- **Numbered (2.83, `NumberedRow`):** the rung number in a 28dp square ring at the leading edge, in mono, where a way wears its glyph. For the ladder and any sequence whose order is the point.
 
 ### Pilot Lamp (signature component)
 
-Five states and no more — LIVE, ATTENTION, TRIP, OFF, UNKNOWN. A lamp that can say six things says nothing at a glance. Drawn rather than assembled from stock parts, so the whole app has one auditable implementation of the only place saturated colour is allowed. It lights with a filament warm-up rather than a cross-fade, and dies faster than it lights. A TRIP lamp breathes on a 720ms reversing cycle; nothing else on the board moves on its own, which is what makes it the thing that draws the eye across a still screen. Animation is held steady under inspection so captured evidence is deterministic.
+Five states and no more — LIVE, ATTENTION, TRIP, OFF, UNKNOWN. A lamp that can say six things says nothing at a glance. Drawn rather than assembled from stock parts, so the whole app has one auditable implementation of the only place saturated colour is allowed. Square since v2.8.0: glass at 0.72 of the lamp's side, a bezel stroke at 0.86, a halo at 1.55, all at a corner radius that scales with the lamp so a 10dp lamp in a strip and a 20dp lamp on a well are one shape. The sync dot on a row is the same square at 6dp. It lights with a filament warm-up rather than a cross-fade, and dies faster than it lights. A TRIP lamp breathes on a 720ms reversing cycle; nothing else on the board moves on its own, which is what makes it the thing that draws the eye across a still screen. Animation is held steady under inspection so captured evidence is deterministic.
 
 ### Rocker Switch
 
@@ -448,7 +467,18 @@ Not a Material `Switch`. A 52×30dp recessed track with a hairline border and a 
 ### Plates and Fields
 
 - **Plate:** plate-coloured fill, 1dp hairline border, 8dp corner, 16dp internal padding. Recessed variant swaps the fill for the recess tone.
-- **Section plate:** an uppercase tracked heading in muted ink over a 2dp brass rule. This is how a long settings screen reads as labelled banks rather than an undifferentiated list.
+- **Section plate:** an uppercase tracked heading in muted ink over a 2dp brass rule. This is how a long settings screen reads as labelled banks rather than an undifferentiated list. Two banks on a page now carry their heading *inside* the plate instead (below), and a section plate is for a bank of plain plates that has no header row of its own.
+- **Hub tint (2.53):** `BoardPlate(hub = …)` fills the plate with the hub's tab accent at 0.06 (0.10 at night) over the plate tone and borders it at 0.35. For the head plate of each hub only: the mains plate on Board, the person plate on Circle, the chain on Safety, the wearable plate on Device. Every plate tinted is no plate tinted. The accent is passed, never ambient; `hubAccent(Hub)` is the one place an accent is tied to a name rather than hashed.
+
+**Cards** (`ui/board/Cards.kt`) — a plate with one feature, never a new kind of card:
+
+- **Titled plate (2.91):** the title machined into a recess strip across the top in the section-plate voice, a hairline, the bank under it. The heading and the bank become one object.
+- **Bank header (2.81):** the bank's first row: the title in the display voice, a mono count, and one action on a 40dp ink square with a 22dp plate-coloured glyph. Filled rather than outlined because a hairline box beside a hairline-bordered plate vanished into it; the glyph's stroke is baked into its vector, so prominence comes from the fill and the size.
+- **Tagged plate (2.90):** the qualifier chip set into the top-right corner with its top and right edges flush to the plate's own, clipped only at its inner corner, like a stamp on a form. The content column keeps the whole width under it.
+- **Watermark (2.94):** the plate's own glyph at 96dp under its text at 0.10 alpha (0.14 at night), bleeding off the bottom-right corner. Tint per the colour rule above. One per bank.
+- **Footer action (2.92):** the plate's one action as its last row under a hairline: glyph, label in the nameplate voice, chevron, full width. The card's foot is the button.
+- **Card strip (2.95):** 150dp plates in a row that bleeds to the screen edges and pads by the gutter, so the first card lines up with the plates above and the last peeks in to say there is more. Each card: a 10dp lamp and a title, one line, the thing's glyph on a recess strip at the foot in its accent. For a set of peers a person scans: zones, wearables, people.
+- **Tiles (2.84, `TileGrid`):** ways as two-across plates for a hub's destinations: the glyph at 20dp top-left, the title, the state word, and the same glyph as a watermark in the state's colour off the bottom-right, with an optional corner tag. Rows for settings, tiles for destinations.
 - **Text field:** built directly on a basic text field rather than Material's, drawn as a routed channel — recess fill, hairline border, 4dp corner, 48dp minimum height that grows with the font scale. Placeholder in faint ink and hidden from the semantics tree. A character counter appears only once the value reaches three-quarters of its cap; "0 / 40" under an empty field reads as a demand.
 - **Gauge:** a labelled plate, not a dial. A small muted nameplate, a large mono value with an optional unit and caption. A dial looks handsome and is slower to read.
 
@@ -460,9 +490,26 @@ A time of day gets **`TimeStrip`**, and a period gets **`RangeStrip`**: the whol
 
 The slider itself is drawn in this panel's material and not Material's. Stock `Slider` was the last piece of another design system on screen — a wide pill thumb with three dots milled into it, a lavender inactive track from a colour role nothing else here uses, tick pips in a fourth tone, and a stop-indicator dot parked at the far end that reads as a value sitting there. It is a **square-shouldered slug seated in a channel**: 8 by 28dp at the tight radius, an ink active track, and the same recess every text field is routed into. A round thumb reads as a bead on a wire; this panel has no beads.
 
-**Small fixed sets do not get a slider — but a set that is only small because nobody offered more does.** Fall sensitivity stays `OptionWay` rows: Low, Medium and High are three named behaviours, not three points on a scale, and each states its own consequence. The Silent SOS staged-call delay stays too — 10s, 30s, 1m and 5m are spaced logarithmically and each option explains what staging means.
+**Small fixed sets do not get a slider — but a set that is only small because nobody offered more does.** Fall sensitivity is a `SegmentedChoice` (2.24): Low, Medium and High are three named behaviours in one recessed channel, the chosen one raised to plate with an ink edge and a lit 10dp lamp at its leading edge, and the chosen option's consequence as the one line under the control, with the seal beside it where the wearer cannot change it. Three rows with three sentences became one control and one sentence. The Silent SOS staged-call delay is the same control with four cells. `PageTabs` (2.98) is the same channel without the lamp, and it chooses what a bank *shows* rather than what a setting *is*: Recent and All, Mine and Community. A page that stacks both lists is twice as long as a page that shows one.
 
 The fall countdown and the check-in interval have moved the other way, to `DialControl`. Both were genuinely quantities the whole time. The countdown was four rows offering 15/30/45/60 seconds, which is a linear ramp drawn as a menu; the interval was a row of four small buttons **duplicated across two screens with two separate constant lists**. Both now offer every stop the underlying system can honour — the interval eight where it had four — and that is the test: a fixed set that exists because the value is genuinely categorical stays a row, and one that exists because somebody picked four numbers becomes a track.
+
+### Explainers
+
+Every explainer exists to retire a paragraph (`ui/board/Explainers.kt`). Before a screen reaches for prose it asks which of these the sentence is; if it is none of them, it is a sentence the label above already said, and it is cut.
+
+- **Callout (2.26):** a lead of three or four words in the title voice, one sentence under it with 8dp of air between, and a 3dp accent rule down the leading edge. For the one thing on a page a person must not miss. One per page.
+- **Footnote (2.25):** the one sentence a bank needs, under the plate in faint ink beside an info glyph on an 18dp recess tile, at the row's own text inset. Read after the rows, which is when a person wants it.
+- **Chain (2.27):** three or four stops across one line, each a glyph on a disc with a word and a sub-line, an arrow between. "A fall is detected, thirty seconds pass, Meera is called, then the ladder" in one glance. Spoken as one sentence.
+- **Steps (2.96):** numbered square rings on a bus, a bold lead and one line each. A done ring fills in the live glass with a tick, the current ring and number take the step's accent on a 0.16 wash, steps to come sit in faint ink. A paragraph hides that a page is a procedure; this admits it.
+- **Ledger (2.22):** key, dotted leader, value, one line each; quantities in mono, absent values a dash in faint ink, a state ink where the value reports one. The medical ID read back, a wearable's facts, a hook's last firing.
+- **Timeline (2.23):** a bus down the left, a 12dp lamp at each stop, the time in mono and what happened beside it. A trip's record and a ladder's rungs are sequences, and a sequence reads as a line with stops.
+- **Qualifier chip (2.29):** the seal generalised. NEEDS SIM, DEVICE-ONLY, PLUS, SIGNED OUT in the same micro-caps on the same brass tint, beside a title or in a plate's corner. Each replaces a sentence under a row, and each is a fact the row cannot change.
+- **Preview chips (2.97):** a closed `ExpandableSection` shows its rows' state words as small chips under its label ("Sensitivity Medium · Countdown 30 s"), each in its row's state ink on a recess tile, so it can stay closed. They go when it opens. The chevron points down closed and up open.
+
+### Instruments
+
+**Twenty-four bars (2.38, `HourBars`):** a day of readings as twenty-four flat bars in a recess, the threshold as an amber hairline across, breaches in the attention glass, the latest hour in ink and hours with no reading as a short hairline stub, so a gap is a gap and not a zero. The head is the instrument's own: a small muted nameplate, the latest value large in mono with its unit, and one line of state ink at the right saying what the shape means. A list of readings is a ledger; a day of readings is a shape.
 
 ### Screen header
 
@@ -624,7 +671,7 @@ Two rules carried from the firmware: **no speech or thought bubbles** (text emer
 
 ### Named Rules
 
-**The Kit-Is-The-Vocabulary Rule.** No screen invents a card, button, switch or row. A bank of screens may add what the kit genuinely lacks as internal helpers in its own package (the text field and the option way were such helpers until v2.8.0, when they moved into the kit), but nothing state-carrying is redrawn locally. A gallery screen renders the entire kit in both themes at a raised font scale, and is the reference to check before inventing a seventh kind of card.
+**The Kit-Is-The-Vocabulary Rule.** No screen invents a card, button, switch or row. A bank of screens may add what the kit genuinely lacks as internal helpers in its own package (the text field and the option way were such helpers until v2.8.0, when they moved into the kit), but nothing state-carrying is redrawn locally. The kit now lives across `Way`, `Plates`, `Cards`, `Controls`, `Actions`, `Explainers`, `Tabs`, `Rows`, `Instruments`, `Expandable`, `Fields`, `Chips`, `RichControls`, `PilotLamp` and `Status`; a screen that wants a form not in one of those files is a screen that has found a candidate, and it draws it in the gallery first. A gallery screen renders the entire kit in both themes at a raised font scale, and is the reference to check before inventing a seventh kind of card.
 
 **The Look-Then-Choose Rule.** A choice with consequences for a person — which adaptive profile the wearable runs — is made on a page that says everything the app knows about the option, on one commit-weight button at its foot, and never on the list that browses the options. The list shows the whole set at once (the current choice first, at the size it deserves; the rest as scannable rows with a scene thumbnail, a name, one line on who it is for, and the seal where the wearer would lose the device's own menus). The detail page is a bank of facts read off the firmware, in real units — what the wearable trips at in g for the sensitivity it is actually on, which screens its rotary cycles, what its lights do unasked, how often it asks for a position, what a locked profile hides — followed by the deck's priority features linked to their screens. A pager of cards was the earlier answer and it hid the set below the fold and asked for the decision from a swipe.
 
@@ -634,27 +681,59 @@ Two rules carried from the firmware: **no speech or thought bubbles** (text emer
 
 ## v2.0 candidates
 
-The Kit gallery opens on a numbered section of a hundred and one candidate members
-(`ui/board/KitCandidates.kt` and `KitCandidates2.kt`, with eleven candidate type families in
-`ui/theme/CandidateType.kt` and their `.ttf` files in `res/font`). None is
-part of the shipped system; nothing in the frontmatter, the rules above or
-any screen refers to them. A candidate is adopted only when the user names its
-number, at which point it moves into its family's file, the rule it changes is
-rewritten above, and the rest of its group, fonts included, is deleted. The
-numbers are stable for as long as a candidate exists.
+A hundred and one numbered candidate members were drawn in the Kit gallery
+during v2.8.0 and the user chose from them by number. The chosen ones moved
+into the kit files named below, each with its rule rewritten in the section
+above that owns it; the type candidates went with their `.ttf` files (eleven
+families, about 2.5 MB), leaving Archivo, Plus Jakarta Sans and JetBrains
+Mono. What was not chosen stays in `ui/board/KitCandidates.kt` and
+`KitCandidates2.kt` at the foot of the gallery under its original number, so
+a later pick can still be made the same way.
+
+### Adopted in v2.8.0
+
+| # | Candidate | Now |
+|---|---|---|
+| 2.04 | Plus Jakarta Sans throughout | Plus Jakarta Sans, headings only (`BoardDisplay`) |
+| 2.10 | A deeper night | the dark neutrals in `Color.kt` |
+| 2.22 | A ledger | `Ledger` |
+| 2.23 | A timeline on the bus | `Timeline` |
+| 2.24 | A segmented choice | `SegmentedChoice` |
+| 2.25 | A footnote under the bank | `Footnote` |
+| 2.26 | A callout | `Callout` |
+| 2.27 | What happens, as a chain | `Chain` |
+| 2.28 | Help on the row that needs it | `Way(help = …)` |
+| 2.29 | Qualifier chips | `QualifierChip` |
+| 2.30 | Glyph buttons with a caption | `BoardIconButton(caption = …)` |
+| 2.31 | A button that carries a figure | `BoardButton(figure = …)` |
+| 2.34 | A foot bar for editors | `EditorFootBar` and `EditorScaffold` |
+| 2.38 | Twenty-four bars | `HourBars` |
+| 2.45 | JetBrains Mono for readouts | JetBrains Mono (`BoardMono`) |
+| 2.53 | Plates tinted per hub | `BoardPlate(hub = …)` |
+| 2.57 | A square lamp | `PilotLamp` and `SyncDot` |
+| 2.63 | A button with its glyph on a disc | `BoardButton(glyphOnDisc = true)` |
+| 2.64 | A split button | `SplitButton` |
+| 2.65 | An action pair | `ActionPair` |
+| 2.67 | Hold to confirm | `HoldToConfirm` |
+| 2.81 | A bank with its header inside | `BankHeader` |
+| 2.83 | Numbered rows | `NumberedRow` |
+| 2.84 | Ways as tiles | `TileGrid` and `WayTile` |
+| 2.88 | A row with the faces it concerns | `FaceStack` in `Way(trailing = …)` |
+| 2.90 | A card with a corner tag | `TaggedPlate` and `CornerTag` |
+| 2.91 | A card with an engraved title plate | `TitledPlate` |
+| 2.92 | A card with a footer action | `FooterAction` |
+| 2.94 | A card with a watermark glyph | `WatermarkPlate` |
+| 2.95 | A strip of cards | `CardStrip` and `StripCard` |
+| 2.96 | Steps down the page | `Steps` |
+| 2.97 | An expandable bank that previews its rows | `ExpandableSection(preview = …)` |
+| 2.98 | Tabs inside a page | `PageTabs` |
+
+### Not chosen, still in the gallery
 
 | # | Candidate | Refines |
 |---|---|---|
-| 2.01 | Bricolage Grotesque titles, Instrument Sans everything else | the whole scale |
-| 2.02 | Fraunces headlines over Archivo | display and headline |
-| 2.03 | Manrope throughout | the whole scale |
-| 2.04 | Plus Jakarta Sans throughout | the whole scale |
-| 2.05 | Instrument Sans throughout, its own condensed | the whole scale |
-| 2.06 | Geist Mono for readouts | Readout, Gauge, countdown |
-| 2.07 | A readability step: rows at 17 and 14 | nameplate, rowDetail |
 | 2.08 | A ground per hub | ground |
 | 2.09 | A washed plate with an accent rule | BoardPlate |
-| 2.10 | A deeper night | dark neutrals |
 | 2.11 | A warmer bone | light neutrals |
 | 2.12 | Glyphs on discs | the icon on a Way |
 | 2.13 | A way with its glyph on a disc | Way |
@@ -666,30 +745,14 @@ numbers are stable for as long as a candidate exists.
 | 2.19 | Mains plate with the person on it | MainsPlate |
 | 2.20 | A masthead per hub | the hub title |
 | 2.21 | Fact wells | readout strips |
-| 2.22 | A ledger | paragraphs that list facts |
-| 2.23 | A timeline on the bus | trip record, ladder plate |
-| 2.24 | A segmented choice | OptionWay, two to four options |
-| 2.25 | A footnote under the bank | the explanatory plate |
-| 2.26 | A callout | the paragraph that states a consequence |
-| 2.27 | What happens, as a chain | the sentence that describes a sequence |
-| 2.28 | Help on the row that needs it | WhyDisclosure |
-| 2.29 | Qualifier chips | the seal, generalised |
-| 2.30 | Glyph buttons with a caption | BoardIconButton |
-| 2.31 | A button that carries a figure | BoardButton |
 | 2.32 | The bar with words | bottom bar |
 | 2.33 | The bar with a rule | bottom bar |
-| 2.34 | A foot bar for editors | the commit button on a long editor |
 | 2.35 | A gauge with its range | Gauge |
 | 2.36 | Signal as bars | the Signal readout |
 | 2.37 | A status well | hub-level state |
-| 2.38 | Twenty-four bars | history rows |
 | 2.39 | The person plate, again | the family dashboard plate |
 | 2.40 | A wearer strip | the person switch |
 | 2.41 | The wearable's card | the Device page's head plate |
-| 2.42 | Space Grotesk titles, Figtree body | the whole scale |
-| 2.43 | Outfit throughout | the whole scale |
-| 2.44 | Inter throughout | the whole scale |
-| 2.45 | JetBrains Mono for readouts | Readout, Gauge, countdown |
 | 2.46 | Title to subtitle: three gaps | ScreenHeader |
 | 2.47 | Title to detail: three gaps | Way |
 | 2.48 | Section plate to bank: three gaps | section rhythm |
@@ -697,21 +760,15 @@ numbers are stable for as long as a candidate exists.
 | 2.50 | A ground per hub, stronger | 2.08 |
 | 2.51 | A hub band at the top | the hub head |
 | 2.52 | A hub rule under the status bar | the hub head |
-| 2.53 | Plates tinted per hub | BoardPlate |
 | 2.54 | Section plates in the hub's ink, rows in plain ink | SectionPlate |
 | 2.55 | A warm night | dark neutrals |
 | 2.56 | A ground with a grain | ground |
-| 2.57 | A square lamp | PilotLamp |
 | 2.58 | A lamp in a bezel | PilotLamp |
 | 2.59 | A lamp cluster | the hub summary |
 | 2.60 | A lamp with a count | PilotLamp |
 | 2.61 | The state word on glass | the state word on a Way |
 | 2.62 | An outlined hued button | the hued button weights |
-| 2.63 | A button with its glyph on a disc | BoardButton |
-| 2.64 | A split button | BoardButton |
-| 2.65 | An action pair | two buttons at a page foot |
 | 2.66 | A button that shows its progress | BoardButton while working |
-| 2.67 | Hold to confirm | ButtonWeight DANGER |
 | 2.68 | A readout with its trend | Readout |
 | 2.69 | A readout with a sparkline | Readout |
 | 2.70 | One number, very large | Readout large, Gauge |
@@ -725,24 +782,12 @@ numbers are stable for as long as a candidate exists.
 | 2.78 | The mains as a status well with wells | MainsPlate |
 | 2.79 | A centred mains | MainsPlate |
 | 2.80 | The mains with the place on it | MainsPlate |
-| 2.81 | A bank with its header inside | SectionPlate over BoardPlate |
 | 2.82 | A bank with alternating rows | Hairline between ways |
-| 2.83 | Numbered rows | Way, sequences |
-| 2.84 | Ways as tiles | navigating ways |
 | 2.85 | A switch row that also says its state | Way with a rocker |
 | 2.86 | A row with a meter in it | Way, quantities |
 | 2.87 | A row with a leading lamp | Way |
-| 2.88 | A row with the faces it concerns | Way, logs |
 | 2.89 | A card with a top band | BoardPlate |
-| 2.90 | A card with a corner tag | BoardPlate with a qualifier |
-| 2.91 | A card with an engraved title plate | BoardPlate with a heading |
-| 2.92 | A card with a footer action | BoardPlate with a button |
 | 2.93 | A recess inside a plate | BoardPlate recessed |
-| 2.94 | A card with a watermark glyph | BoardPlate |
-| 2.95 | A strip of cards | a bank of similar things |
-| 2.96 | Steps down the page | setup paragraphs |
-| 2.97 | An expandable bank that previews its rows | ExpandableSection |
-| 2.98 | Tabs inside a page | two lists on one page |
 | 2.99 | A section plate that stays | SectionPlate on a long page |
 | 2.100 | An empty bay with a glyph disc | EmptyBay |
 | 2.101 | A snackbar with a lamp | Transient messages |
@@ -769,10 +814,11 @@ Everything else in this document was read off the built system.
 
 - **Do** use colour only to report circuit state, and always pair it with a word.
 - **Do** pick the lamp-glass token for fills and the matching ink token for text; every state has both for a reason.
-- **Do** build rows from the `Way` component so a whole screen reads with one learned pattern.
+- **Do** build rows from the `Way` component so a whole screen reads with one learned pattern, and put a row's explanation on the row with `help` rather than in a paragraph above the bank.
+- **Do** end every editor in the pinned foot with its amber Save and quiet Discard, and put the one irreversible action on a page behind a hold.
 - **Do** separate surfaces with a 1dp hairline and a tonal step, and mark a bank with a 2dp brass rule.
 - **Do** keep corners machined — 2dp for chips and tracks, 4dp for buttons and fields, 8dp for plates.
-- **Do** set every label uppercase in the condensed nameplate voice, and every readable number in mono.
+- **Do** set headings in the display face, section plates and state words uppercase in the condensed voice, and every readable number in mono.
 - **Do** give every row, tappable or not, at least 48dp of height, and let heights grow with the font scale.
 - **Do** let a switch throw and a lamp warm up; the overshoot and the asymmetry are what make the panel feel mechanical.
 - **Do** draw a device-only setting as a value with no control, and a gauge with no reading as a dash.

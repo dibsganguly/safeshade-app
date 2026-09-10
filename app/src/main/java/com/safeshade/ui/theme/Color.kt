@@ -142,14 +142,19 @@ private val InkFaintLight = Color(0xFF69655F)
 // ============================================
 // DARK — the same panel in a hallway at night
 // ============================================
-private val NightGround = Color(0xFF14171A)
-// Re-anchored to the emblem's own charcoal so the named brand value appears in
-// the dark scheme rather than only as light-mode ink. The ground stays two
-// steps darker, which is what keeps a plate reading as raised.
-private val NightPlate = Color(0xFF22282E)
-private val NightRecess = Color(0xFF0E1113)
+// A deeper night (candidate 2.10). The ground went from #14171A to #0B0D0F
+// and the plate from the emblem's charcoal to #181C20: on a phone at night the
+// old pair sat close enough that a plate barely rose off its ground, and the
+// brand charcoal now lives in the light theme's ink alone. The recess drops
+// under the ground by the same step the plate rises over it, and the hairline
+// sits a step below the old one so it still reads as a line on the darker
+// plate without becoming a highlight. Measured on the new plate: ink 14.1:1,
+// inkMuted 8.5:1, inkFaint 5.9:1, all past the floors the light theme meets.
+private val NightGround = Color(0xFF0B0D0F)
+private val NightPlate = Color(0xFF181C20)
+private val NightRecess = Color(0xFF050607)
 private val BrassRuleDark = Color(0xFF8A7A5E)
-private val HairlineDark = Color(0xFF353C43)
+private val HairlineDark = Color(0xFF2A3036)
 private val InkDark = Color(0xFFECEFF1)
 private val InkMutedDark = Color(0xFFB4AEA4)
 // 4.63:1 on the plate, 5.60:1 on the ground. The old #6B7480 was 3.42:1.
@@ -242,6 +247,24 @@ fun BoardColors.accentFor(key: String): Color {
     return family[((key.hashCode() % family.size) + family.size) % family.size]
 }
 
+/**
+ * The four hubs, each with the accent its bottom-bar tab wears.
+ *
+ * The one place an accent is tied to a name rather than hashed from it, and
+ * it exists because the tab bar already made that tie: a hub's head plate
+ * tinted in the tab's own colour is the same identity twice, which is what a
+ * tint is for. The hash would have put Circle, Safety and Device on one hue.
+ */
+enum class Hub { BOARD, CIRCLE, SAFETY, DEVICE }
+
+/** The accent a hub's tab wears. Pass it explicitly; it is never ambient. */
+fun BoardColors.hubAccent(hub: Hub): Color = when (hub) {
+    Hub.BOARD -> accentClay
+    Hub.CIRCLE -> accentSky
+    Hub.SAFETY -> accentSage
+    Hub.DEVICE -> accentPlum
+}
+
 val LightBoardColors = BoardColors(
     ground = BoneGround,
     plate = BonePlate,
@@ -285,7 +308,7 @@ val DarkBoardColors = BoardColors(
     lampLive = LampLiveGlass,
     lampAttention = LampAttentionGlass,
     lampTrip = LampTripGlass,
-    lampOff = Color(0xFF31383E),
+    lampOff = Color(0xFF2C3238),
     inkLive = LiveInkDark,
     inkAttention = AttentionInkDark,
     inkTrip = TripInkDark,

@@ -88,12 +88,7 @@ fun KitGallery(modifier: Modifier = Modifier) {
             )
         }
 
-        // The v2.0 candidates first, because they are what this gallery is
-        // opened for now; the shipped kit follows as the thing they refine.
-        kitCandidates()
-
         item {
-            Spacer(Modifier.height(Spacing.xl))
             Text(
                 "The kit as shipped",
                 style = MaterialTheme.typography.headlineMedium,
@@ -116,6 +111,8 @@ fun KitGallery(modifier: Modifier = Modifier) {
                 }
             }
         }
+
+        kitAdopted()
 
         item { SectionPlate("Pilot lamps") }
         item {
@@ -325,6 +322,11 @@ fun KitGallery(modifier: Modifier = Modifier) {
                 onAction = {}
             )
         }
+
+        // What was not chosen from the v2.0 candidates, kept at the foot so a
+        // later pick can still be made by number.
+        item { Spacer(Modifier.height(Spacing.xl)) }
+        kitCandidates()
     }
 }
 

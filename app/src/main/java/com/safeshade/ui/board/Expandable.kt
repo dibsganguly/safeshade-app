@@ -21,6 +21,16 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.unit.sp
+import com.safeshade.ui.theme.Radius
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -69,6 +79,7 @@ fun ExpandableSection(
     count: Int? = null,
     initiallyOpen: Boolean = false,
     icon: ImageVector? = null,
+    preview: List<Pair<String, LampState>> = emptyList(),
     content: @Composable ColumnScope.() -> Unit
 ) {
     var open by rememberSaveable(label) { mutableStateOf(initiallyOpen) }
@@ -79,6 +90,7 @@ fun ExpandableSection(
         modifier = modifier,
         icon = icon,
         count = count,
+        preview = preview,
         content = content
     )
 }
@@ -86,7 +98,15 @@ fun ExpandableSection(
 /**
  * The hoisted form, for the few callers that need to open a section from
  * elsewhere — a deep link that lands on a specific setting, say.
+ *
+ * @param preview what the closed bank says about its rows (candidate 2.97):
+ *   a line of small chips under the label, each a word in its row's state
+ *   ink on a recess tile ("Sensitivity Medium", "Countdown 30 s"). A closed
+ *   bank that shows nothing asks to be opened to find out; one that previews
+ *   can stay closed. The chips go when the bank opens, because the rows
+ *   then say it themselves. The chevron points down closed and up open.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ExpandableSection(
     label: String,
@@ -96,6 +116,7 @@ fun ExpandableSection(
     count: Int? = null,
     /** Drawn before the label at the way's icon size, so a collapsed bank reads like the rows inside it. */
     icon: ImageVector? = null,
+    preview: List<Pair<String, LampState>> = emptyList(),
     content: @Composable ColumnScope.() -> Unit
 ) {
     val colors = MaterialTheme.board
@@ -116,7 +137,13 @@ fun ExpandableSection(
                 // One node, one announcement. Expanded state rides as a state
                 // description rather than as a second focusable chevron.
                 .clearAndSetSemantics {
-                    contentDescription = if (count != null) "$label, $count settings" else label
+                    contentDescription = buildString {
+                        append(if (count != null) "$label, $count settings" else label)
+                        if (!open && preview.isNotEmpty()) {
+                            append(". ")
+                            append(preview.joinToString(", ") { it.first })
+                        }
+                    }
                     stateDescription = if (open) "Expanded" else "Collapsed"
                 }
         ) {
@@ -125,11 +152,38 @@ fun ExpandableSection(
                     imageVector = icon,
                     contentDescription = null,
                     tint = colors.inkMuted,
-                    modifier = Modifier.size(20.dp)
+                    // Level with the label, not the chips under it.
+                    modifier = Modifier.align(Alignment.Top).padding(top = 2.dp).size(20.dp)
                 )
                 Spacer(Modifier.width(Spacing.md))
             }
-            Nameplate(label, modifier = Modifier.weight(1f), muted = true)
+            Column(Modifier.weight(1f)) {
+                Nameplate(label, muted = true)
+                if (!open && preview.isNotEmpty()) {
+                    Spacer(Modifier.height(Spacing.xs))
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+                        verticalArrangement = Arrangement.spacedBy(Spacing.xs)
+                    ) {
+                        preview.forEach { (word, state) ->
+                            Text(
+                                text = word,
+                                style = MaterialTheme.boardType.rowDetail.copy(fontSize = 11.sp, lineHeight = 14.sp),
+                                color = when (state) {
+                                    LampState.LIVE -> colors.inkLive
+                                    LampState.ATTENTION -> colors.inkAttention
+                                    LampState.TRIP -> colors.inkTrip
+                                    LampState.OFF, LampState.UNKNOWN -> colors.inkFaint
+                                },
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(Radius.tight))
+                                    .background(colors.recess)
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+                }
+            }
             if (count != null) {
                 // Shown open as well as closed. It used to disappear on open,
                 // which is the wrong way round twice over: a section whose

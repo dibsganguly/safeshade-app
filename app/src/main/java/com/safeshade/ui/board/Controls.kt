@@ -110,7 +110,21 @@ fun BoardButton(
     weight: ButtonWeight = ButtonWeight.PRIMARY,
     icon: ImageVector? = null,
     supporting: String? = null,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    /**
+     * A mono figure at the trailing edge (candidate 2.31): Save · 3 changes,
+     * Send · 2 people, Sweep · 20 s. A commit button that says how much it is
+     * about to commit needs no sentence under it. The label moves to the
+     * leading edge to make room.
+     */
+    figure: String? = null,
+    /**
+     * The glyph on a 32dp disc of the content colour at the leading edge
+     * (candidate 2.63), the label left-aligned after it. Gives a full-width
+     * button a place for the eye to land. For the one or two prominent
+     * actions on a hub; not for every button on a page.
+     */
+    glyphOnDisc: Boolean = false
 ) {
     val colors = MaterialTheme.board
     val interaction = remember { MutableInteractionSource() }
@@ -120,6 +134,7 @@ fun BoardButton(
         animationSpec = tween(Motion.fast),
         label = "button-press"
     )
+    val leading = figure != null || glyphOnDisc
 
     val container = when {
         !enabled -> colors.recess
@@ -142,7 +157,7 @@ fun BoardButton(
     }
 
     Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
+        horizontalAlignment = if (leading) Alignment.Start else Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
         modifier = modifier
             .scale(scale)
@@ -162,15 +177,29 @@ fun BoardButton(
                 onClick = onClick
             )
             .defaultMinSize(minHeight = 56.dp)
-            .padding(horizontal = Spacing.lg, vertical = Spacing.md)
+            .padding(horizontal = if (glyphOnDisc) Spacing.md else Spacing.lg, vertical = if (glyphOnDisc) Spacing.sm else Spacing.md)
     ) {
         // The icon sits with the *label*, not with the button, which is what
         // keeps it level with the first line of type when a supporting line is
         // present. Top-aligned within that row so a label that wraps to two
         // lines does not drag the glyph down to the middle of the block it
         // labels.
-        Row(verticalAlignment = Alignment.Top) {
-            if (icon != null) {
+        Row(
+            verticalAlignment = if (glyphOnDisc) Alignment.CenterVertically else Alignment.Top,
+            modifier = if (leading) Modifier.fillMaxWidth() else Modifier
+        ) {
+            if (icon != null && glyphOnDisc) {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(androidx.compose.foundation.shape.CircleShape)
+                        .background(content.copy(alpha = 0.14f))
+                ) {
+                    Icon(icon, contentDescription = null, tint = content, modifier = Modifier.size(18.dp))
+                }
+                Spacer(Modifier.width(Spacing.md))
+            } else if (icon != null) {
                 Icon(
                     icon,
                     contentDescription = null,
@@ -205,8 +234,17 @@ fun BoardButton(
                     MaterialTheme.boardType.nameplate
                 },
                 color = content,
-                textAlign = TextAlign.Center
+                textAlign = if (leading) TextAlign.Start else TextAlign.Center,
+                modifier = if (leading) Modifier.weight(1f) else Modifier
             )
+            if (figure != null) {
+                Spacer(Modifier.width(Spacing.md))
+                Text(
+                    text = figure,
+                    style = MaterialTheme.boardType.readout,
+                    color = content.copy(alpha = 0.8f)
+                )
+            }
         }
         if (supporting != null) {
             // A real gap, and centred under the label. Flush against the
@@ -245,7 +283,14 @@ fun BoardIconButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     weight: ButtonWeight = ButtonWeight.QUIET,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    /**
+     * The word under the glyph (candidate 2.30), in the small nameplate
+     * voice on its own line, so it never wraps mid-word. Taller by 16dp. For
+     * a strip whose glyphs are not self-evident; a strip of three universal
+     * glyphs (message, map, phone) may leave it off.
+     */
+    caption: String? = null
 ) {
     val colors = MaterialTheme.board
     val interaction = remember { MutableInteractionSource() }
@@ -291,14 +336,33 @@ fun BoardIconButton(
                 onClick = onClick
             )
             .defaultMinSize(minHeight = 56.dp)
-            .padding(horizontal = Spacing.lg, vertical = Spacing.md)
+            .padding(horizontal = Spacing.sm, vertical = Spacing.md)
     ) {
-        Icon(
-            icon,
-            contentDescription = contentDescription,
-            tint = content,
-            modifier = Modifier.size(28.dp)
-        )
+        if (caption == null) {
+            Icon(
+                icon,
+                contentDescription = contentDescription,
+                tint = content,
+                modifier = Modifier.size(28.dp)
+            )
+        } else {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(
+                    icon,
+                    contentDescription = contentDescription,
+                    tint = content,
+                    modifier = Modifier.size(26.dp)
+                )
+                Spacer(Modifier.height(Spacing.xs))
+                Text(
+                    text = caption,
+                    style = MaterialTheme.boardType.nameplateSmall,
+                    color = content,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1
+                )
+            }
+        }
     }
 }
 

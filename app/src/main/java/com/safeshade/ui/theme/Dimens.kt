@@ -78,6 +78,8 @@ object Motion {
     const val switchThrow = 400
     const val lampWarmUp = 260
     const val lampCoolDown = 160
+    /** How long a finger stays on a hold-to-confirm plate before it fires. Long enough that a slip cannot. */
+    const val holdToConfirm = 1100
 
     /** Decisive in, gentle settle — the feel of a rocker switch landing. */
     val ThrowEasing: Easing = CubicBezierEasing(0.2f, 1.4f, 0.4f, 1f)
