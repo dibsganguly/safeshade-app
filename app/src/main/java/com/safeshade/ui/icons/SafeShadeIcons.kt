@@ -1414,6 +1414,36 @@ object SafeShadeIcons {
         }.build()
     }
 
+    /** `bluetooth-nearby.svg` */
+    val BluetoothNearby: ImageVector by lazy {
+        ImageVector.Builder(
+            name = "BluetoothNearby",
+            defaultWidth = 24.dp,
+            defaultHeight = 24.dp,
+            viewportWidth = 24f,
+            viewportHeight = 24f
+        ).apply {
+            addPath(
+                pathData = addPathNodes(
+                    "M8.77349 11.5C8.8749 7.08726 8.48911 3.78672 9.15201 3.18692C9.21537 3.12959 9.28932 3.08325 9.36678 3.04779C10.2369 2.64938 12.688 4.83294 14.2923 6.22156C14.5558 6.44968 14.5742 6.85339 14.3152 7.08672C13.1694 8.11876 10.8318 9.95773 8.77349 11.5ZM8.77349 11.5L2.51051 16.2903M8.77349 11.5C8.8749 15.9127 8.48911 19.2133 9.15201 19.8131C9.21537 19.8704 9.28942 19.9168 9.36688 19.9523C9.74875 20.127 10.435 19.8046 11.2205 19.2705M2.5 6.72564L11.4146 13.5528"
+                ),
+                stroke = SolidColor(Color.Black),
+                strokeLineWidth = 1.5f,
+                strokeLineCap = StrokeCap.Round,
+                strokeLineJoin = StrokeJoin.Round
+            )
+            addPath(
+                pathData = addPathNodes(
+                    "M19.6322 19.1589L21.5 21M20.7074 16.5964C20.7074 18.5826 19.094 20.1928 17.1037 20.1928C15.1134 20.1928 13.5 18.5826 13.5 16.5964C13.5 14.6102 15.1134 13 17.1037 13C19.094 13 20.7074 14.6102 20.7074 16.5964Z"
+                ),
+                stroke = SolidColor(Color.Black),
+                strokeLineWidth = 1.5f,
+                strokeLineCap = StrokeCap.Round,
+                strokeLineJoin = StrokeJoin.Miter
+            )
+        }.build()
+    }
+
     /** `bluetooth.svg` */
     val Bluetooth: ImageVector by lazy {
         ImageVector.Builder(
@@ -8567,6 +8597,45 @@ object SafeShadeIcons {
         }.build()
     }
 
+    /** `where-navigation.svg` */
+    val WhereNavigation: ImageVector by lazy {
+        ImageVector.Builder(
+            name = "WhereNavigation",
+            defaultWidth = 24.dp,
+            defaultHeight = 24.dp,
+            viewportWidth = 24f,
+            viewportHeight = 24f
+        ).apply {
+            addPath(
+                pathData = addPathNodes(
+                    "M22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12Z"
+                ),
+                stroke = SolidColor(Color.Black),
+                strokeLineWidth = 1.5f,
+                strokeLineCap = StrokeCap.Round,
+                strokeLineJoin = StrokeJoin.Round
+            )
+            addPath(
+                pathData = addPathNodes(
+                    "M13.6929 7.47664L10.9605 8.60175C10.1362 8.94115 9.72411 9.11084 9.41748 9.41748C9.11084 9.72411 8.94115 10.1362 8.60175 10.9605L7.47664 13.6929C6.63274 15.7424 6.21079 16.7671 6.72185 17.2782C7.2329 17.7892 8.25764 17.3673 10.3071 16.5234L13.0395 15.3982C13.8638 15.0589 14.2759 14.8892 14.5825 14.5825C14.8892 14.2759 15.0589 13.8638 15.3982 13.0395L16.5234 10.3071C17.3673 8.25764 17.7892 7.2329 17.2782 6.72185C16.7671 6.21079 15.7424 6.63274 13.6929 7.47664Z"
+                ),
+                stroke = SolidColor(Color.Black),
+                strokeLineWidth = 1.5f,
+                strokeLineCap = StrokeCap.Round,
+                strokeLineJoin = StrokeJoin.Round
+            )
+            addPath(
+                pathData = addPathNodes(
+                    "M12 12V12.01"
+                ),
+                stroke = SolidColor(Color.Black),
+                strokeLineWidth = 1.5f,
+                strokeLineCap = StrokeCap.Round,
+                strokeLineJoin = StrokeJoin.Round
+            )
+        }.build()
+    }
+
     /** `widget-grid-tile.svg` */
     val WidgetGridTile: ImageVector by lazy {
         ImageVector.Builder(
@@ -8777,6 +8846,7 @@ object SafeShadeIcons {
         "battery-warning" to BatteryWarning,
         "bicycle-01" to Bicycle01,
         "blood-oxygen" to BloodOxygen,
+        "bluetooth-nearby" to BluetoothNearby,
         "bluetooth" to Bluetooth,
         "body-temperature" to BodyTemperature,
         "bolt-flash" to BoltFlash,
@@ -8966,6 +9036,7 @@ object SafeShadeIcons {
         "wave-triangle" to WaveTriangle,
         "webhook" to Webhook,
         "welcome-sparkles" to WelcomeSparkles,
+        "where-navigation" to WhereNavigation,
         "widget-grid-tile" to WidgetGridTile,
         "wifi-01" to Wifi01,
         "wind" to Wind,

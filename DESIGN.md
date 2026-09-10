@@ -425,6 +425,7 @@ Silhouettes are rectangular and wide. Buttons are square-shouldered plates, wide
 - All three hued weights carry **charcoal** ink, which is not a style choice: the three glasses are light hues that do not darken for the night panel, so charcoal is the only pairing that measures in both themes.
 - **Disabled:** recess container, faint ink.
 - **Press:** a 0.985 scale-down over 120ms with the ripple indication removed.
+- **Icon-only (`BoardIconButton`):** the same plate, weights, floor and press with no word on it, the glyph at 28dp centred and the word carried as the spoken description, which is required. For a strip of two or three actions on a plate too narrow for words: the family dashboard's Message, Where and Call, whose labels wrapped mid-word at the phone's own width. Not for a button that stands alone, where the word is the label.
 
 ### Way (signature component)
 
@@ -507,7 +508,7 @@ The Profile's section is a list: one person row per wearer, then an "Add a perso
 
 ### The family dashboard
 
-For a Guardian the Circle tab opens on **one plate per person** instead of one person plate: the face at 52dp, the name in headline, the mode on one line, the link lamp top right with its word at the foot of the block; a rule; three mono readouts, Battery, Last seen and Last alert, each a figure or a dash ("7 h ago", "SOS · 21 h", never a sentence, because a mono readout has no room for one and the place itself is on the Where plate below); a rule; and three quiet actions, Message, Where, Call. Battery is only ever the connected wearable's own report on the plate of the person bound to it; every other plate shows a dash. Call is disabled with its reason under it when no SIM number is stored. A Companion still sees the single guardian plate.
+For a Guardian the Circle tab opens on **one plate per person** instead of one person plate: the face at 52dp, the name in headline, the mode on one line, the link lamp top right with its word at the foot of the block; a rule; three mono readouts, Battery, Last seen and Last alert, each a figure or a dash ("7 h ago", "SOS · 21 h", never a sentence, because a mono readout has no room for one and the place itself is on the Where plate below); a rule; and three quiet icon-only actions, Message, Where (the where-navigation glyph, a compass in a ring) and Call, each spoken by name. Battery is only ever the connected wearable's own report on the plate of the person bound to it; every other plate shows a dash. Call is disabled with its reason under it when no SIM number is stored. A Companion still sees the single guardian plate.
 
 ### Guardians and invitations
 

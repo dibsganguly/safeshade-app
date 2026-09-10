@@ -398,7 +398,10 @@ fun DeviceScreen(
                     state = state.leashLamp,
                     stateLabel = state.leashWord ?: "—",
                     detail = state.leashLine ?: "How far the wearable is from this phone, read off the link's strength.",
-                    icon = SafeShadeIcons.Bluetooth
+                    // Its own glyph, not the Bluetooth mark Paired devices
+                    // already wears two rows up: two rows with one glyph read
+                    // as one thing twice.
+                    icon = SafeShadeIcons.BluetoothNearby
                 )
                 Hairline()
                 Way(

@@ -224,6 +224,85 @@ fun BoardButton(
 }
 
 /**
+ * A button that is only its glyph.
+ *
+ * For a strip of two or three actions on a plate that is already narrow -
+ * the family dashboard's Message, Where and Call - where a word beside the
+ * glyph wrapped to "Mess / age" and "Wher / e" at the phone's own width, which
+ * read as a fault rather than as a label. The word moves into
+ * [contentDescription], where TalkBack still says it, and the glyph grows to
+ * 28dp and sits centred so it is the whole target rather than a prefix to one.
+ *
+ * Same plate, same weights, same 56dp floor and press as [BoardButton], so a
+ * row of these reads as the same kind of object; only the text is gone. The
+ * description is required rather than optional because a button that says
+ * nothing to a screen reader is a button that does not exist for that reader.
+ */
+@Composable
+fun BoardIconButton(
+    icon: ImageVector,
+    contentDescription: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    weight: ButtonWeight = ButtonWeight.QUIET,
+    enabled: Boolean = true
+) {
+    val colors = MaterialTheme.board
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) 0.985f else 1f,
+        animationSpec = tween(Motion.fast),
+        label = "icon-button-press"
+    )
+    val container = when {
+        !enabled -> colors.recess
+        weight == ButtonWeight.PRIMARY -> colors.ink
+        weight == ButtonWeight.ATTENTION -> colors.lampAttention
+        weight == ButtonWeight.COMMIT -> colors.lampLive
+        weight == ButtonWeight.DANGER -> colors.lampTrip
+        weight == ButtonWeight.SECONDARY -> colors.plate
+        else -> colors.ground
+    }
+    val content = when {
+        !enabled -> colors.inkFaint
+        weight == ButtonWeight.PRIMARY -> colors.plate
+        weight == ButtonWeight.ATTENTION || weight == ButtonWeight.COMMIT -> BrandCharcoal
+        weight == ButtonWeight.DANGER -> if (colors.isDark) colors.ground else colors.plate
+        else -> colors.ink
+    }
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = modifier
+            .scale(scale)
+            .clip(RoundedCornerShape(Radius.plate))
+            .background(container)
+            .border(
+                Stroke.hairline,
+                if (weight == ButtonWeight.SECONDARY || weight == ButtonWeight.QUIET) colors.hairline
+                else container,
+                RoundedCornerShape(Radius.plate)
+            )
+            .clickable(
+                interactionSource = interaction,
+                indication = null,
+                enabled = enabled,
+                role = Role.Button,
+                onClick = onClick
+            )
+            .defaultMinSize(minHeight = 56.dp)
+            .padding(horizontal = Spacing.lg, vertical = Spacing.md)
+    ) {
+        Icon(
+            icon,
+            contentDescription = contentDescription,
+            tint = content,
+            modifier = Modifier.size(28.dp)
+        )
+    }
+}
+
+/**
  * A numeric readout.
  *
  * Monospaced so digits do not jitter as they change — a battery percentage

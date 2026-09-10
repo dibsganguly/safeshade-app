@@ -48,6 +48,7 @@ import androidx.compose.material3.TextButton
 import com.safeshade.ui.board.Avatar
 import com.safeshade.ui.board.plateClickable
 import com.safeshade.ui.board.BoardButton
+import com.safeshade.ui.board.BoardIconButton
 import com.safeshade.ui.board.BoardPlate
 import com.safeshade.ui.board.ButtonWeight
 import com.safeshade.ui.board.EmptyBay
@@ -604,13 +605,15 @@ private fun WearerPlate(
                 .fillMaxWidth()
                 .padding(horizontal = Spacing.lg, vertical = Spacing.md)
         ) {
-            BoardButton(label = "Message", icon = SafeShadeIcons.SendMessage, onClick = onMessage, weight = ButtonWeight.QUIET, modifier = Modifier.weight(1f))
-            BoardButton(label = "Where", icon = SafeShadeIcons.PinLocation, onClick = onLocate, weight = ButtonWeight.QUIET, modifier = Modifier.weight(1f))
-            BoardButton(
-                label = "Call",
+            // Glyph only. With the word beside it the three did not fit the
+            // plate at the phone's own width and wrapped mid-word; the word is
+            // the spoken description now, and the glyph is the whole target.
+            BoardIconButton(icon = SafeShadeIcons.SendMessage, contentDescription = "Message", onClick = onMessage, modifier = Modifier.weight(1f))
+            BoardIconButton(icon = SafeShadeIcons.WhereNavigation, contentDescription = "Where", onClick = onLocate, modifier = Modifier.weight(1f))
+            BoardIconButton(
                 icon = SafeShadeIcons.TelephoneCall,
+                contentDescription = "Call",
                 onClick = onCall,
-                weight = ButtonWeight.QUIET,
                 enabled = card.canCall,
                 modifier = Modifier.weight(1f)
             )
