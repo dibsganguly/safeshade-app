@@ -348,18 +348,19 @@ Five functions, and between them ten designs in
 `functions/_shared/email/*.html`. Every one renders into the same `layout.html`
 frame, redesigned on 2026-09-10 after the owner saw the first one in Gmail
 and found it flat: a white card on a teal-tinted page, centred throughout. The
-masthead is the hosted emblem in its real colours over the wordmark and the
-two-colour tagline ("Your Everything Safety Companion", as the logo sets it);
-under it a 6px band coloured by what the message is for (teal = a
-confirmation, amber = attention, trip red = an emergency, and red appears on
-nothing routine) with an amber tail that is the logo's dot. Each body opens
-with a small pill in the same colour naming the occasion, then the heading.
-Codes sit in a charcoal box in teal digits; routine buttons are teal pills
-with charcoal text, and the alert's button stays charcoal so that the red is
-never something text has to be read on. The full logo sits above the footer,
-and the footer says why you received it, that replies are not read, the
-address the owner supplied that day (`SafeShade, Patia, OD CQ5D-OTPM`, typed
-in exactly as given), and `© 2026 SafeShade. All rights reserved.`
+masthead is the hosted full logo alone -- emblem, wordmark and the two-colour
+tagline ("Your Everything Safety Companion", as the logo sets it) already
+combined in that one image; under it a 6px band coloured by what the message
+is for (teal = a confirmation, amber = attention, trip red = an emergency,
+and red appears on nothing routine) with an amber tail that is the logo's
+dot. Each body opens with a small pill in the same colour naming the
+occasion, then the heading. Codes sit in a charcoal box in teal digits;
+routine buttons are teal pills with charcoal text, and the alert's button
+stays charcoal so that the red is never something text has to be read on.
+There is no logo above the footer, and the footer says why you received it,
+that replies are not read, the address the owner supplied that day
+(`SafeShade, Patia, OD, India | CQ5D-OTPM`, typed in exactly as given), and
+`© 2026 SafeShade. All rights reserved.`
 
 Archivo is loaded from Google Fonts for the clients that load web fonts (Apple
 Mail, iOS, Outlook for Mac, Samsung); Gmail and Outlook for Windows do not,
@@ -529,15 +530,16 @@ including on the Monday it is not empty.
 
 ### The images are hosted, because Gmail strips inlined ones
 
-`layout.html` carries two images, both from `functions/_shared/email/brand.ts`:
-the emblem in the masthead and the full logo above the footer. They are https
-URLs into the public **`brand`** bucket (`migrations/0008_brand_bucket.sql`),
-not `data:` URIs: Gmail strips `data:` in `<img src>`, and for a week every
-Gmail reader saw a broken-image glyph and the alt text where the emblem
-should have been.
+`layout.html` carries one image, from `functions/_shared/email/brand.ts`:
+the full logo, alone, in the masthead. It is an https URL into the public
+**`brand`** bucket (`migrations/0008_brand_bucket.sql`), not a `data:` URI:
+Gmail strips `data:` in `<img src>`, and for a week every Gmail reader saw a
+broken-image glyph and the alt text where the emblem should have been.
+`emblem.png` stays in the bucket and in `brand.ts` for any future use, but the
+layout does not reference it.
 
 The files are in `supabase/brand/` — `emblem.png` (73×112, shown at 36×55)
-and `logo.png` (480×292, shown at 220 wide), both exported at twice their
+and `logo.png` (480×292, shown at 200 wide in the masthead), both exported at twice their
 display size from `docs/Logo/` after cropping to the artwork's bounding box
 (the sources are 2000px canvases with the art in the middle). **Upload both
 to the `brand` bucket from the dashboard** (Storage → brand → Upload); nothing
