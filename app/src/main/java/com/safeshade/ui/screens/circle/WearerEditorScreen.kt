@@ -44,7 +44,7 @@ import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.Way
 import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.screens.profile.FaceEditor
-import com.safeshade.ui.screens.safety.PlateField
+import com.safeshade.ui.board.PlateField
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.board

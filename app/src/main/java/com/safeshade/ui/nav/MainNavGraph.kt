@@ -464,11 +464,6 @@ fun MainNavGraph(
             )
         }
 
-        // No screen of its own yet. Registered so the route resolves rather
-        // than throwing; the board's own link row points at DEVICE_PAIRED,
-        // which is the screen that actually manages the link.
-        composable(Routes.BOARD_LINK) { ComingSoonPlate() }
-
         // ============================================
         // Circle
         // ============================================
@@ -3229,8 +3224,8 @@ private fun boardWays(state: AppState.Ready): List<BoardWay> {
             stateLabel = linkLabel(state.connection),
             detail = "${state.pairedDevices.size} remembered",
             icon = SafeShadeIcons.PairedDevices,
-            // Deliberately DEVICE_PAIRED and not BOARD_LINK: the most prominent
-            // row on the panel must not lead to a placeholder.
+            // The link row goes to DEVICE_PAIRED, the screen that actually
+            // manages the link.
             route = Routes.DEVICE_PAIRED
         )
     )
@@ -3475,31 +3470,6 @@ private fun openOnMap(context: Context, lat: Double, lon: Double, label: String)
                 Uri.parse("geo:$lat,$lon?q=$lat,$lon(${Uri.encode(label)})")
             ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         )
-    }
-}
-
-/**
- * The stand-in for a route that has no screen yet.
- *
- * Registered rather than omitted so that a row pointing at it lands somewhere
- * legible instead of throwing `IllegalArgumentException` out of the navigator.
- */
-@Composable
-private fun ComingSoonPlate(modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(Spacing.gutter),
-        contentAlignment = Alignment.TopCenter
-    ) {
-        BoardPlate(modifier = Modifier.fillMaxWidth()) {
-            Text(
-                text = "Coming in this build",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.board.inkMuted,
-                modifier = Modifier.padding(Spacing.lg)
-            )
-        }
     }
 }
 

@@ -228,6 +228,40 @@ fun Way(
 }
 
 /**
+ * One choice in a mutually exclusive set, as a way.
+ *
+ * A selected option reads as a lit circuit rather than as a radio dot, which
+ * is the same vocabulary the role fork already uses. It costs nothing to learn
+ * and it survives greyscale, because the lamp is always paired with a word.
+ */
+@Composable
+fun OptionWay(
+    name: String,
+    selected: Boolean,
+    onSelect: () -> Unit,
+    modifier: Modifier = Modifier,
+    detail: String? = null,
+    selectedLabel: String = "In use",
+    // "Not chosen", never "Off". `Way` wipes the subtree semantics and rebuilds
+    // the spoken line as "NAME, STATELABEL", so this string is the whole of
+    // what a screen-reader user hears about an unselected option — and "30
+    // seconds, off" says the countdown is disabled when it only means this
+    // length is not the one in use.
+    unselectedLabel: String = "Not chosen",
+    sealed: Boolean = false
+) {
+    Way(
+        name = name,
+        state = if (selected) LampState.LIVE else LampState.OFF,
+        stateLabel = if (selected) selectedLabel else unselectedLabel,
+        detail = detail,
+        sealed = sealed,
+        onClick = onSelect,
+        modifier = modifier
+    )
+}
+
+/**
  * A rocker switch.
  *
  * Not a Material `Switch`. The stock control glides and rounds; a rocker

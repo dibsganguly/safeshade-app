@@ -5,6 +5,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -89,6 +90,11 @@ fun ChipRow(
     ) {
         for (option in options) {
             val isOn = option.equals(selected.trim(), ignoreCase = true)
+            // A chip has no ripple, so keyboard and switch-access focus had
+            // nothing to show: the edge steps up to ink while focused, the
+            // same weight the lit chip's border carries.
+            val interaction = remember { MutableInteractionSource() }
+            val focused by interaction.collectIsFocusedAsState()
 
             // Animated so a tap reads as the same chip changing state rather
             // than as two chips swapping places, which is what an instant
@@ -99,7 +105,11 @@ fun ChipRow(
                 label = "chipFill"
             )
             val edge by animateColorAsState(
-                targetValue = if (isOn) tint else colors.hairline,
+                targetValue = when {
+                    focused -> colors.ink
+                    isOn -> tint
+                    else -> colors.hairline
+                },
                 animationSpec = tween(Motion.fast),
                 label = "chipEdge"
             )
@@ -113,14 +123,14 @@ fun ChipRow(
                     .clip(RoundedCornerShape(Radius.card))
                     .background(fill)
                     .border(
-                        width = if (isOn) Stroke.rule else Stroke.hairline,
+                        width = if (isOn || focused) Stroke.rule else Stroke.hairline,
                         color = edge,
                         shape = RoundedCornerShape(Radius.card)
                     )
                     .selectable(
                         selected = isOn,
                         role = Role.RadioButton,
-                        interactionSource = remember { MutableInteractionSource() },
+                        interactionSource = interaction,
                         indication = null,
                         // Tapping the lit chip clears the field. See the note
                         // above: without this a mis-tap costs a keyboard.

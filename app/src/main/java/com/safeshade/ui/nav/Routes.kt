@@ -34,7 +34,6 @@ object Routes {
     const val ONBOARDING_ROLE = "onboarding/role"
     const val ONBOARDING_WEARER = "onboarding/wearer"
     const val ONBOARDING_PERMISSIONS = "onboarding/permissions"
-    const val ONBOARDING_RELIABILITY = "onboarding/reliability"
     const val ONBOARDING_PAIR = "onboarding/pair"
     const val ONBOARDING_MEDICAL = "onboarding/medical"
 
@@ -45,7 +44,6 @@ object Routes {
 
     /** Bottom destination 1 — the panel. */
     const val BOARD = "board"
-    const val BOARD_LINK = "board/link"
 
     /** Bottom destination 2 — the people on either end of the link. */
     const val CIRCLE = "circle"

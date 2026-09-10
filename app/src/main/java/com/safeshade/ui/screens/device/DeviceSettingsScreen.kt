@@ -35,6 +35,9 @@ import com.safeshade.ui.board.BoardButton
 import com.safeshade.ui.board.BoardPlate
 import com.safeshade.ui.board.DialControl
 import com.safeshade.ui.board.ButtonWeight
+import com.safeshade.ui.board.CHECK_IN_INTERVAL_RANGE
+import com.safeshade.ui.board.CHECK_IN_INTERVAL_STEP
+import com.safeshade.ui.board.DEFAULT_CHECK_IN_INTERVAL_MINUTES
 import com.safeshade.ui.board.ExpandableSection
 import com.safeshade.ui.board.Hairline
 import com.safeshade.ui.board.LampState
@@ -46,12 +49,7 @@ import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.TimeStrip
 import com.safeshade.ui.board.formatClock
 import com.safeshade.ui.board.Way
-// OptionWay lives in the safety package because that is where it was first
-// needed. It is `internal`, so this is legal, and importing it is the point:
-// this screen and FallSettingsScreen now use one control for one setting
-// rather than two. It belongs in ui/board with the rest of the row kit; that
-// move is worth doing and is not worth doing in the middle of this pass.
-import com.safeshade.ui.screens.safety.OptionWay
+import com.safeshade.ui.board.OptionWay
 import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing

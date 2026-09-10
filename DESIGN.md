@@ -590,7 +590,7 @@ Six steps, each the same shape: a scene at the top in which the character does t
 
 ### Chips
 
-**`ChipRow`** is for a field whose answer set is open but whose common answers are five or six words nobody should have to type — a relationship, a blood group. It is **not a picker**: it sets a text field that stays fully editable beside it, so an answer the app never thought of is still sayable, and a value matching no chip lights none of them, which is a correct state and not an error. Tapping the lit chip clears it. Square-shouldered and hairlined, never a Material pill, and selection is carried by border weight, fill and ink together rather than by colour alone.
+**`ChipRow`** is for a field whose answer set is open but whose common answers are five or six words nobody should have to type — a relationship, a blood group. It is **not a picker**: it sets a text field that stays fully editable beside it, so an answer the app never thought of is still sayable, and a value matching no chip lights none of them, which is a correct state and not an error. Tapping the lit chip clears it. Square-shouldered and hairlined, never a Material pill, and selection is carried by border weight, fill and ink together rather than by colour alone. A focused chip (keyboard, switch access) steps its edge up to ink at the rule weight, because there is no ripple to show focus and a control that cannot be seen to have focus cannot be operated without a finger.
 
 ### Navigation
 

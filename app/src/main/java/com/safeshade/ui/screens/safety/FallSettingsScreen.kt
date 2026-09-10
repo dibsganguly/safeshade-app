@@ -35,6 +35,8 @@ import com.safeshade.ui.board.DialControl
 import com.safeshade.ui.board.ExpandableSection
 import com.safeshade.ui.board.Hairline
 import com.safeshade.ui.board.LampState
+import com.safeshade.ui.board.OptionWay
+import com.safeshade.ui.board.PlateField
 import com.safeshade.ui.board.Seal
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.Way

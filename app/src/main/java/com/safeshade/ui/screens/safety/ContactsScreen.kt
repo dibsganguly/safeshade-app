@@ -36,6 +36,7 @@ import com.safeshade.ui.board.ChipRow
 import com.safeshade.ui.board.EmptyBay
 import com.safeshade.ui.board.Hairline
 import com.safeshade.ui.board.LampState
+import com.safeshade.ui.board.PlateField
 import com.safeshade.ui.board.RELATIONSHIP_SUGGESTIONS
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.Way

@@ -33,6 +33,7 @@ import com.safeshade.ui.board.BoardPlate
 import com.safeshade.ui.board.DialControl
 import com.safeshade.ui.board.Hairline
 import com.safeshade.ui.board.LampState
+import com.safeshade.ui.board.PlateField
 import com.safeshade.ui.board.ScreenHeader
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.Way

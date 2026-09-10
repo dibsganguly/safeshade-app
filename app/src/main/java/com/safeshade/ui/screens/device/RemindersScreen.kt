@@ -33,6 +33,9 @@ import com.safeshade.device.ConnectionState
 import com.safeshade.ui.board.BoardButton
 import com.safeshade.ui.board.BoardPlate
 import com.safeshade.ui.board.ButtonWeight
+import com.safeshade.ui.board.CHECK_IN_INTERVAL_RANGE
+import com.safeshade.ui.board.CHECK_IN_INTERVAL_STEP
+import com.safeshade.ui.board.DEFAULT_CHECK_IN_INTERVAL_MINUTES
 import com.safeshade.ui.board.DialControl
 import com.safeshade.ui.board.Hairline
 import com.safeshade.ui.board.LampState
@@ -315,29 +318,6 @@ private fun ProfileNote(
         modifier = modifier
     )
 }
-
-/**
- * The check-in interval control's range, step, default and formatting.
- *
- * Shared with `DeviceSettingsScreen` — both screens write the same
- * `EXT CHECKIN` field, and a user who changes this in one place and finds a
- * different control offering different options in the other is exactly the
- * confusion a second, drifted copy of this would cause. This screen is the
- * one home for it; `DeviceSettingsScreen` is `internal`-visible to these from
- * the same package rather than keeping its own copy.
- *
- * This used to be a row of four buttons — 30m / 1h / 2h / 4h — which is why
- * the range now reaching every half hour in between (1h30, 2h30, 3h, 3h30)
- * is a deliberate change, not scope creep: a slider that only ever lands on
- * four of its eight possible ticks looks broken, so the step is the true
- * minute resolution the device honours rather than the old row's arbitrary
- * subset of it.
- */
-internal val CHECK_IN_INTERVAL_RANGE = 30f..240f
-internal const val CHECK_IN_INTERVAL_STEP = 30f
-
-/** What a newly-enabled check-in defaults to, before anyone has chosen. */
-internal const val DEFAULT_CHECK_IN_INTERVAL_MINUTES = 60
 
 /** "30m" / "1h" / "1h 30m" / "2h" ... from a minute count. Never "90m". */
 internal fun formatCheckInInterval(minutes: Int): String {

@@ -34,6 +34,7 @@ import com.safeshade.ui.board.ButtonWeight
 import com.safeshade.ui.board.ChipRow
 import com.safeshade.ui.board.ExpandableSection
 import com.safeshade.ui.board.LampState
+import com.safeshade.ui.board.PlateField
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.Way
 import com.safeshade.ui.board.WhyDisclosure

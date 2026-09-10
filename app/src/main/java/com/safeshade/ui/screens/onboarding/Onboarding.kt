@@ -57,7 +57,7 @@ import com.safeshade.ui.board.Hairline
 import com.safeshade.ui.board.Way
 import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.theme.accentFor
-import com.safeshade.ui.screens.safety.PlateField
+import com.safeshade.ui.board.PlateField
 import com.safeshade.ui.theme.Radius
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing

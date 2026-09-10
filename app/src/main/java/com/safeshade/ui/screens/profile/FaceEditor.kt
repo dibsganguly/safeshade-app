@@ -33,7 +33,7 @@ import com.safeshade.ui.board.AvatarCustomiser
 import com.safeshade.ui.board.AvatarPresetStrip
 import com.safeshade.ui.board.AvatarSpec
 import com.safeshade.ui.board.SectionPlate
-import com.safeshade.ui.screens.safety.PlateField
+import com.safeshade.ui.board.PlateField
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.board
 import kotlinx.coroutines.Dispatchers
