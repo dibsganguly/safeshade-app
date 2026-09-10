@@ -330,6 +330,8 @@ Google. No wearable was connected at any point.
   both person plates; Call greyed with its SIM reason on the person with no
   wearable; the compass on Where.
 - **Device page** (light, 1.0×): the Nearby row with the new glyph.
+- **Kit gallery, second set**: 2.42–2.101 photographed in light and dark at
+  1.0× (not at 1.3×); the two faults found are in the commit message.
 - **Kit gallery**: every candidate 2.01–2.41 photographed in light at 1.0×,
   dark at 1.0× (through the app's own Appearance setting), and light at 1.3×
   (`settings put system font_scale 1.3`). Three faults were found on the
