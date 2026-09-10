@@ -101,14 +101,15 @@ marked**, each reversible:
   version is "acknowledged, no version"; an OTA install counts as installed
   only when the wearable reports the release's version. On the shipped
   firmware the install path can only ever end in that Failed sentence.
-- **The quiet word maps to the `sos` smart-home trigger** (Opus, flagged for
-  the user). A duress word exists so the room does not know; a hook that turns
-  on lights could reveal it. The user chooses which hooks fire on `sos`.
-- **Webhooks accept `http://` only for a numeric LAN address** (10/8,
-  172.16/12, 192.168/16, 127.x, ::1, localhost, 169.254). `homeassistant.local`
-  is rejected because a hostname cannot be checked for being local without a
-  network call inside a validator. Whether `.local` joins the list is a
-  product call.
+- **The quiet word maps to the `sos` smart-home trigger.** Confirmed by the
+  user on 2026-09-10. A duress word exists so the room does not know; a hook
+  that turns on lights could reveal it. The user chooses which hooks fire on
+  `sos`.
+- **Webhooks accept `http://` for a LAN address or a `.local` name** (10/8,
+  172.16/12, 192.168/16, 127.x, ::1, localhost, 169.254, and any host ending
+  `.local`). The `.local` case was decided by the user on 2026-09-10: mDNS
+  names are link-local by definition, and it is what Home Assistant's own
+  setup page prints. Any other hostname over http is still refused.
 - **Community sighting reports are off until the person switches them on**,
   and the rocker says exactly what leaves the phone: the wearable's address,
   the time, the place.
@@ -120,8 +121,10 @@ marked**, each reversible:
   nothing. Every Spark fact on the pairing page is a product description.
 - **Brake light and path light are device-only rows**, because the firmware
   has no BLE path for either (Haiku's read, §9).
-- **The ladder default stays off** (handoff7 §2). The user has not yet been
-  asked.
+- **The ladder is on by default**, decided by the user on 2026-09-10
+  (`EscalationSettings.enabled = true`, and an absent stored value reads as
+  on). It still runs only when an alert goes unanswered and dials nobody
+  until a contact exists. A stored `false` stays false.
 
 ---
 
@@ -551,9 +554,14 @@ Handoff7 §10 and handoff6 §3 still apply. Added this pass:
 
 ## 11. What the user still has to do
 
-Handoff7 §11 stands (push; the second account; paste the auth templates'
-contents; leaked-password protection; the two Vault secrets; the ladder
-default; the eleven-digit contact; their UI/UX list). Added:
+Done by the user on 2026-09-10: the auth templates are pasted (the redesigned
+set), the `brand` bucket and its two images exist, the email OTP length is
+six, the quiet-word and `.local` and ladder decisions are taken (§2), and
+the push was authorised. **Leaked-password protection is a Pro-plan feature
+and cannot be switched on** on this project; record it as accepted, not
+pending. Still open from handoff7 §11: the second account; the eleven-digit
+contact; the two Vault secrets (steps given to the user on 2026-09-10);
+their UI/UX list. Added:
 
 - **Push.** Ten v2.5.0, 27 v2.6.0 and four v2.7.0 commits are local. Ask
   before pushing.

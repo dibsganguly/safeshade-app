@@ -418,12 +418,16 @@ data class SafetySettings(
  */
 data class EscalationSettings(
     /**
-     * Off until a person turns it on. The ladder dials real numbers on a
-     * timer, and a default that did so on a phone whose owner had never seen
-     * the page would be the app deciding, on their behalf, to ring their
-     * contacts. The page that switches it on says what it will do first.
+     * On by default, decided by the owner on 2026-09-10. It was off until
+     * then on the argument that a ladder dialling real numbers on a timer
+     * should be a choice somebody made; the owner's view is that a fall
+     * nobody is told about is the worse default for the people this product
+     * is for. The ladder still only runs when an alert goes unanswered, and
+     * it still has nobody to ring until contacts exist, so on a fresh install
+     * "on" means "on once there is somebody to call". The page that shows it
+     * says what it will do.
      */
-    val enabled: Boolean = false,
+    val enabled: Boolean = true,
     /** Seconds after the alert is logged before contact one is dialled. */
     val firstDelaySec: Int = 30,
     /** Seconds after that before contact two is dialled. */

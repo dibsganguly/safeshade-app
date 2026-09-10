@@ -188,7 +188,8 @@ class SmartHomeRepository(
      * ### The rule
      *
      * `https` anywhere. `http` **only** to an address on the local network -
-     * `localhost`, `127.x`, `::1`, `10.x`, `172.16-31.x` and `192.168.x`.
+     * `localhost`, `127.x`, `::1`, `10.x`, `172.16-31.x`, `192.168.x`, and a
+     * `.local` name.
      *
      * That exception exists because Home Assistant on a home LAN is the common
      * case, and the common Home Assistant address is a plain `http://` one on
@@ -198,15 +199,16 @@ class SmartHomeRepository(
      * into cleartext on somebody else's network, so `http` stops at the edge of
      * the house.
      *
-     * ### Known gap
+     * ### `.local`, decided
      *
      * `http://homeassistant.local:8123` - the mDNS name Home Assistant's own
-     * onboarding prints - is **rejected** by this rule, because a hostname
-     * cannot be checked for being local without resolving it, and resolving a
-     * name typed into a settings field is a network call in a validator. Users
-     * on that address should enter the numeric one. Whether `.local` should
-     * join the list is a product decision, not one this function should make
-     * quietly.
+     * onboarding prints - was rejected until 2026-09-10 because a hostname
+     * cannot be checked for being local without resolving it. The owner
+     * decided `.local` is allowed: mDNS names are link-local by definition
+     * (RFC 6762 reserves the suffix), they do not resolve across the open
+     * internet, and the person it serves is the Home Assistant user who typed
+     * exactly what their own setup page showed them. Any other hostname is
+     * still refused over http.
      *
      * @return null when the URL is fine, or one plain sentence saying what is
      *   wrong with it.
@@ -243,13 +245,14 @@ class SmartHomeRepository(
     /**
      * Whether [host] names something on the local network.
      *
-     * Literal addresses only. A hostname is never assumed local - see the gap
-     * noted on [validateUrl].
+     * Literal addresses, plus the one hostname form that is local by
+     * definition: a `.local` mDNS name. See the note on [validateUrl].
      */
     private fun isPrivateHost(host: String): Boolean {
         // IPv6 comes out of URI.getHost() wrapped in brackets.
         val bare = host.removePrefix("[").removeSuffix("]")
         if (bare == "localhost" || bare == "::1" || bare == "0:0:0:0:0:0:0:1") return true
+        if (bare.endsWith(".local") && bare.length > ".local".length) return true
 
         val parts = bare.split(".")
         if (parts.size != 4) return false

@@ -189,11 +189,13 @@ class SmartHomeRepositoryTest {
     }
 
     @Test
-    fun `the mDNS Home Assistant name is refused, and says why in plain english`() {
-        // Documented gap: a name cannot be checked for being local without
-        // resolving it. See SmartHomeRepository.validateUrl.
-        val reason = validator.validateUrl("http://homeassistant.local:8123/api/webhook/x")
-        assertNotNull(reason)
-        assertTrue(reason!!.contains("own network"))
+    fun `the mDNS Home Assistant name is allowed over http, and only that suffix`() {
+        // Decided by the owner on 2026-09-10: a .local name is link-local by
+        // definition, so it joins the private-address list. Nothing else does.
+        assertNull(validator.validateUrl("http://homeassistant.local:8123/api/webhook/x"))
+        assertNotNull(validator.validateUrl("http://homeassistant.lan:8123/api/webhook/x"))
+        assertNotNull(validator.validateUrl("http://example.com/hook"))
+        // A bare ".local" is not a host.
+        assertNotNull(validator.validateUrl("http://.local/hook"))
     }
 }
