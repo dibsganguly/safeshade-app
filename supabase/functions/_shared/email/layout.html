@@ -106,8 +106,12 @@
              the client that blocks remote images until asked. -->
         <tr>
           <td align="center" bgcolor="#F2EDE3" style="background:#F2EDE3; padding:0; font-size:0; line-height:0; border-radius:18px 18px 0 0; text-align:center;">
+            <!-- width/height attributes for Outlook, which ignores CSS
+                 sizing; the CSS says width:100% and height:auto so a phone
+                 that narrows the card scales the image in proportion
+                 instead of squashing it sideways into a fixed height. -->
             <img src="{{masthead}}" width="600" height="168" alt="SafeShade - Your Everything Safety Companion"
-                 style="display:block; margin:0 auto; border:0; outline:none; text-decoration:none; width:600px; height:168px; max-width:100%;">
+                 style="display:block; margin:0 auto; border:0; outline:none; text-decoration:none; width:100%; max-width:600px; height:auto;">
           </td>
         </tr>
 
