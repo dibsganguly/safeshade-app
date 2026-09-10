@@ -22,81 +22,95 @@ export const LAYOUT_HTML: string = `<!doctype html>
 <meta name="color-scheme" content="light dark">
 <meta name="supported-color-schemes" content="light dark">
 <title>{{title}}</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
+  @import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700;800&display=swap');
   /*
     Almost nothing lives here. Gmail strips <style> in some clients and
     Outlook's Word rendering engine ignores most of it, so every rule that
     matters is inlined on the element. This block carries only the things that
     can be lost without breaking the message.
   */
-  body { margin: 0; padding: 0; background: #F2EFE9; }
+  body { margin: 0; padding: 0; background: #EDF4F3; }
   a { color: #22282E; }
   /* Outlook.com and Apple Mail can still force a dark rendering even with
-     color-scheme set. These two rules make that case survivable rather than
+     color-scheme set. These rules make that case survivable rather than
      pretty: the panel keeps a light ground and the ink keeps its contrast, so
      no heading is ever charcoal on charcoal. */
   @media (prefers-color-scheme: dark) {
-    .ss-panel { background: #FBF9F5 !important; }
+    .ss-panel { background: #FFFFFF !important; }
     .ss-ink { color: #22282E !important; }
   }
   @media (max-width: 620px) {
     .ss-pad { padding-left: 20px !important; padding-right: 20px !important; }
     .ss-h1 { font-size: 24px !important; line-height: 30px !important; }
-    .ss-code { font-size: 30px !important; letter-spacing: 6px !important; }
+    .ss-code { font-size: 32px !important; letter-spacing: 6px !important; }
     .ss-stat { font-size: 24px !important; }
   }
 </style>
 </head>
 
-<body style="margin:0; padding:0; background:#F2EFE9;">
+<body style="margin:0; padding:0; background:#EDF4F3;">
 
-<div style="display:none; font-size:1px; color:#F2EFE9; line-height:1px; max-height:0; max-width:0; opacity:0; overflow:hidden;">
+<div style="display:none; font-size:1px; color:#EDF4F3; line-height:1px; max-height:0; max-width:0; opacity:0; overflow:hidden;">
   {{preheader}}
 </div>
 
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#F2EFE9;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#EDF4F3;">
   <tr>
-    <td align="center" style="padding:24px 12px;">
+    <td align="center" style="padding:28px 12px 36px;">
 
-      <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px; max-width:600px;">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" align="center" style="width:600px; max-width:600px;">
 
         <tr>
-          <td class="ss-pad" style="background:#22282E; border-radius:14px 14px 0 0; padding:22px 32px;">
-            <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+          <td class="ss-pad ss-panel" align="center" style="background:#FFFFFF; border-radius:18px 18px 0 0; padding:30px 32px 22px; text-align:center;">
+
+            <img src="{{emblem}}" width="36" height="55" alt="SafeShade"
+                 style="display:block; margin:0 auto 12px; border:0; outline:none; text-decoration:none; height:55px; width:36px;">
+            <div class="ss-ink" style="font-family:Archivo, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size:24px; line-height:28px; font-weight:800; letter-spacing:-0.2px; color:#22282E;">SafeShade</div>
+
+            <div style="margin-top:4px; font-family:Archivo, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size:12px; line-height:18px; font-weight:600; letter-spacing:0.6px; color:#E0961A;">
+              Your <span style="color:#3DBDB5;">Everything</span> Safety Companion
+            </div>
+          </td>
+        </tr>
+
+        <tr>
+          <td style="padding:0; font-size:0; line-height:0;">
+            <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;">
               <tr>
-                <td style="vertical-align:middle; padding-right:12px;">
-
-                  <img src="{{emblem}}" width="26" height="40" alt="SafeShade"
-                       style="display:block; border:0; outline:none; text-decoration:none; height:40px; width:26px;">
-                </td>
-                <td style="vertical-align:middle;">
-
-                  <div style="font-family:Archivo, 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size:19px; line-height:23px; font-weight:800; letter-spacing:0.2px; color:#FBF9F5;">SafeShade</div>
-                  <div style="font-family:Archivo, 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size:11px; line-height:16px; letter-spacing:1.4px; text-transform:uppercase; color:#9AA1A9;">Universal Safety Companion</div>
-                </td>
+                <td width="480" style="width:480px; background:{{accent}}; height:6px; line-height:6px; font-size:0;">&nbsp;</td>
+                <td width="120" style="width:120px; background:#F5A623; height:6px; line-height:6px; font-size:0;">&nbsp;</td>
               </tr>
             </table>
           </td>
         </tr>
 
         <tr>
-          <td style="background:{{accent}}; height:4px; line-height:4px; font-size:0;">&nbsp;</td>
-        </tr>
-
-        <tr>
-          <td class="ss-pad ss-panel" style="background:#FBF9F5; padding:32px; font-family:Archivo, 'Helvetica Neue', Helvetica, Arial, sans-serif; color:#22282E;">
+          <td class="ss-pad ss-panel" align="center" style="background:#FFFFFF; padding:34px 32px 30px; text-align:center; font-family:Archivo, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; color:#22282E;">
             {{{content}}}
           </td>
         </tr>
 
         <tr>
-          <td class="ss-pad" style="background:#F2EFE9; border-radius:0 0 14px 14px; padding:20px 32px; font-family:Archivo, 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size:12px; line-height:18px; color:#6A7078;">
+          <td align="center" style="background:#F6F4EF; padding:26px 32px 6px; text-align:center; border-top:1px solid #E4E0D8;">
+            <img src="{{logo}}" width="220" height="134" alt="SafeShade - Your Everything Safety Companion"
+                 style="display:block; margin:0 auto; border:0; outline:none; text-decoration:none; width:220px; height:134px;">
+          </td>
+        </tr>
+
+        <tr>
+          <td class="ss-pad" align="center" style="background:#F6F4EF; border-radius:0 0 18px 18px; padding:10px 32px 26px; text-align:center; font-family:Archivo, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size:12px; line-height:18px; color:#6A7078;">
             {{{footer}}}
             <div style="margin-top:8px;">
               Replies to this address are not read.
             </div>
-            <div style="margin-top:8px; color:#8A9099;">
-              SafeShade &middot; Universal Safety Companion
+            <div style="margin-top:14px; color:#8A9099;">
+              SafeShade, Patia, OD CQ5D-OTPM
+            </div>
+            <div style="margin-top:4px; color:#8A9099;">
+              &copy; 2026 SafeShade. All rights reserved.
             </div>
           </td>
         </tr>

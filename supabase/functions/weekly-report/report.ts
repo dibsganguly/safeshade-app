@@ -297,7 +297,7 @@ function kindBars(alerts: AlertFact[]): string {
     const colour = kindColour(kind);
     const label = KIND_LABELS[kind] ?? kind;
     return `<tr>
-    <td width="${LABEL_WIDTH}" style="width:${LABEL_WIDTH}px; padding:5px 8px 5px 0; font-size:13px; line-height:18px; color:#4A5058; vertical-align:middle;">${escapeHtml(label)}</td>
+    <td width="${LABEL_WIDTH}" style="width:${LABEL_WIDTH}px; padding:5px 8px 5px 0; font-size:13px; line-height:18px; color:#4A5058; vertical-align:middle; text-align:left;">${escapeHtml(label)}</td>
     <td width="${TRACK_WIDTH}" style="width:${TRACK_WIDTH}px; padding:5px 0; vertical-align:middle;">
       <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="${TRACK_WIDTH}" style="width:${TRACK_WIDTH}px;">
         <tr>

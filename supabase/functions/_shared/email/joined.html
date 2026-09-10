@@ -15,18 +15,26 @@
 -->
 <title>{{joiner_name}} joined {{circle_name}} on SafeShade</title>
 
-<h1 class="ss-h1 ss-ink" style="margin:0 0 12px; font-family:Archivo, 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size:26px; line-height:32px; font-weight:800; color:#22282E;">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 14px;">
+  <tr>
+    <td align="center" style="background:{{accent}}; border-radius:999px; padding:5px 14px; font-family:Archivo, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size:11px; line-height:16px; font-weight:700; letter-spacing:1.4px; text-transform:uppercase; color:#22282E;">
+      Your Circle
+    </td>
+  </tr>
+</table>
+
+<h1 class="ss-h1 ss-ink" style="margin:0 0 12px; font-family:Archivo, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size:28px; line-height:34px; font-weight:800; letter-spacing:-0.3px; color:#22282E; text-align:center;">
   {{joiner_name}} joined {{circle_name}}
 </h1>
 
-<p style="margin:0 0 22px; font-size:15px; line-height:23px; color:#4A5058;">
+<p style="margin:0 0 22px; font-size:15px; line-height:23px; color:#4A5058; text-align:center;">
   The invitation you sent has been accepted. {{joiner_name}} is now
   <strong style="color:#22282E;">{{role_label}}</strong> in this Circle.
 </p>
 
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 22px; border:1px solid #DED8CE; border-radius:10px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 22px; border:1px solid #DED8CE; border-radius:14px;">
   <tr>
-    <td style="padding:16px 18px; font-size:14px; line-height:22px; color:#4A5058;">
+    <td align="left" style="padding:16px 18px; font-size:14px; line-height:22px; color:#4A5058; text-align:left;">
       <div style="margin-bottom:4px;">
         <span style="color:#6A7078;">Who:</span>
         <strong style="color:#22282E; word-break:break-all;">{{joiner_email}}</strong>
@@ -43,16 +51,16 @@
   </tr>
 </table>
 
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 22px; background:#F2EFE9; border-radius:10px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 22px; background:#F2EFE9; border-radius:14px;">
   <tr>
-    <td style="padding:16px 18px; font-size:14px; line-height:21px; color:#4A5058;">
+    <td align="left" style="padding:16px 18px; font-size:14px; line-height:21px; color:#4A5058; text-align:left;">
       <strong style="color:#22282E;">As {{role_label}} they can:</strong><br>
       {{role_description}}
     </td>
   </tr>
 </table>
 
-<p style="margin:0; font-size:13px; line-height:20px; color:#6A7078;">
+<p style="margin:0; font-size:13px; line-height:20px; color:#6A7078; text-align:center;">
   If this was not expected, open SafeShade and remove them from the Circle. You
   are the owner; nobody else can.
 </p>

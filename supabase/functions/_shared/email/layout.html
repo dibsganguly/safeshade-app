@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <!--
   color-scheme tells Gmail, Apple Mail and Outlook.com not to invert this
-  message themselves. They do it badly: a dark-mode inversion of a bone panel
+  message themselves. They do it badly: a dark-mode inversion of a white panel
   with charcoal ink turns the amber and teal accents into colours that no longer
   measure against their backgrounds, and the one thing an alert email cannot
   afford is an unreadable heading.
@@ -13,33 +13,42 @@
 <meta name="color-scheme" content="light dark">
 <meta name="supported-color-schemes" content="light dark">
 <title>{{title}}</title>
+<!--
+  Archivo is the product's typeface (DESIGN.md). Apple Mail, iOS Mail, Outlook
+  for Mac and Samsung Mail load it from Google Fonts; Gmail and Outlook for
+  Windows do not load web fonts at all and show the fallback stack, which is
+  the system face on every platform: San Francisco, Segoe UI, Roboto. The
+  metrics are close enough that nothing reflows.
+-->
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
+  @import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700;800&display=swap');
   /*
     Almost nothing lives here. Gmail strips <style> in some clients and
     Outlook's Word rendering engine ignores most of it, so every rule that
     matters is inlined on the element. This block carries only the things that
     can be lost without breaking the message.
   */
-  body { margin: 0; padding: 0; background: #F2EFE9; }
+  body { margin: 0; padding: 0; background: #EDF4F3; }
   a { color: #22282E; }
   /* Outlook.com and Apple Mail can still force a dark rendering even with
-     color-scheme set. These two rules make that case survivable rather than
+     color-scheme set. These rules make that case survivable rather than
      pretty: the panel keeps a light ground and the ink keeps its contrast, so
      no heading is ever charcoal on charcoal. */
   @media (prefers-color-scheme: dark) {
-    .ss-panel { background: #FBF9F5 !important; }
+    .ss-panel { background: #FFFFFF !important; }
     .ss-ink { color: #22282E !important; }
   }
   @media (max-width: 620px) {
     .ss-pad { padding-left: 20px !important; padding-right: 20px !important; }
     .ss-h1 { font-size: 24px !important; line-height: 30px !important; }
-    .ss-code { font-size: 30px !important; letter-spacing: 6px !important; }
+    .ss-code { font-size: 32px !important; letter-spacing: 6px !important; }
     .ss-stat { font-size: 24px !important; }
   }
 </style>
 </head>
 <!--
-  Bulletproof table layout, 600px, everything inlined.
+  Bulletproof table layout, 600px, everything inlined, everything centred.
 
   600px because it is the width Outlook's reading pane has been for fifteen
   years, and a message wider than that gets a horizontal scrollbar in the client
@@ -48,107 +57,115 @@
   Nested tables rather than divs because Outlook renders HTML through Word, which
   has no float, no flexbox, no grid and unreliable margins. Tables are the only
   layout primitive that behaves the same in Word, Gmail's stripped CSS and
-  Apple Mail's WebKit.
+  Apple Mail's WebKit. Centring is done with align="center" on cells and tables
+  for the same reason: Word ignores margin:auto.
 
-  Brand palette, from DESIGN.md:
-    charcoal  #22282E   ink, and the header ground
-    bone      #F2EFE9   the page
-    bone-lift #FBF9F5   the panel
-    teal      #6FD3CC   confirmation
-    amber     #F5A623   attention
-    trip red  #E5484D   emergency
+  Brand palette, from DESIGN.md and the logo:
+    charcoal  #22282E   ink, the code box, the alert button
+    mist      #EDF4F3   the page ground, a teal-tinted white
+    bone      #F2EFE9   quiet blocks inside the panel
+    white     #FFFFFF   the panel
+    teal      #6FD3CC   confirmation; the routine button
+    amber     #F5A623   attention; the second colour of the band
+    trip red  #E5484D   emergency, and nothing routine
 
-  Archivo with an Arial fallback stack. Web fonts do not load in most mail
-  clients, so the fallback is what almost everybody actually sees and the metrics
-  are chosen so it does not reflow.
+  The look, in one paragraph. A white card on a teal-tinted page. The masthead
+  is the emblem in its real colours over the wordmark and the two-colour
+  tagline, centred, then a band in the message's own colour with an amber tail
+  (the logo's amber dot, carried across). The body is centred text with a
+  charcoal code box or a teal button as its one big object. Above the footer
+  sits the full logo, and the footer says why the mail came, that replies are
+  not read, the address, and the copyright line.
 -->
-<body style="margin:0; padding:0; background:#F2EFE9;">
+<body style="margin:0; padding:0; background:#EDF4F3;">
 
 <!-- Preheader: the grey line the inbox shows after the subject. Hidden in the
      message body itself. Without one, clients scrape the first visible text,
      which here would be the word "SafeShade" - a wasted line on an email whose
      whole job may be to say somebody has fallen. -->
-<div style="display:none; font-size:1px; color:#F2EFE9; line-height:1px; max-height:0; max-width:0; opacity:0; overflow:hidden;">
+<div style="display:none; font-size:1px; color:#EDF4F3; line-height:1px; max-height:0; max-width:0; opacity:0; overflow:hidden;">
   {{preheader}}
 </div>
 
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#F2EFE9;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#EDF4F3;">
   <tr>
-    <td align="center" style="padding:24px 12px;">
+    <td align="center" style="padding:28px 12px 36px;">
 
-      <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px; max-width:600px;">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" align="center" style="width:600px; max-width:600px;">
 
-        <!-- Masthead -->
+        <!-- Masthead: emblem, wordmark, tagline, all centred on white. -->
         <tr>
-          <td class="ss-pad" style="background:#22282E; border-radius:14px 14px 0 0; padding:22px 32px;">
-            <table role="presentation" cellpadding="0" cellspacing="0" border="0">
-              <tr>
-                <td style="vertical-align:middle; padding-right:12px;">
-                  <!--
-                    The emblem, inlined as a data: URI.
+          <td class="ss-pad ss-panel" align="center" style="background:#FFFFFF; border-radius:18px 18px 0 0; padding:30px 32px 22px; text-align:center;">
+            <!--
+              The emblem, hosted (brand.ts). It used to be a data: URI, which
+              Gmail strips, so most readers saw the alt text and a broken
+              glyph. The alt text is still the brand name for the client that
+              blocks remote images until asked.
+            -->
+            <img src="{{emblem}}" width="36" height="55" alt="SafeShade"
+                 style="display:block; margin:0 auto 12px; border:0; outline:none; text-decoration:none; height:55px; width:36px;">
+            <div class="ss-ink" style="font-family:Archivo, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size:24px; line-height:28px; font-weight:800; letter-spacing:-0.2px; color:#22282E;">SafeShade</div>
+            <!-- The tagline as the logo sets it: amber, teal, amber. -->
+            <div style="margin-top:4px; font-family:Archivo, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size:12px; line-height:18px; font-weight:600; letter-spacing:0.6px; color:#E0961A;">
+              Your <span style="color:#3DBDB5;">Everything</span> Safety Companion
+            </div>
+          </td>
+        </tr>
 
-                    KNOWN LIMITATION: Gmail strips data: URIs in <img src>, so
-                    a Gmail reader sees the alt text instead. That is why the
-                    alt text is the brand name and not "logo". Once the product
-                    has a domain, replace this with a hosted https URL - see
-                    supabase/README.md.
-                  -->
-                  <img src="{{emblem}}" width="26" height="40" alt="SafeShade"
-                       style="display:block; border:0; outline:none; text-decoration:none; height:40px; width:26px;">
-                </td>
-                <td style="vertical-align:middle;">
-                  <!-- The wordmark carries the product name for the Gmail
-                       readers who get no emblem at all, and the line under it
-                       is what tells somebody who has never heard of SafeShade
-                       what this email is from. -->
-                  <div style="font-family:Archivo, 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size:19px; line-height:23px; font-weight:800; letter-spacing:0.2px; color:#FBF9F5;">SafeShade</div>
-                  <div style="font-family:Archivo, 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size:11px; line-height:16px; letter-spacing:1.4px; text-transform:uppercase; color:#9AA1A9;">Universal Safety Companion</div>
-                </td>
+        <!-- The band. Coloured by the message's purpose: teal for
+             confirmation, amber for attention, red for an emergency. The
+             amber tail is the logo's dot; on an amber band it simply reads
+             as a longer band, and on the red one it is the only colour that
+             is not red. Pixel widths, because Word ignores percentages. -->
+        <tr>
+          <td style="padding:0; font-size:0; line-height:0;">
+            <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;">
+              <tr>
+                <td width="480" style="width:480px; background:{{accent}}; height:6px; line-height:6px; font-size:0;">&nbsp;</td>
+                <td width="120" style="width:120px; background:#F5A623; height:6px; line-height:6px; font-size:0;">&nbsp;</td>
               </tr>
             </table>
           </td>
         </tr>
 
-        <!-- The accent rule. One 4px band, coloured by the message's purpose:
-             teal for confirmation, amber for attention, red for an emergency.
-             It is the only thing in the layout that changes between templates,
-             and it is readable before any text is. -->
+        <!-- Body. Centred; a body that needs a left-aligned block (a medical
+             summary, a list of who was reached) says so on that block. -->
         <tr>
-          <td style="background:{{accent}}; height:4px; line-height:4px; font-size:0;">&nbsp;</td>
-        </tr>
-
-        <!-- Body -->
-        <tr>
-          <td class="ss-pad ss-panel" style="background:#FBF9F5; padding:32px; font-family:Archivo, 'Helvetica Neue', Helvetica, Arial, sans-serif; color:#22282E;">
+          <td class="ss-pad ss-panel" align="center" style="background:#FFFFFF; padding:34px 32px 30px; text-align:center; font-family:Archivo, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; color:#22282E;">
             {{{content}}}
           </td>
         </tr>
 
-        <!--
-          Footer.
+        <!-- The full logo, above the footer, on the footer's ground. -->
+        <tr>
+          <td align="center" style="background:#F6F4EF; padding:26px 32px 6px; text-align:center; border-top:1px solid #E4E0D8;">
+            <img src="{{logo}}" width="220" height="134" alt="SafeShade - Your Everything Safety Companion"
+                 style="display:block; margin:0 auto; border:0; outline:none; text-decoration:none; width:220px; height:134px;">
+          </td>
+        </tr>
 
-          Three lines and no more, in this order, because each answers a
-          question somebody actually asks of an unexpected email:
+        <!--
+          Footer. In this order, because each line answers a question somebody
+          asks of an unexpected email:
 
             1. why did I get this            {{{footer}}}, written by the sender
             2. can I reply                   no, and it says so rather than
                                              leaving a reply to disappear
-            3. what is this                  the product name
-
-          There is deliberately NO postal address, phone number, company name or
-          support address here. SafeShade has none of those yet, and inventing
-          one to make an email look established is exactly the kind of detail
-          that is later discovered to be false. The sender address is the only
-          real address this product has.
+            3. where is this from            the address, as the owner gave it
+                                             on 2026-09-10
+            4. whose is it                   the copyright line
         -->
         <tr>
-          <td class="ss-pad" style="background:#F2EFE9; border-radius:0 0 14px 14px; padding:20px 32px; font-family:Archivo, 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size:12px; line-height:18px; color:#6A7078;">
+          <td class="ss-pad" align="center" style="background:#F6F4EF; border-radius:0 0 18px 18px; padding:10px 32px 26px; text-align:center; font-family:Archivo, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size:12px; line-height:18px; color:#6A7078;">
             {{{footer}}}
             <div style="margin-top:8px;">
               Replies to this address are not read.
             </div>
-            <div style="margin-top:8px; color:#8A9099;">
-              SafeShade &middot; Universal Safety Companion
+            <div style="margin-top:14px; color:#8A9099;">
+              SafeShade, Patia, OD CQ5D-OTPM
+            </div>
+            <div style="margin-top:4px; color:#8A9099;">
+              &copy; 2026 SafeShade. All rights reserved.
             </div>
           </td>
         </tr>

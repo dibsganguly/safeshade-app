@@ -256,7 +256,7 @@ sender that says SafeShade.
 
 Supabase sends the sign-in emails itself, from its own templates, so they have
 to be pasted in. **`auth-templates/` holds them ready to paste** -- whole
-documents, layout and body already merged, emblem and accent already inlined,
+documents, layout and body already merged, brand image URLs and accent already inlined,
 and every placeholder already resolved to a Supabase Go-template variable.
 
 Go to **Authentication -> Email Templates** and paste each file whole.
@@ -346,13 +346,25 @@ function and Resend, which renders `invite.html` with real values.
 
 Five functions, and between them ten designs in
 `functions/_shared/email/*.html`. Every one renders into the same `layout.html`
-frame: charcoal masthead with the emblem and the wordmark, a 4px accent band
-coloured by what the message is for (teal = a confirmation, amber = attention,
-trip red = an emergency, and red appears on nothing routine), a bone panel, and
-a three-line footer that says why you received it, that replies are not read,
-and what the product is. There is deliberately no postal address, phone number
-or support address anywhere: SafeShade has none, and inventing one to make an
-email look established is a detail that is later discovered to be false.
+frame, redesigned on 2026-09-10 after the owner saw the first one in Gmail
+and found it flat: a white card on a teal-tinted page, centred throughout. The
+masthead is the hosted emblem in its real colours over the wordmark and the
+two-colour tagline ("Your Everything Safety Companion", as the logo sets it);
+under it a 6px band coloured by what the message is for (teal = a
+confirmation, amber = attention, trip red = an emergency, and red appears on
+nothing routine) with an amber tail that is the logo's dot. Each body opens
+with a small pill in the same colour naming the occasion, then the heading.
+Codes sit in a charcoal box in teal digits; routine buttons are teal pills
+with charcoal text, and the alert's button stays charcoal so that the red is
+never something text has to be read on. The full logo sits above the footer,
+and the footer says why you received it, that replies are not read, the
+address the owner supplied that day (`SafeShade, Patia, OD CQ5D-OTPM`, typed
+in exactly as given), and `© 2026 SafeShade. All rights reserved.`
+
+Archivo is loaded from Google Fonts for the clients that load web fonts (Apple
+Mail, iOS, Outlook for Mac, Samsung); Gmail and Outlook for Windows do not,
+and show the system face from the fallback stack. Gmail is what the owner
+reads, so Gmail is what to judge the design in.
 
 The subject lives in each file's `<title>` and is lifted into that template's
 generated module, so the subject and the body cannot drift apart.
@@ -515,59 +527,33 @@ with nothing in it renders one sentence saying so**, not a grid of zeros: a
 guardian who reads a chart of nothing every Monday learns to ignore it,
 including on the Monday it is not empty.
 
-### The emblem does not render in Gmail
+### The images are hosted, because Gmail strips inlined ones
 
-`layout.html` inlines the emblem as a `data:` URI from
-`functions/_shared/email/emblem.ts`, generated from
-`docs/Logo/SafeShade Emblem Logo.png` — cropped to its alpha bounding box first
-(the source is a 2000×2000 canvas with the artwork in the middle of it), scaled
-to 40×61, quantized to eight colours, flattened onto the masthead charcoal, and
-written as GIF: 948 characters, in 56-character lines.
+`layout.html` carries two images, both from `functions/_shared/email/brand.ts`:
+the emblem in the masthead and the full logo above the footer. They are https
+URLs into the public **`brand`** bucket (`migrations/0008_brand_bucket.sql`),
+not `data:` URIs: Gmail strips `data:` in `<img src>`, and for a week every
+Gmail reader saw a broken-image glyph and the alt text where the emblem
+should have been.
 
-**Why so small, and why in short lines.** It used to be a 96px-wide 64-colour
-PNG, 4,238 characters of base64 on one line, and that is not reviewable. One
-wrong character in the middle of it produces a file that compiles, deploys,
-sends, and shows a broken image, with no diff, test or log anywhere saying so —
-which is exactly what happened during this pass, on a re-deploy, and was caught
-only by comparing the last seventy characters by hand. Short lines and a small
-image are what make the next such mistake visible.
+The files are in `supabase/brand/` — `emblem.png` (73×112, shown at 36×55)
+and `logo.png` (480×292, shown at 220 wide), both exported at twice their
+display size from `docs/Logo/` after cropping to the artwork's bounding box
+(the sources are 2000px canvases with the art in the middle). **Upload both
+to the `brand` bucket from the dashboard** (Storage → brand → Upload); nothing
+in the app writes there, and the bucket is readable by anyone, which is what an
+email image has to be.
 
-**To regenerate it.** There is deliberately no generator script — this runs once
-a logo changes, and a script nobody runs rots faster than a paragraph. It needs
-Pillow, which the repo does not otherwise depend on:
+`tools/gen_email_templates.py` sends a HEAD request to both URLs and refuses
+to write anything while either is missing, because a 404 in a masthead is
+worse than the alt text was. `--skip-image-check` is for editing offline and
+says so on the screen; do not deploy from a run that used it.
 
-```python
-import base64, io
-from PIL import Image
-src = Image.open("docs/Logo/SafeShade Emblem Logo.png").convert("RGBA")
-src = src.crop(src.getbbox())                    # never skip this
-src.thumbnail((40, 61), Image.LANCZOS)
-flat = Image.new("RGB", src.size, (34, 40, 46))  # the masthead charcoal
-flat.paste(src, (0, 0), src)
-buf = io.BytesIO()
-flat.convert("P", palette=Image.ADAPTIVE, colors=8).save(buf, "GIF", optimize=True)
-b64 = base64.b64encode(buf.getvalue()).decode()
-lines = [b64[i:i + 56] for i in range(0, len(b64), 56)]
-for n, line in enumerate(lines):
-    print(f'  "{line}"' + (" +" if n < len(lines) - 1 else ""))
-```
-
-Paste the lines into `emblem.ts`, keeping the 56-character split, and redeploy
-**every** function — the emblem ships inside each bundle.
-
-This is the recipe that produced the current 948 characters, not a
-reconstruction of it: re-run on **Pillow 12.2.0** it reproduces
-`EMBLEM_DATA_URI` byte for byte, and that was checked rather than assumed. The
-adaptive quantizer is not guaranteed identical across Pillow versions, so
-another version may give a different-but-equivalent image rather than the same
-bytes.
-
-**Gmail strips `data:` URIs in `<img src>`.** Gmail readers — which is most
-readers — see the alt text, which is why the alt text is `SafeShade` and not
-`logo`, and why the wordmark sits beside the emblem rather than inside it. Once
-there is a domain, upload the PNG to the public `avatars` bucket (or anywhere
-with an https URL) and replace `EMBLEM_DATA_URI` with it; that also removes the
-transcription hazard above entirely.
+To change a logo: replace the PNG in `supabase/brand/`, upload it over the old
+one (the bucket policy allows update), and redeploy nothing — the URL is the
+same. Bump the file name only if a client's image cache must be beaten, and
+then update `brand.ts`, regenerate, redeploy all five, and re-paste the auth
+templates.
 
 ## 7. Optional: send the auth emails through Resend too
 

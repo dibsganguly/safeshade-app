@@ -33,7 +33,7 @@
 2.  ``supabase/auth-templates/*.html`` -- the sign-in emails Supabase Auth sends
     itself, which cannot go through ``resend.ts`` at all.  They are whole
     documents (layout with the body inlined), with every ``{{name}}``
-    placeholder resolved: the emblem data URI, the accent, the literal copy,
+    placeholder resolved: the two hosted brand image URLs, the accent, the literal copy,
     and Supabase's own Go-template variables where a value is Supabase's to
     supply.
 
@@ -63,7 +63,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 EMAIL_DIR = REPO / "supabase" / "functions" / "_shared" / "email"
-EMBLEM_TS = EMAIL_DIR / "emblem.ts"
+BRAND_TS = EMAIL_DIR / "brand.ts"
 TEMPLATES_DIR = EMAIL_DIR / "templates"
 AUTH_DIR = REPO / "supabase" / "auth-templates"
 
@@ -116,26 +116,51 @@ def ts_template_literal(text: str) -> str:
     return "`" + escaped + "`"
 
 
-def emblem_data_uri() -> str:
-    """Pulls EMBLEM_DATA_URI out of emblem.ts without importing TypeScript.
+def brand_urls() -> tuple[str, str]:
+    """Pulls EMBLEM_URL and LOGO_URL out of brand.ts without importing TypeScript.
 
-    The value is a run of ``"..." +`` string literals rather than one long one,
-    because base64 in one 4,000-character line is not reviewable: a single wrong
-    character compiles, deploys, sends, and shows a broken image, and nothing
-    anywhere says so. Short lines are the whole point, so this joins them.
+    The URLs are read from the module the functions themselves import, so the
+    dashboard templates and the edge functions cannot point at different
+    images. The base is a plain string constant; the two exports are template
+    literals over it.
     """
-    source = read_text(EMBLEM_TS)
-    match = re.search(
-        r"export\s+const\s+EMBLEM_DATA_URI\s*=\s*((?:\s*\"[^\"]*\"\s*\+?)+)\s*;",
-        source,
-    )
-    if not match:
+    source = read_text(BRAND_TS)
+    base = re.search(r'const\s+BRAND_BASE\s*=\s*"([^"]+)"', source)
+    emblem = re.search(r'EMBLEM_URL\s*=\s*`\$\{BRAND_BASE\}([^`]+)`', source)
+    logo = re.search(r'LOGO_URL\s*=\s*`\$\{BRAND_BASE\}([^`]+)`', source)
+    if not (base and emblem and logo):
         raise SystemExit(
-            "emblem.ts no longer holds EMBLEM_DATA_URI as a run of "
-            "double-quoted string literals; gen_email_templates.py cannot read "
-            "it."
+            "brand.ts no longer holds BRAND_BASE, EMBLEM_URL and LOGO_URL in the "
+            "form this generator reads; update both together."
         )
-    return "".join(re.findall(r'"([^"]*)"', match.group(1)))
+    return base.group(1) + emblem.group(1), base.group(1) + logo.group(1)
+
+
+def check_brand_images(urls: tuple[str, str]) -> list[str]:
+    """Every URL must answer 200 before a template that carries it is written.
+
+    A hosted image that is missing shows a broken-image icon in Gmail, which
+    is worse than the alt text the old data: URI produced there. So the
+    generator asks the bucket first. `--skip-image-check` exists for editing
+    offline; it prints that it skipped, so the omission is on the screen.
+    """
+    if "--skip-image-check" in sys.argv:
+        print("SKIPPED the brand image check (--skip-image-check); do not deploy from this run")
+        return []
+    import urllib.error
+    import urllib.request
+
+    problems = []
+    for url in urls:
+        try:
+            with urllib.request.urlopen(urllib.request.Request(url, method="HEAD"), timeout=15) as r:
+                if r.status != 200:
+                    problems.append(f"{url}: HTTP {r.status}")
+        except urllib.error.HTTPError as e:
+            problems.append(f"{url}: HTTP {e.code} (upload supabase/brand/*.png to the brand bucket)")
+        except Exception as e:  # noqa: BLE001 - any failure to fetch is the same failure here
+            problems.append(f"{url}: {e}")
+    return problems
 
 
 TITLE_RE = re.compile(r"<title>(.*?)</title>\s*", re.DOTALL | re.IGNORECASE)
@@ -450,7 +475,7 @@ def strip_comments(html: str) -> str:
     return re.sub(r"\n{3,}", "\n\n", without)
 
 
-def render_auth_template(spec: AuthTemplate, emblem: str) -> tuple[str, str]:
+def render_auth_template(spec: AuthTemplate, emblem: str, logo: str) -> tuple[str, str]:
     """Returns ``(html, subject)`` for one dashboard-ready file."""
     layout = strip_comments(read_text(EMAIL_DIR / f"{LAYOUT_NAME}.html"))
     body_subject, body = split_title(
@@ -478,6 +503,7 @@ def render_auth_template(spec: AuthTemplate, emblem: str) -> tuple[str, str]:
     html = layout.replace("{{{content}}}", body.strip())
     html = html.replace("{{{footer}}}", spec.footer)
     html = html.replace("{{emblem}}", emblem)
+    html = html.replace("{{logo}}", logo)
     html = html.replace("{{accent}}", spec.accent)
     html = html.replace("{{title}}", subject)
     html = html.replace("{{preheader}}", spec.preheader)
@@ -495,11 +521,11 @@ def check_no_stray_placeholders(name: str, html: str) -> list[str]:
 
 
 def generate_auth_templates() -> tuple[list[tuple[Path, AuthTemplate, str]], list[str]]:
-    emblem = emblem_data_uri()
+    emblem, logo = brand_urls()
     written: list[tuple[Path, AuthTemplate, str]] = []
-    problems: list[str] = []
+    problems: list[str] = list(check_brand_images((emblem, logo)))
     for spec in AUTH_TEMPLATES:
-        html, subject = render_auth_template(spec, emblem)
+        html, subject = render_auth_template(spec, emblem, logo)
         problems.extend(check_no_stray_placeholders(spec.out_name, html))
         out = AUTH_DIR / spec.out_name
         write_text(out, html)
