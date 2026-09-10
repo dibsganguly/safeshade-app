@@ -30,6 +30,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.safeshade.ui.shady.ShadyHost
 import com.safeshade.ui.shady.ShadyMood
+import com.safeshade.ui.theme.Hub
 import com.safeshade.ui.theme.Radius
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.Stroke
@@ -62,11 +63,13 @@ fun MainsPlate(
     signalDbm: Int? = null,
     /** Who the device is looking after. The contract's "who is protected". */
     protectedName: String? = null,
-    trailing: (@Composable () -> Unit)? = null
+    trailing: (@Composable () -> Unit)? = null,
+    /** The hub this plate heads. It is the one tinted plate on that hub. */
+    hub: Hub? = null
 ) {
     val colors = MaterialTheme.board
 
-    BoardPlate(modifier = modifier.fillMaxWidth()) {
+    BoardPlate(modifier = modifier.fillMaxWidth(), hub = hub) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(Spacing.lg)

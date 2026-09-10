@@ -30,12 +30,13 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.Alignment
-import com.safeshade.ui.board.Hairline
 import com.safeshade.ui.board.LampState
 import com.safeshade.ui.board.MainsPlate
 import com.safeshade.ui.board.Nameplate
-import com.safeshade.ui.board.SectionPlate
+import com.safeshade.ui.board.Tile
+import com.safeshade.ui.board.TileGrid
 import com.safeshade.ui.board.Way
+import com.safeshade.ui.theme.Hub
 import com.safeshade.ui.board.ScreenHeader
 import com.safeshade.ui.board.ScreenTier
 import com.safeshade.ui.icons.SafeShadeIcons
@@ -297,137 +298,112 @@ fun DeviceScreen(
                 // The Protecting bay was never fed here, so it read "Not set"
                 // under a subline that named the wearer.
                 protectedName = state.wearerName,
-                // Battery and signal are omitted entirely while there is no
-                // link, rather than shown as dashes. The lamp has already said
-                // why, and "--" in a readout reads as a broken instrument.
                 batteryPercent = state.batteryPercent,
-                signalDbm = state.signalDbm
+                signalDbm = state.signalDbm,
+                // The one tinted plate on this hub.
+                hub = Hub.DEVICE
             )
         }
 
-        item("ways-heading") { SectionPlate(title = "Ways") }
-
-        item("ways") {
+        // Nearby reports; it does not open anything, so it is the one row on
+        // the hub and not a tile. Its explanation is on the row (2.28).
+        item("nearby") {
             BoardPlate(modifier = Modifier.fillMaxWidth()) {
-                Way(
-                    name = "Adaptive mode",
-                    state = if (state.connection.isUsable) LampState.LIVE else LampState.UNKNOWN,
-                    stateLabel = state.mode.label,
-                    detail = state.mode.blurb,
-                    // The row's own glyph, not the selected persona's.
-                    //
-                    // This was `state.mode.icon`, which made it the one row in
-                    // the bank whose icon changed shape with its value: a row
-                    // called "Adaptive mode" showed a backpack, or a helmet, or
-                    // a cane. An icon in this column is an identity - it says
-                    // which way you are looking at, the way "Lights" and
-                    // "Reminders" do - and what the row is set to is already
-                    // stated twice to the right of it, in the state word and in
-                    // the blurb underneath.
-                    icon = SafeShadeIcons.AdaptiveMode,
-                    // The seal is the honest signal that this mode has taken
-                    // the wearable's own Mode and Safety menus away from the
-                    // person wearing it.
-                    sealed = state.mode.isGuardianLocked,
-                    onClick = { onOpenWay(Routes.DEVICE_MODE) }
-                )
-                Hairline()
-                Way(
-                    name = "Device settings",
-                    state = if (state.connection.isUsable) LampState.LIVE else LampState.UNKNOWN,
-                    stateLabel = if (state.connection.isUsable) "Open" else "Offline",
-                    detail = state.syncSummary,
-                    icon = SafeShadeIcons.DeviceSettings,
-                    onClick = { onOpenWay(Routes.DEVICE_SETTINGS) }
-                )
-                Hairline()
-                Way(
-                    name = "Lights",
-                    state = if (state.connection.isUsable) LampState.LIVE else LampState.UNKNOWN,
-                    stateLabel = state.ledPattern.label,
-                    icon = SafeShadeIcons.Lights,
-                    onClick = { onOpenWay(Routes.DEVICE_LIGHTS) }
-                )
-                Hairline()
-                Way(
-                    name = "Find the device",
-                    // Ringing is a lit, attention-demanding state and stays lit
-                    // until somebody taps the wearable — the app is never told
-                    // that it stopped, so this row must not settle on its own.
-                    state = if (state.isRinging) LampState.ATTENTION else LampState.OFF,
-                    stateLabel = if (state.isRinging) "Ringing" else "Ready",
-                    detail = state.lastSeenLabel?.let { "Last seen $it" },
-                    icon = SafeShadeIcons.FindTheDevice,
-                    onClick = { onOpenWay(Routes.DEVICE_LOCATE) }
-                )
-                Hairline()
-                Way(
-                    name = "Telemetry",
-                    state = if (state.hasTelemetry) LampState.LIVE else LampState.UNKNOWN,
-                    stateLabel = if (state.hasTelemetry) "Live" else "No data",
-                    icon = SafeShadeIcons.Telemetry,
-                    onClick = { onOpenWay(Routes.DEVICE_TELEMETRY) }
-                )
-                Hairline()
-                Way(
-                    name = "Reminders",
-                    state = if (state.activeReminderCount > 0) LampState.LIVE else LampState.OFF,
-                    stateLabel = if (state.activeReminderCount > 0) {
-                        "${state.activeReminderCount} on"
-                    } else {
-                        "None"
-                    },
-                    icon = SafeShadeIcons.Reminders,
-                    onClick = { onOpenWay(Routes.DEVICE_REMINDERS) }
-                )
-                Hairline()
-                Way(
-                    name = "Paired devices",
-                    state = if (state.pairedDeviceCount > 0) LampState.LIVE else LampState.OFF,
-                    stateLabel = if (state.pairedDeviceCount > 0) {
-                        "${state.pairedDeviceCount} saved"
-                    } else {
-                        "None"
-                    },
-                    icon = SafeShadeIcons.PairedDevices,
-                    onClick = { onOpenWay(Routes.DEVICE_PAIRED) }
-                )
-                Hairline()
                 Way(
                     name = "Nearby",
                     state = state.leashLamp,
                     stateLabel = state.leashWord ?: "—",
-                    detail = state.leashLine ?: "How far the wearable is from this phone, read off the link's strength.",
-                    // Its own glyph, not the Bluetooth mark Paired devices
-                    // already wears two rows up: two rows with one glyph read
-                    // as one thing twice.
-                    icon = SafeShadeIcons.BluetoothNearby
-                )
-                Hairline()
-                Way(
-                    name = "Firmware",
-                    state = if (state.firmwareVersion != null) LampState.LIVE else LampState.UNKNOWN,
-                    stateLabel = state.firmwareVersion ?: "—",
-                    icon = SafeShadeIcons.CpuChip,
-                    onClick = { onOpenWay(Routes.DEVICE_FIRMWARE) }
-                )
-                Hairline()
-                Way(
-                    name = "Lost",
-                    state = if (state.lostCount > 0) LampState.ATTENTION else LampState.OFF,
-                    stateLabel = if (state.lostCount > 0) "${state.lostCount} lost" else "None",
-                    icon = SafeShadeIcons.Search01,
-                    onClick = { onOpenWay(Routes.DEVICE_LOST) }
-                )
-                Hairline()
-                Way(
-                    name = "Ride log",
-                    state = if (state.rideCount > 0) LampState.LIVE else LampState.OFF,
-                    stateLabel = if (state.rideCount > 0) "${state.rideCount}" else "None",
-                    icon = SafeShadeIcons.Bicycle01,
-                    onClick = { onOpenWay(Routes.DEVICE_RIDES) }
+                    detail = state.leashLine,
+                    icon = SafeShadeIcons.BluetoothNearby,
+                    help = "How far the wearable is from this phone, read off the strength of the Bluetooth link. Walls and a pocket both cost signal, so the word is a distance band, not a measurement."
                 )
             }
+        }
+
+        // Destinations are tiles (2.84): every row here had the same shape
+        // and most had a dash, and ten of them read as a settings list rather
+        // than as places to go. Each tile's watermark is in its state's
+        // colour, so the hub says at a glance which circuits are doing
+        // something.
+        item("ways") {
+            val linkLamp = if (state.connection.isUsable) LampState.LIVE else LampState.UNKNOWN
+            TileGrid(
+                listOf(
+                    Tile(
+                        title = "Adaptive mode",
+                        icon = SafeShadeIcons.AdaptiveMode,
+                        state = linkLamp,
+                        stateLabel = state.mode.label,
+                        onClick = { onOpenWay(Routes.DEVICE_MODE) },
+                        tag = if (state.mode.isGuardianLocked) "Sealed" else null
+                    ),
+                    Tile(
+                        title = "Device settings",
+                        icon = SafeShadeIcons.DeviceSettings,
+                        state = linkLamp,
+                        stateLabel = if (state.connection.isUsable) "Open" else "Offline",
+                        onClick = { onOpenWay(Routes.DEVICE_SETTINGS) }
+                    ),
+                    Tile(
+                        title = "Lights",
+                        icon = SafeShadeIcons.Lights,
+                        state = linkLamp,
+                        stateLabel = state.ledPattern.label,
+                        onClick = { onOpenWay(Routes.DEVICE_LIGHTS) }
+                    ),
+                    Tile(
+                        title = "Find the device",
+                        icon = SafeShadeIcons.FindTheDevice,
+                        // Ringing stays lit until somebody taps the wearable;
+                        // the app is never told that it stopped.
+                        state = if (state.isRinging) LampState.ATTENTION else LampState.OFF,
+                        stateLabel = if (state.isRinging) "Ringing" else state.lastSeenLabel?.let { "Seen $it" } ?: "Ready",
+                        onClick = { onOpenWay(Routes.DEVICE_LOCATE) }
+                    ),
+                    Tile(
+                        title = "Telemetry",
+                        icon = SafeShadeIcons.Telemetry,
+                        state = if (state.hasTelemetry) LampState.LIVE else LampState.UNKNOWN,
+                        stateLabel = if (state.hasTelemetry) "Live" else "No data",
+                        onClick = { onOpenWay(Routes.DEVICE_TELEMETRY) }
+                    ),
+                    Tile(
+                        title = "Reminders",
+                        icon = SafeShadeIcons.Reminders,
+                        state = if (state.activeReminderCount > 0) LampState.LIVE else LampState.OFF,
+                        stateLabel = if (state.activeReminderCount > 0) "${state.activeReminderCount} on" else "None",
+                        onClick = { onOpenWay(Routes.DEVICE_REMINDERS) }
+                    ),
+                    Tile(
+                        title = "Paired devices",
+                        icon = SafeShadeIcons.PairedDevices,
+                        state = if (state.pairedDeviceCount > 0) LampState.LIVE else LampState.OFF,
+                        stateLabel = if (state.pairedDeviceCount > 0) "${state.pairedDeviceCount} saved" else "None",
+                        onClick = { onOpenWay(Routes.DEVICE_PAIRED) }
+                    ),
+                    Tile(
+                        title = "Firmware",
+                        icon = SafeShadeIcons.CpuChip,
+                        state = if (state.firmwareVersion != null) LampState.LIVE else LampState.UNKNOWN,
+                        stateLabel = state.firmwareVersion ?: "—",
+                        onClick = { onOpenWay(Routes.DEVICE_FIRMWARE) }
+                    ),
+                    Tile(
+                        title = "Lost",
+                        icon = SafeShadeIcons.Search01,
+                        state = if (state.lostCount > 0) LampState.ATTENTION else LampState.OFF,
+                        stateLabel = if (state.lostCount > 0) "${state.lostCount} lost" else "None",
+                        onClick = { onOpenWay(Routes.DEVICE_LOST) }
+                    ),
+                    Tile(
+                        title = "Ride log",
+                        icon = SafeShadeIcons.Bicycle01,
+                        state = if (state.rideCount > 0) LampState.LIVE else LampState.OFF,
+                        stateLabel = if (state.rideCount > 0) "${state.rideCount} rides" else "None",
+                        onClick = { onOpenWay(Routes.DEVICE_RIDES) }
+                    )
+                )
+            )
         }
     }
 }

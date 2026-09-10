@@ -13,18 +13,15 @@ import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -61,6 +58,7 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.theme.BrandCharcoal
@@ -447,19 +445,26 @@ fun EditorFootBar(
 @Composable
 fun EditorScaffold(
     modifier: Modifier = Modifier,
+    /**
+     * The bottom of the screen's own content padding: what the host reserves
+     * for the bottom bar. The foot sits on top of that reservation. The
+     * navigation-bar inset is not added here because the host's bar already
+     * consumes it, and adding it again floated the foot a thumb above the bar.
+     */
+    bottomPadding: Dp = 0.dp,
     foot: @Composable () -> Unit,
-    content: @Composable (bottomPadding: PaddingValues) -> Unit
+    content: @Composable (footPadding: PaddingValues) -> Unit
 ) {
     var footHeightPx by remember { mutableIntStateOf(0) }
     val footHeight = with(LocalDensity.current) { footHeightPx.toDp() }
     Box(modifier = modifier.fillMaxSize()) {
-        content(PaddingValues(bottom = footHeight))
+        content(PaddingValues(bottom = footHeight + bottomPadding))
         Box(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
+                .padding(bottom = bottomPadding)
                 .imePadding()
-                .windowInsetsPadding(WindowInsets.navigationBars)
                 .onSizeChanged { footHeightPx = it.height }
         ) {
             foot()

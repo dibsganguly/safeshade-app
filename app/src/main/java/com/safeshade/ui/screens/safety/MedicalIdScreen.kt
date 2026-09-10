@@ -5,20 +5,17 @@ import android.content.res.Configuration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -28,22 +25,25 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.safeshade.data.MedicalId
 import com.safeshade.ui.board.BLOOD_GROUP_SUGGESTIONS
-import com.safeshade.ui.board.BoardButton
 import com.safeshade.ui.board.BoardPlate
-import com.safeshade.ui.board.ButtonWeight
+import com.safeshade.ui.board.Callout
 import com.safeshade.ui.board.ChipRow
+import com.safeshade.ui.board.EditorFootBar
+import com.safeshade.ui.board.EditorScaffold
 import com.safeshade.ui.board.ExpandableSection
+import com.safeshade.ui.board.FooterAction
+import com.safeshade.ui.board.Footnote
+import com.safeshade.ui.board.Hairline
 import com.safeshade.ui.board.LampState
 import com.safeshade.ui.board.PlateField
 import com.safeshade.ui.board.SectionPlate
+import com.safeshade.ui.board.TaggedPlate
 import com.safeshade.ui.board.Way
-import com.safeshade.ui.board.WhyDisclosure
 import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.Stroke
 import com.safeshade.ui.theme.board
-import com.safeshade.ui.theme.boardType
 
 /** Everything the medical ID editor draws. */
 data class MedicalIdUiState(
@@ -105,208 +105,110 @@ fun MedicalIdScreen(
 ) {
     val colors = MaterialTheme.board
     val id = state.medicalId
-    val subject = state.wearerName.ifBlank { "the wearer" }
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(colors.ground)
-            .verticalScroll(rememberScrollState())
-            .padding(
-                start = Spacing.gutter,
-                end = Spacing.gutter,
-                top = contentPadding.calculateTopPadding() + Spacing.sm,
-                bottom = contentPadding.calculateBottomPadding() + Spacing.xxl
+    // The editor's foot is pinned (candidate 2.34): a person seven fields
+    // into the card can always see the way out, and the pair says what is
+    // unsaved and where the record stands without a sentence under a button.
+    EditorScaffold(
+        modifier = modifier.fillMaxSize().background(colors.ground),
+        bottomPadding = contentPadding.calculateBottomPadding(),
+        foot = {
+            EditorFootBar(
+                primaryLabel = if (state.linkLive) "Save and Send" else "Save",
+                onPrimary = onSave,
+                secondaryLabel = "Discard",
+                // Leaving the editor drops the unsaved edits; that is what
+                // Discard means here, and it is red because it is a loss.
+                onSecondary = onBack,
+                changedLine = if (state.isDirty) "Unsaved changes" else "Nothing to save",
+                statusLine = when {
+                    state.isDirty && state.linkLive -> "Sends to the wearable on save"
+                    state.isDirty -> "Kept until the wearable connects"
+                    else -> state.lastSyncedLabel ?: "Not yet on the wearable"
+                },
+                statusState = when {
+                    state.isDirty -> LampState.ATTENTION
+                    state.lastSyncedLabel != null -> LampState.LIVE
+                    else -> null
+                },
+                primaryEnabled = state.isDirty,
+                secondaryEnabled = state.isDirty
             )
-    ) {
-        PanelHeader(
-            title = "Medical ID",
-            subtitle = "What a paramedic reads off the device screen.",
-            onBack = onBack
-        )
+        }
+    ) { footPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(
+                    start = Spacing.gutter,
+                    end = Spacing.gutter,
+                    top = contentPadding.calculateTopPadding() + Spacing.sm,
+                    bottom = footPadding.calculateBottomPadding() + Spacing.lg
+                )
+        ) {
+            PanelHeader(
+                title = "Medical ID",
+                subtitle = "What a paramedic reads off the device screen.",
+                onBack = onBack
+            )
 
-        // No Spacer here: CompletenessPlate is the first thing on this screen,
-        // and PanelHeader already supplies the whole header-to-content gap.
-        // A Spacing.lg on top of that was a third gap stacked on the header's
-        // own 20dp, not a separator between two pieces of content.
-        CompletenessPlate(medicalId = id)
+            CompletenessPlate(medicalId = id, onOpenCard = onOpenCard)
 
-        Spacer(Modifier.height(Spacing.xl))
-        SectionPlate(title = "The essentials")
-        Spacer(Modifier.height(Spacing.md))
+            Spacer(Modifier.height(Spacing.xl))
+            SectionPlate(title = "The essentials")
+            Spacer(Modifier.height(Spacing.md))
 
-        PlateField(
-            label = "Blood type",
-            value = id.bloodType,
-            onValueChange = { onChange(id.copy(bloodType = stripDeviceDelimiters(it))) },
-            placeholder = "B+",
-            // The eight groups used to be listed here because there was
-            // nothing else to list them. The chips below are that list now,
-            // and one tappable, so repeating them in the helper would be the
-            // same eight strings said twice.
-            maxLength = MAX_BLOOD_TYPE,
-            imeAction = ImeAction.Next
-        )
+            PlateField(
+                label = "Blood type",
+                value = id.bloodType,
+                onValueChange = { onChange(id.copy(bloodType = stripDeviceDelimiters(it))) },
+                placeholder = "B+",
+                maxLength = MAX_BLOOD_TYPE,
+                imeAction = ImeAction.Next
+            )
 
-        Spacer(Modifier.height(Spacing.sm))
-
-        // The box stays: a wearer whose record says "O+ (Rh null)" or who
-        // knows only "O" can still type it, and neither lights a chip, which
-        // is correct rather than an error. What the row removes is spelling a
-        // blood group on a phone keyboard, where a slip between B+ and B- is
-        // both easy and the worst typo on this card.
-        ChipRow(
-            options = BLOOD_GROUP_SUGGESTIONS,
-            selected = id.bloodType,
-            onSelect = { onChange(id.copy(bloodType = it)) }
-        )
-
-        Spacer(Modifier.height(Spacing.lg))
-
-        // The comma warning sits above the first free-text field rather than
-        // being repeated under each one. The short line is the whole of what
-        // somebody in the middle of typing needs; why it matters is worth
-        // having and is not worth four lines above the box on every visit.
-        Note(text = "Commas are removed from the text boxes as you type.")
-        Spacer(Modifier.height(Spacing.xs))
-        WhyDisclosure(
-            label = "Why commas are removed",
-            text = "The device splits the record on commas with no escaping, so a single one " +
-                "in Allergies would shift age into Conditions and everything after it, and " +
-                "produce a wrong card rather than an error. Separate several items with a " +
-                "space, a full stop or the word \"and\"."
-        )
-
-        Spacer(Modifier.height(Spacing.md))
-
-        PlateField(
-            label = "Allergies",
-            value = id.allergies,
-            onValueChange = { onChange(id.copy(allergies = stripDeviceDelimiters(it))) },
-            placeholder = "Penicillin. Peanuts.",
-            maxLength = MAX_FREE_TEXT,
-            imeAction = ImeAction.Next
-        )
-
-        Spacer(Modifier.height(Spacing.lg))
-
-        Note(text = "The first contact is printed on the card and shown on the device.")
-        Spacer(Modifier.height(Spacing.xs))
-        WhyDisclosure(
-            label = "How this differs from the call list",
-            text = "The contacts here are printed for a human being to read and ring " +
-                "themselves. They are separate from the emergency contact list the phone " +
-                "dials automatically after a fall – the same person usually belongs in both, " +
-                "and filling one in does not fill in the other."
-        )
-
-        Spacer(Modifier.height(Spacing.md))
-
-        PlateField(
-            label = "First contact – name",
-            value = id.contactName,
-            onValueChange = { onChange(id.copy(contactName = stripDeviceDelimiters(it))) },
-            placeholder = "Priya (daughter)",
-            maxLength = MAX_CONTACT_NAME,
-            imeAction = ImeAction.Next
-        )
-
-        Spacer(Modifier.height(Spacing.lg))
-
-        PlateField(
-            label = "First contact – number",
-            value = id.emergencyContact,
-            onValueChange = { onChange(id.copy(emergencyContact = stripDeviceDelimiters(it))) },
-            placeholder = "+91 98300 11223",
-            error = if (id.emergencyContact.isNotEmpty() && !isPlausiblePhone(id.emergencyContact)) {
-                "Numbers, spaces, + and - only"
-            } else {
-                null
-            },
-            maxLength = MAX_CONTACT_PHONE,
-            keyboardType = KeyboardType.Phone,
-            visualTransformation = IndianPhoneTransformation(),
-            imeAction = ImeAction.Next
-        )
-
-        Spacer(Modifier.height(Spacing.xl))
-
-        // Seven real fields, none of them the reason anybody opens this screen
-        // a second time. A card carrying a blood type, an allergy and one
-        // number is already worth showing a responder — `isUsable` says so —
-        // and the rest is what a guardian fills in once, on the evening they
-        // set the device up, and then leaves alone. Twelve stacked text boxes
-        // are also the thing that made this screen read as a form to be
-        // completed rather than a card to be got right.
-        ExpandableSection(label = "More medical details",
-                    icon = SafeShadeIcons.MedicalId, count = 7) {
             Spacer(Modifier.height(Spacing.sm))
 
-            PlateField(
-                label = "Age",
-                value = if (id.age > 0) id.age.toString() else "",
-                onValueChange = { onChange(id.copy(age = parseAge(it))) },
-                placeholder = "74",
-                helper = "Responders use this to work out doses.",
-                maxLength = 3,
-                keyboardType = KeyboardType.Number,
-                imeAction = ImeAction.Next
+            // The box stays: a wearer whose record says "O+ (Rh null)" or who
+            // knows only "O" can still type it, and neither lights a chip,
+            // which is correct rather than an error. What the row removes is
+            // spelling a blood group on a phone keyboard, where a slip between
+            // B+ and B- is both easy and the worst typo on this card.
+            ChipRow(
+                options = BLOOD_GROUP_SUGGESTIONS,
+                selected = id.bloodType,
+                onSelect = { onChange(id.copy(bloodType = it)) }
             )
 
             Spacer(Modifier.height(Spacing.lg))
 
             PlateField(
-                label = "Conditions",
-                value = id.conditions,
-                onValueChange = { onChange(id.copy(conditions = stripDeviceDelimiters(it))) },
-                placeholder = "Type 2 diabetes. Pacemaker.",
+                label = "Allergies",
+                value = id.allergies,
+                onValueChange = { onChange(id.copy(allergies = stripDeviceDelimiters(it))) },
+                placeholder = "Penicillin. Peanuts.",
                 maxLength = MAX_FREE_TEXT,
                 imeAction = ImeAction.Next
             )
 
-            Spacer(Modifier.height(Spacing.lg))
+            Spacer(Modifier.height(Spacing.sm))
 
-            PlateField(
-                label = "Medications",
-                value = id.medications,
-                onValueChange = { onChange(id.copy(medications = stripDeviceDelimiters(it))) },
-                placeholder = "Metformin 500mg twice daily",
-                maxLength = MAX_FREE_TEXT,
-                imeAction = ImeAction.Next
+            // The one thing on this page a person must not miss, so it is the
+            // page's one callout and it sits under the first free-text box,
+            // which is where the comma gets typed.
+            Callout(
+                lead = "Commas are removed as you type.",
+                sentence = "The wearable splits the record on commas, so one in Allergies would shift every field after it. Separate items with a full stop or the word \"and\"."
             )
 
             Spacer(Modifier.height(Spacing.lg))
 
             PlateField(
-                label = "Anything else",
-                value = id.notes,
-                onValueChange = { onChange(id.copy(notes = stripDeviceDelimiters(it))) },
-                placeholder = "Hard of hearing on the left side",
-                helper = "One short line. This is the first thing dropped if the record is too long to send.",
-                maxLength = MAX_FREE_TEXT,
-                singleLine = false,
-                imeAction = ImeAction.Next
-            )
-
-            Spacer(Modifier.height(Spacing.lg))
-
-            BoardPlate(modifier = Modifier.fillMaxWidth()) {
-                Way(
-                    name = "Organ donor",
-                    state = if (id.organDonor) LampState.LIVE else LampState.OFF,
-                    stateLabel = if (id.organDonor) "Yes" else "Not stated",
-                    checked = id.organDonor,
-                    onCheckedChange = { onChange(id.copy(organDonor = it)) }
-                )
-            }
-
-            Spacer(Modifier.height(Spacing.lg))
-
-            PlateField(
-                label = "Second contact – name",
-                value = id.secondaryContactName,
-                onValueChange = { onChange(id.copy(secondaryContactName = stripDeviceDelimiters(it))) },
-                placeholder = "Dr Sen",
+                label = "First contact – name",
+                value = id.contactName,
+                onValueChange = { onChange(id.copy(contactName = stripDeviceDelimiters(it))) },
+                placeholder = "Priya (daughter)",
                 maxLength = MAX_CONTACT_NAME,
                 imeAction = ImeAction.Next
             )
@@ -314,11 +216,11 @@ fun MedicalIdScreen(
             Spacer(Modifier.height(Spacing.lg))
 
             PlateField(
-                label = "Second contact – number",
-                value = id.secondaryContact,
-                onValueChange = { onChange(id.copy(secondaryContact = stripDeviceDelimiters(it))) },
-                placeholder = "+91 98300 44556",
-                error = if (id.secondaryContact.isNotEmpty() && !isPlausiblePhone(id.secondaryContact)) {
+                label = "First contact – number",
+                value = id.emergencyContact,
+                onValueChange = { onChange(id.copy(emergencyContact = stripDeviceDelimiters(it))) },
+                placeholder = "+91 98300 11223",
+                error = if (id.emergencyContact.isNotEmpty() && !isPlausiblePhone(id.emergencyContact)) {
                     "Numbers, spaces, + and - only"
                 } else {
                     null
@@ -326,36 +228,119 @@ fun MedicalIdScreen(
                 maxLength = MAX_CONTACT_PHONE,
                 keyboardType = KeyboardType.Phone,
                 visualTransformation = IndianPhoneTransformation(),
-                imeAction = ImeAction.Done
+                imeAction = ImeAction.Next
             )
-        }
 
-        Spacer(Modifier.height(Spacing.xl))
-
-        BoardButton(
-            label = if (state.linkLive) "Save and Send to the Device" else "Save",
-            supporting = if (state.linkLive) null else "The device is not connected. This is kept and sent when it is.",
-            onClick = onSave,
-            enabled = state.isDirty,
-            weight = ButtonWeight.COMMIT,
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        if (state.lastSyncedLabel != null) {
             Spacer(Modifier.height(Spacing.sm))
-            Note(text = state.lastSyncedLabel)
+            Footnote("Printed on the card for a person to ring themselves. The list the phone dials after a fall is separate, under Contacts.")
+
+            Spacer(Modifier.height(Spacing.xl))
+
+            // Seven real fields, none of them the reason anybody opens this
+            // screen a second time. Closed, the bank previews which of the
+            // seven are filled in, so it can stay closed.
+            BoardPlate(modifier = Modifier.fillMaxWidth()) {
+                ExpandableSection(
+                    label = "More medical details",
+                    icon = SafeShadeIcons.MedicalId,
+                    count = 7,
+                    preview = listOf(
+                        (if (id.age > 0) "Age ${id.age}" else "Age") to (if (id.age > 0) LampState.LIVE else LampState.OFF),
+                        "Conditions" to (if (id.conditions.isNotBlank()) LampState.LIVE else LampState.OFF),
+                        "Medications" to (if (id.medications.isNotBlank()) LampState.LIVE else LampState.OFF),
+                        "Notes" to (if (id.notes.isNotBlank()) LampState.LIVE else LampState.OFF),
+                        "Donor" to (if (id.organDonor) LampState.LIVE else LampState.OFF),
+                        "Second contact" to (if (id.secondaryContact.isNotBlank()) LampState.LIVE else LampState.OFF)
+                    )
+                ) {
+                    Hairline()
+                    Column(Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.lg)) {
+                        PlateField(
+                            label = "Age",
+                            value = if (id.age > 0) id.age.toString() else "",
+                            onValueChange = { onChange(id.copy(age = parseAge(it))) },
+                            placeholder = "74",
+                            helper = "Responders use this to work out doses.",
+                            maxLength = 3,
+                            keyboardType = KeyboardType.Number,
+                            imeAction = ImeAction.Next
+                        )
+
+                        Spacer(Modifier.height(Spacing.lg))
+
+                        PlateField(
+                            label = "Conditions",
+                            value = id.conditions,
+                            onValueChange = { onChange(id.copy(conditions = stripDeviceDelimiters(it))) },
+                            placeholder = "Type 2 diabetes. Pacemaker.",
+                            maxLength = MAX_FREE_TEXT,
+                            imeAction = ImeAction.Next
+                        )
+
+                        Spacer(Modifier.height(Spacing.lg))
+
+                        PlateField(
+                            label = "Medications",
+                            value = id.medications,
+                            onValueChange = { onChange(id.copy(medications = stripDeviceDelimiters(it))) },
+                            placeholder = "Metformin 500mg twice daily",
+                            maxLength = MAX_FREE_TEXT,
+                            imeAction = ImeAction.Next
+                        )
+
+                        Spacer(Modifier.height(Spacing.lg))
+
+                        PlateField(
+                            label = "Anything else",
+                            value = id.notes,
+                            onValueChange = { onChange(id.copy(notes = stripDeviceDelimiters(it))) },
+                            placeholder = "Hard of hearing on the left side",
+                            helper = "One short line. This is the first thing dropped if the record is too long to send.",
+                            maxLength = MAX_FREE_TEXT,
+                            singleLine = false,
+                            imeAction = ImeAction.Next
+                        )
+
+                        Spacer(Modifier.height(Spacing.lg))
+
+                        PlateField(
+                            label = "Second contact – name",
+                            value = id.secondaryContactName,
+                            onValueChange = { onChange(id.copy(secondaryContactName = stripDeviceDelimiters(it))) },
+                            placeholder = "Dr Sen",
+                            maxLength = MAX_CONTACT_NAME,
+                            imeAction = ImeAction.Next
+                        )
+
+                        Spacer(Modifier.height(Spacing.lg))
+
+                        PlateField(
+                            label = "Second contact – number",
+                            value = id.secondaryContact,
+                            onValueChange = { onChange(id.copy(secondaryContact = stripDeviceDelimiters(it))) },
+                            placeholder = "+91 98300 44556",
+                            error = if (id.secondaryContact.isNotEmpty() && !isPlausiblePhone(id.secondaryContact)) {
+                                "Numbers, spaces, + and - only"
+                            } else {
+                                null
+                            },
+                            maxLength = MAX_CONTACT_PHONE,
+                            keyboardType = KeyboardType.Phone,
+                            visualTransformation = IndianPhoneTransformation(),
+                            imeAction = ImeAction.Done
+                        )
+                    }
+                    Hairline()
+                    Way(
+                        name = "Organ donor",
+                        state = if (id.organDonor) LampState.LIVE else LampState.OFF,
+                        stateLabel = if (id.organDonor) "Yes" else "Not stated",
+                        checked = id.organDonor,
+                        onCheckedChange = { onChange(id.copy(organDonor = it)) }
+                    )
+                }
+            }
         }
-
-        Spacer(Modifier.height(Spacing.lg))
-
-        BoardButton(
-            label = "Show the emergency card",
-            icon = SafeShadeIcons.QrCode,
-            onClick = onOpenCard,
-            enabled = id.isUsable,
-            weight = ButtonWeight.SECONDARY,
-            modifier = Modifier.fillMaxWidth()
-        )
     }
 }
 
@@ -368,27 +353,24 @@ fun MedicalIdScreen(
  * nearly empty, not to ask for a full house.
  */
 @Composable
-private fun CompletenessPlate(medicalId: MedicalId) {
+private fun CompletenessPlate(medicalId: MedicalId, onOpenCard: () -> Unit) {
     val colors = MaterialTheme.board
     val filled = medicalId.filledFieldCount
     val progress = filled / 11f
 
-    BoardPlate(modifier = Modifier.fillMaxWidth()) {
+    // The verdict is a stamp in the corner (2.90) in its state ink, and the
+    // card itself is the plate's foot (2.92): the thing this plate is about
+    // is one row away rather than a button at the end of the page.
+    TaggedPlate(
+        tag = if (medicalId.isUsable) "Worth showing" else "Not usable yet",
+        tagColor = if (medicalId.isUsable) colors.inkLive else colors.inkAttention
+    ) {
         Column(modifier = Modifier.padding(Spacing.lg)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = "$filled of 11 filled in",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = colors.ink,
-                    modifier = Modifier.weight(1f)
-                )
-                Spacer(Modifier.width(Spacing.md))
-                Text(
-                    text = if (medicalId.isUsable) "Worth showing" else "Not usable yet",
-                    style = MaterialTheme.boardType.stateLabel,
-                    color = if (medicalId.isUsable) colors.inkLive else colors.inkAttention
-                )
-            }
+            Text(
+                text = "$filled of 11 filled in",
+                style = MaterialTheme.typography.titleMedium,
+                color = colors.ink
+            )
             Spacer(Modifier.height(Spacing.sm))
             LinearProgressIndicator(
                 progress = { progress },
@@ -409,6 +391,12 @@ private fun CompletenessPlate(medicalId: MedicalId) {
                 color = colors.inkFaint
             )
         }
+        FooterAction(
+            label = "Show the emergency card",
+            icon = SafeShadeIcons.QrCode,
+            enabled = medicalId.isUsable,
+            onClick = onOpenCard
+        )
     }
 }
 
