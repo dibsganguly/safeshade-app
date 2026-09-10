@@ -146,6 +146,8 @@ fun LazyListScope.kitCandidates() {
     item { C39PersonPlateV2() }
     item { C40WearerStrip() }
     item { C41WearableCard() }
+
+    kitCandidates2()
 }
 
 // ============================================
@@ -163,7 +165,7 @@ private fun CandidateIntro() {
         )
         Spacer(Modifier.height(Spacing.xs))
         Text(
-            "Forty-one numbered kits, none of them on a screen yet. Each is live where it has state. Name a number to adopt it.",
+            "A hundred and one numbered kits, none of them on a screen yet. Each is live where it has state. Name a number to adopt it.",
             style = MaterialTheme.typography.bodyMedium,
             color = colors.inkMuted
         )
@@ -178,7 +180,7 @@ private fun CandidateIntro() {
  * thing on the line because it is the thing a person will say out loud.
  */
 @Composable
-private fun Candidate(
+internal fun Candidate(
     number: String,
     title: String,
     refines: String? = null,
@@ -227,7 +229,7 @@ private fun Candidate(
  * with a detail line and a state word, and a readout strip.
  */
 @Composable
-private fun TypeSpecimen(
+internal fun TypeSpecimen(
     display: FontFamily,
     body: FontFamily,
     condensed: FontFamily,
@@ -302,7 +304,7 @@ private fun TypeSpecimen(
 }
 
 @Composable
-private fun MonoSpecimen(value: String, label: String, mono: FontFamily, modifier: Modifier = Modifier) {
+internal fun MonoSpecimen(value: String, label: String, mono: FontFamily, modifier: Modifier = Modifier) {
     val colors = MaterialTheme.board
     Column(modifier) {
         Text(label, style = MaterialTheme.boardType.nameplateSmall, color = colors.inkMuted)
@@ -375,7 +377,7 @@ private fun C06GeistMono() = Candidate(
 }
 
 @Composable
-private fun MonoColumn(title: String, mono: FontFamily, modifier: Modifier = Modifier) {
+internal fun MonoColumn(title: String, mono: FontFamily, modifier: Modifier = Modifier) {
     val colors = MaterialTheme.board
     Column(modifier) {
         Text(title, style = MaterialTheme.boardType.nameplateSmall, color = colors.inkMuted)
@@ -438,7 +440,7 @@ private fun C08HubGrounds() = Candidate(
                         .border(Stroke.hairline, colors.hairline, RoundedCornerShape(Radius.plate)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(hub.icon, contentDescription = null, tint = colors.accentFor(hub.name), modifier = Modifier.size(20.dp))
+                    Icon(hub.icon, contentDescription = null, tint = when (hub.name) { "Board" -> colors.accentClay; "Circle" -> colors.accentSky; "Safety" -> colors.accentSage; else -> colors.accentPlum }, modifier = Modifier.size(20.dp))
                 }
                 Spacer(Modifier.height(Spacing.sm))
                 Text(hub.name, style = MaterialTheme.boardType.nameplateSmall, color = colors.inkMuted)
@@ -501,7 +503,7 @@ private fun C11WarmDusk() = Candidate(
 }
 
 @Composable
-private fun PaletteSwatches(
+internal fun PaletteSwatches(
     ground: Color, plate: Color, recess: Color, hairline: Color,
     ink: Color, inkMuted: Color, inkFaint: Color
 ) {
@@ -562,20 +564,20 @@ private fun PaletteSwatches(
 }
 
 @Composable
-private fun ContrastReadout(name: String, fg: Color, bg: Color, modifier: Modifier = Modifier) {
+internal fun ContrastReadout(name: String, fg: Color, bg: Color, modifier: Modifier = Modifier) {
     Column(modifier) {
         Text(name, style = MaterialTheme.boardType.nameplateSmall, color = fg)
         Text("%.2f:1".format(contrastRatio(fg, bg)), style = MaterialTheme.boardType.readout, color = fg)
     }
 }
 
-private fun contrastRatio(a: Color, b: Color): Float {
+internal fun contrastRatio(a: Color, b: Color): Float {
     val la = a.luminance() + 0.05f
     val lb = b.luminance() + 0.05f
     return if (la > lb) la / lb else lb / la
 }
 
-private fun hexOf(c: Color): String {
+internal fun hexOf(c: Color): String {
     val r = (c.red * 255).toInt(); val g = (c.green * 255).toInt(); val b = (c.blue * 255).toInt()
     return "#%02X%02X%02X".format(r, g, b)
 }
@@ -611,7 +613,7 @@ private fun C12IconDiscs() = Candidate(
 }
 
 @Composable
-private fun IconDisc(icon: ImageVector, accent: Color, size: Dp = 36.dp, glyph: Dp = 20.dp) {
+internal fun IconDisc(icon: ImageVector, accent: Color, size: Dp = 36.dp, glyph: Dp = 20.dp) {
     Box(
         Modifier
             .size(size)
@@ -645,7 +647,7 @@ private fun C13DiscWay() = Candidate(
 }
 
 @Composable
-private fun DiscWay(name: String, detail: String?, icon: ImageVector, state: LampState, stateLabel: String, accent: Color, trailingChevron: Boolean = false) {
+internal fun DiscWay(name: String, detail: String?, icon: ImageVector, state: LampState, stateLabel: String, accent: Color, trailingChevron: Boolean = false) {
     val colors = MaterialTheme.board
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -676,7 +678,7 @@ private fun DiscWay(name: String, detail: String?, icon: ImageVector, state: Lam
 }
 
 @Composable
-private fun StateWord(label: String, state: LampState) {
+internal fun StateWord(label: String, state: LampState) {
     val colors = MaterialTheme.board
     Text(
         label.uppercase(),
@@ -710,7 +712,7 @@ private fun C14OpensVersusReports() = Candidate(
 
 /** A way that opens a page: state word, then a chevron, and no bus tick. */
 @Composable
-private fun NavWay(name: String, stateLabel: String, state: LampState, icon: ImageVector, detail: String? = null) {
+internal fun NavWay(name: String, stateLabel: String, state: LampState, icon: ImageVector, detail: String? = null) {
     val colors = MaterialTheme.board
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -791,7 +793,7 @@ private fun C16GroupedBank() = Candidate(
 }
 
 @Composable
-private fun GroupTitle(text: String) {
+internal fun GroupTitle(text: String) {
     Text(
         text,
         style = MaterialTheme.boardType.nameplateSmall,
@@ -801,7 +803,7 @@ private fun GroupTitle(text: String) {
 }
 
 @Composable
-private fun GroupRule() {
+internal fun GroupRule() {
     Box(Modifier.fillMaxWidth().height(Stroke.rule).background(MaterialTheme.board.hairline))
 }
 
@@ -901,7 +903,7 @@ private fun C19MainsPlateV2() = Candidate(
 }
 
 @Composable
-private fun Well(label: String, value: String, unit: String?, modifier: Modifier = Modifier, state: LampState? = null, compact: Boolean = false) {
+internal fun Well(label: String, value: String, unit: String?, modifier: Modifier = Modifier, state: LampState? = null, compact: Boolean = false) {
     val colors = MaterialTheme.board
     Column(
         modifier
@@ -948,7 +950,7 @@ private fun C20HubMasthead() = Candidate(
             Triple("Device", "SafeShade S1 · not connected · seen 7 Sept", SafeShadeIcons.NavbarDevice)
         ).forEach { (title, line, icon) ->
             Row(verticalAlignment = Alignment.CenterVertically) {
-                IconDisc(icon, colors.accentFor(title), size = 44.dp, glyph = 24.dp)
+                IconDisc(icon, when (title) { "Circle" -> colors.accentSky; "Safety" -> colors.accentSage; else -> colors.accentPlum }, size = 44.dp, glyph = 24.dp)
                 Spacer(Modifier.width(Spacing.md))
                 Column {
                     Text(title, style = MaterialTheme.typography.headlineMedium, color = colors.ink)
@@ -1004,7 +1006,7 @@ private fun C22LedgerPlate() = Candidate(
 }
 
 @Composable
-private fun DottedLeader() {
+internal fun DottedLeader() {
     val colors = MaterialTheme.board
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
         repeat(60) {
@@ -1113,7 +1115,7 @@ private fun C25Footnote() = Candidate(
 }
 
 @Composable
-private fun Footnote(text: String) {
+internal fun Footnote(text: String) {
     val colors = MaterialTheme.board
     Row(Modifier.padding(horizontal = Spacing.xs)) {
         Icon(SafeShadeIcons.Info, contentDescription = null, tint = colors.inkFaint, modifier = Modifier.padding(top = 1.dp).size(14.dp))
@@ -1136,7 +1138,7 @@ private fun C26Callout() = Candidate(
 }
 
 @Composable
-private fun CalloutPlate(lead: String, sentence: String, accent: Color) {
+internal fun CalloutPlate(lead: String, sentence: String, accent: Color) {
     val colors = MaterialTheme.board
     Row(
         Modifier
@@ -1260,7 +1262,7 @@ private fun C29QualifierChips() = Candidate(
 }
 
 @Composable
-private fun QualifierChip(text: String) {
+internal fun QualifierChip(text: String) {
     val colors = MaterialTheme.board
     Text(
         text.uppercase(),
@@ -1323,7 +1325,7 @@ private fun C31FigureButton() = Candidate(
 }
 
 @Composable
-private fun FigureButton(label: String, figure: String, container: Color, content: Color, bordered: Boolean = false) {
+internal fun FigureButton(label: String, figure: String, container: Color, content: Color, bordered: Boolean = false) {
     val colors = MaterialTheme.board
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -1360,7 +1362,7 @@ private fun C33BarWithRule() = Candidate(
 }
 
 @Composable
-private fun MockBar(words: Boolean, rule: Boolean) {
+internal fun MockBar(words: Boolean, rule: Boolean) {
     val colors = MaterialTheme.board
     var selected by remember { mutableIntStateOf(1) }
     val tabs = listOf(
@@ -1459,7 +1461,7 @@ private fun C35RangeGauge() = Candidate(
 }
 
 @Composable
-private fun RangeGauge(label: String, value: String, unit: String, fraction: Float, ticks: List<Float>, modifier: Modifier = Modifier, state: LampState? = null) {
+internal fun RangeGauge(label: String, value: String, unit: String, fraction: Float, ticks: List<Float>, modifier: Modifier = Modifier, state: LampState? = null) {
     val colors = MaterialTheme.board
     BoardPlate(modifier = modifier) {
         Column(Modifier.padding(Spacing.lg)) {
@@ -1533,7 +1535,7 @@ private fun C37StatusWell() = Candidate(
 }
 
 @Composable
-private fun StatusWell(state: LampState, word: String, reason: String) {
+internal fun StatusWell(state: LampState, word: String, reason: String) {
     val colors = MaterialTheme.board
     Row(
         Modifier

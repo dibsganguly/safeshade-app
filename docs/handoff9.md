@@ -86,8 +86,8 @@ By the orchestrator unless marked; each reversible.
   `ui/board/KitCandidates.kt`; its type families are
   `ui/theme/CandidateType.kt`; nothing outside the gallery references either.
   A candidate is adopted by number only (§4).
-- **The candidate fonts ride in the APK until the user chooses.** Six OFL
-  variable TTFs, about 1.5 MB. The cost is deliberate and temporary; the
+- **The candidate fonts ride in the APK until the user chooses.** Eleven OFL
+  variable TTFs, about 2.5 MB. The cost is deliberate and temporary; the
   losers are deleted with their families when a pick lands.
 - **A focused chip shows its focus.** `ChipRow` had no focus indication (no
   ripple, no ring); a focused chip now steps its edge to ink at the rule
@@ -127,7 +127,7 @@ was not verified.
 
 `ui/board/KitCandidates.kt` (`LazyListScope.kitCandidates()`), wired at the
 top of `KitGallery`; the shipped kit follows under "The kit as shipped".
-Forty-one candidates, 2.01–2.41, in seven groups; the index is in DESIGN.md's
+A hundred and one candidates, 2.01–2.101, in sixteen groups (the second sixty, 2.42–2.101, added at the user's request on 2026-09-10 in `KitCandidates2.kt` before any pick); the index is in DESIGN.md's
 "v2.0 candidates" appendix and in §4 below. `ui/theme/CandidateType.kt`
 declares the six candidate families; `res/font` gained
 `bricolage_grotesque_variable.ttf`, `instrument_sans_variable.ttf`,
@@ -198,6 +198,66 @@ itself (live where it has state), and one line on why.
 | 2.39 | The person plate, again | the family dashboard plate |
 | 2.40 | A wearer strip | the person switch |
 | 2.41 | The wearable's card | the Device page's head plate |
+| 2.42 | Space Grotesk titles, Figtree body | the whole scale |
+| 2.43 | Outfit throughout | the whole scale |
+| 2.44 | Inter throughout | the whole scale |
+| 2.45 | JetBrains Mono for readouts | Readout, Gauge, countdown |
+| 2.46 | Title to subtitle: three gaps | ScreenHeader |
+| 2.47 | Title to detail: three gaps | Way |
+| 2.48 | Section plate to bank: three gaps | section rhythm |
+| 2.49 | A wider gutter, a tighter plate | Layout |
+| 2.50 | A ground per hub, stronger | 2.08 |
+| 2.51 | A hub band at the top | the hub head |
+| 2.52 | A hub rule under the status bar | the hub head |
+| 2.53 | Plates tinted per hub | BoardPlate |
+| 2.54 | Section plates in the hub's ink, rows in plain ink | SectionPlate |
+| 2.55 | A warm night | dark neutrals |
+| 2.56 | A ground with a grain | ground |
+| 2.57 | A square lamp | PilotLamp |
+| 2.58 | A lamp in a bezel | PilotLamp |
+| 2.59 | A lamp cluster | the hub summary |
+| 2.60 | A lamp with a count | PilotLamp |
+| 2.61 | The state word on glass | the state word on a Way |
+| 2.62 | An outlined hued button | the hued button weights |
+| 2.63 | A button with its glyph on a disc | BoardButton |
+| 2.64 | A split button | BoardButton |
+| 2.65 | An action pair | two buttons at a page foot |
+| 2.66 | A button that shows its progress | BoardButton while working |
+| 2.67 | Hold to confirm | ButtonWeight DANGER |
+| 2.68 | A readout with its trend | Readout |
+| 2.69 | A readout with a sparkline | Readout |
+| 2.70 | One number, very large | Readout large, Gauge |
+| 2.71 | An arc gauge | Gauge |
+| 2.72 | A battery in cells | the Battery readout |
+| 2.73 | A value against its target | Readout, thresholds |
+| 2.74 | Readouts with lamps | the instrument strip |
+| 2.75 | Shady over the edge of the mains plate | MainsPlate, the stage |
+| 2.76 | Shady beside the state | MainsPlate |
+| 2.77 | A state band across the top | MainsPlate |
+| 2.78 | The mains as a status well with wells | MainsPlate |
+| 2.79 | A centred mains | MainsPlate |
+| 2.80 | The mains with the place on it | MainsPlate |
+| 2.81 | A bank with its header inside | SectionPlate over BoardPlate |
+| 2.82 | A bank with alternating rows | Hairline between ways |
+| 2.83 | Numbered rows | Way, sequences |
+| 2.84 | Ways as tiles | navigating ways |
+| 2.85 | A switch row that also says its state | Way with a rocker |
+| 2.86 | A row with a meter in it | Way, quantities |
+| 2.87 | A row with a leading lamp | Way |
+| 2.88 | A row with the faces it concerns | Way, logs |
+| 2.89 | A card with a top band | BoardPlate |
+| 2.90 | A card with a corner tag | BoardPlate with a qualifier |
+| 2.91 | A card with an engraved title plate | BoardPlate with a heading |
+| 2.92 | A card with a footer action | BoardPlate with a button |
+| 2.93 | A recess inside a plate | BoardPlate recessed |
+| 2.94 | A card with a watermark glyph | BoardPlate |
+| 2.95 | A strip of cards | a bank of similar things |
+| 2.96 | Steps down the page | setup paragraphs |
+| 2.97 | An expandable bank that previews its rows | ExpandableSection |
+| 2.98 | Tabs inside a page | two lists on one page |
+| 2.99 | A section plate that stays | SectionPlate on a long page |
+| 2.100 | An empty bay with a glyph disc | EmptyBay |
+| 2.101 | A snackbar with a lamp | Transient messages |
 
 **Adopting one.** When the user names a number: move the composable out of
 `KitCandidates.kt` into the file its family lives in (`Way.kt`, `Plates.kt`,
@@ -308,7 +368,7 @@ Google. No wearable was connected at any point.
 
 ### Carried debt (unchanged from handoff8 §9 unless listed)
 
-- **Six candidate fonts in the APK** (~1.5 MB) until the user chooses.
+- **Eleven candidate fonts in the APK** (~2.5 MB) until the user chooses.
 - **`KitCandidates.kt` duplicates small pieces of kit** (`StateWord`,
   `IconDisc`, `Well`, `NavWay`) privately so that no candidate leaks into a
   screen. When a candidate is adopted its helpers come with it; when the

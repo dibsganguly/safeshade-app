@@ -15,7 +15,7 @@ import com.safeshade.R
  * [BoardType] still read Archivo and Azeret alone; nothing outside the gallery
  * may reference a family from this file until DESIGN.md promotes it, at which
  * point it moves into `Type.kt` and the rest are deleted along with their
- * `.ttf` files (six files, about 1.5 MB together, which is a real cost on the
+ * `.ttf` files (eleven files, about 2.5 MB together, which is a real cost on the
  * APK and the reason this is a candidate set rather than a permanent one).
  *
  * All six are Open Font Licence faces from the google/fonts repository,
@@ -65,3 +65,18 @@ val CandidateJakarta: FontFamily = FontFamily(Weights.map { variable(R.font.plus
 
 /** Geist Mono: a mono with tabular figures and a clearer zero than Azeret at readout sizes. */
 val CandidateGeistMono: FontFamily = FontFamily(listOf(400, 500, 700).map { variable(R.font.geist_mono_variable, it) })
+
+/** Space Grotesk: a grotesk with a mechanical edge to its round letters. Titles. */
+val CandidateSpaceGrotesk: FontFamily = FontFamily(Weights.map { variable(R.font.space_grotesk_variable, it) })
+
+/** Figtree: a friendly geometric with a large x-height. Body. */
+val CandidateFigtree: FontFamily = FontFamily(Weights.map { variable(R.font.figtree_variable, it) })
+
+/** Outfit: geometric, light in colour, with a distinctive lowercase a. */
+val CandidateOutfit: FontFamily = FontFamily(Weights.map { variable(R.font.outfit_variable, it) })
+
+/** Inter: the plain UI face, with an optical size axis. The safe choice. */
+val CandidateInter: FontFamily = FontFamily(Weights.map { variable(R.font.inter_variable, it, FontVariation.Setting("opsz", 16f)) })
+
+/** JetBrains Mono: taller, rounder mono with a slashed zero. */
+val CandidateJetBrainsMono: FontFamily = FontFamily(listOf(400, 500, 700).map { variable(R.font.jetbrains_mono_variable, it) })

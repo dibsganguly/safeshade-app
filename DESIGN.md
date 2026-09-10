@@ -634,8 +634,8 @@ Two rules carried from the firmware: **no speech or thought bubbles** (text emer
 
 ## v2.0 candidates
 
-The Kit gallery opens on a numbered section of forty-one candidate members
-(`ui/board/KitCandidates.kt`, with six candidate type families in
+The Kit gallery opens on a numbered section of a hundred and one candidate members
+(`ui/board/KitCandidates.kt` and `KitCandidates2.kt`, with eleven candidate type families in
 `ui/theme/CandidateType.kt` and their `.ttf` files in `res/font`). None is
 part of the shipped system; nothing in the frontmatter, the rules above or
 any screen refers to them. A candidate is adopted only when the user names its
@@ -686,6 +686,66 @@ numbers are stable for as long as a candidate exists.
 | 2.39 | The person plate, again | the family dashboard plate |
 | 2.40 | A wearer strip | the person switch |
 | 2.41 | The wearable's card | the Device page's head plate |
+| 2.42 | Space Grotesk titles, Figtree body | the whole scale |
+| 2.43 | Outfit throughout | the whole scale |
+| 2.44 | Inter throughout | the whole scale |
+| 2.45 | JetBrains Mono for readouts | Readout, Gauge, countdown |
+| 2.46 | Title to subtitle: three gaps | ScreenHeader |
+| 2.47 | Title to detail: three gaps | Way |
+| 2.48 | Section plate to bank: three gaps | section rhythm |
+| 2.49 | A wider gutter, a tighter plate | Layout |
+| 2.50 | A ground per hub, stronger | 2.08 |
+| 2.51 | A hub band at the top | the hub head |
+| 2.52 | A hub rule under the status bar | the hub head |
+| 2.53 | Plates tinted per hub | BoardPlate |
+| 2.54 | Section plates in the hub's ink, rows in plain ink | SectionPlate |
+| 2.55 | A warm night | dark neutrals |
+| 2.56 | A ground with a grain | ground |
+| 2.57 | A square lamp | PilotLamp |
+| 2.58 | A lamp in a bezel | PilotLamp |
+| 2.59 | A lamp cluster | the hub summary |
+| 2.60 | A lamp with a count | PilotLamp |
+| 2.61 | The state word on glass | the state word on a Way |
+| 2.62 | An outlined hued button | the hued button weights |
+| 2.63 | A button with its glyph on a disc | BoardButton |
+| 2.64 | A split button | BoardButton |
+| 2.65 | An action pair | two buttons at a page foot |
+| 2.66 | A button that shows its progress | BoardButton while working |
+| 2.67 | Hold to confirm | ButtonWeight DANGER |
+| 2.68 | A readout with its trend | Readout |
+| 2.69 | A readout with a sparkline | Readout |
+| 2.70 | One number, very large | Readout large, Gauge |
+| 2.71 | An arc gauge | Gauge |
+| 2.72 | A battery in cells | the Battery readout |
+| 2.73 | A value against its target | Readout, thresholds |
+| 2.74 | Readouts with lamps | the instrument strip |
+| 2.75 | Shady over the edge of the mains plate | MainsPlate, the stage |
+| 2.76 | Shady beside the state | MainsPlate |
+| 2.77 | A state band across the top | MainsPlate |
+| 2.78 | The mains as a status well with wells | MainsPlate |
+| 2.79 | A centred mains | MainsPlate |
+| 2.80 | The mains with the place on it | MainsPlate |
+| 2.81 | A bank with its header inside | SectionPlate over BoardPlate |
+| 2.82 | A bank with alternating rows | Hairline between ways |
+| 2.83 | Numbered rows | Way, sequences |
+| 2.84 | Ways as tiles | navigating ways |
+| 2.85 | A switch row that also says its state | Way with a rocker |
+| 2.86 | A row with a meter in it | Way, quantities |
+| 2.87 | A row with a leading lamp | Way |
+| 2.88 | A row with the faces it concerns | Way, logs |
+| 2.89 | A card with a top band | BoardPlate |
+| 2.90 | A card with a corner tag | BoardPlate with a qualifier |
+| 2.91 | A card with an engraved title plate | BoardPlate with a heading |
+| 2.92 | A card with a footer action | BoardPlate with a button |
+| 2.93 | A recess inside a plate | BoardPlate recessed |
+| 2.94 | A card with a watermark glyph | BoardPlate |
+| 2.95 | A strip of cards | a bank of similar things |
+| 2.96 | Steps down the page | setup paragraphs |
+| 2.97 | An expandable bank that previews its rows | ExpandableSection |
+| 2.98 | Tabs inside a page | two lists on one page |
+| 2.99 | A section plate that stays | SectionPlate on a long page |
+| 2.100 | An empty bay with a glyph disc | EmptyBay |
+| 2.101 | A snackbar with a lamp | Transient messages |
 
 ## Known evidence limits
 
