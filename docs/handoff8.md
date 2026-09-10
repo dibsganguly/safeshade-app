@@ -218,6 +218,20 @@ and was not verified; §8 collects them.
 - **Guide the wearable** on a zone row while the link is up, through the
   revived `DeviceRepository.setNavTarget`.
 
+### 3.5 The email redesign (2026-09-10, after the phase close)
+
+Commits `3a6e21d`..`8b13270`. The user saw the first branded email in Gmail
+and rejected it; the layout is now a white card on a teal-tinted page,
+centred, with a single masthead image (`supabase/brand/masthead.png`: the
+full logo on beige with rounded corners, because Gmail on Android repaints
+any light cell but never an image), an occasion pill, a charcoal code box,
+teal buttons, and a four-line footer ending with the address
+`SafeShade, Patia, OD, India | CQ5D-OTPM` and the copyright line. Three
+images live in the public `brand` bucket; the generator HEADs them before
+writing. All five functions are deployed with it and the auth templates are
+pasted. Verified by the user on a phone in dark mode. Details in
+`supabase/README.md` §6a.
+
 ### 3.4 Review fixes after the handoff was first written
 
 - **The microphone opens only for the kinds the rockers name.** The effect in
