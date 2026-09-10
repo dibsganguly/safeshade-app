@@ -93,9 +93,14 @@
 
       <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" align="center" style="width:600px; max-width:600px;">
 
-        <!-- Masthead: the full logo alone, centred on white. -->
+        <!-- Masthead: the full logo alone, centred on a beige that never
+             changes. The logo's charcoal wordmark vanished on phones that
+             darkened the white masthead, so this cell is deliberately NOT
+             an .ss-panel: it carries its colour as both a bgcolor attribute
+             and an inline style, which is the pair most clients leave alone
+             when they invert the rest. -->
         <tr>
-          <td class="ss-pad ss-panel" align="center" style="background:#FFFFFF; border-radius:18px 18px 0 0; padding:26px 32px 20px; text-align:center;">
+          <td class="ss-pad" align="center" bgcolor="#F2EDE3" style="background:#F2EDE3; background-color:#F2EDE3; border-radius:18px 18px 0 0; padding:26px 32px 20px; text-align:center;">
             <!--
               The full logo, hosted (brand.ts). It used to be the emblem plus
               a separate wordmark and tagline built from HTML text; those are
@@ -150,17 +155,11 @@
             4. whose is it                   the copyright line
         -->
         <tr>
-          <td class="ss-pad" align="center" style="background:#F6F4EF; border-top:1px solid #E4E0D8; border-radius:0 0 18px 18px; padding:22px 32px 26px; text-align:center; font-family:Archivo, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size:12px; line-height:18px; color:#6A7078;">
-            {{{footer}}}
-            <div style="margin-top:8px;">
-              Replies to this address are not read.
-            </div>
-            <div style="margin-top:14px; color:#8A9099;">
-              SafeShade, Patia, OD, India | CQ5D-OTPM
-            </div>
-            <div style="margin-top:4px; color:#8A9099;">
-              &copy; 2026 SafeShade. All rights reserved.
-            </div>
+          <td class="ss-pad" align="center" style="background:#F6F4EF; border-top:1px solid #E4E0D8; border-radius:0 0 18px 18px; padding:18px 32px 22px; text-align:center; font-family:Archivo, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size:12px; line-height:17px; color:#6A7078;">
+            <div style="margin:0; padding:0; line-height:17px;">{{{footer}}}</div>
+            <div style="margin:0; padding:0; line-height:17px;">Replies to this address are not read.</div>
+            <div style="margin:6px 0 0; padding:0; line-height:17px; color:#8A9099;">SafeShade, Patia, OD, India | CQ5D-OTPM</div>
+            <div style="margin:0; padding:0; line-height:17px; color:#8A9099;">&copy; 2026 SafeShade. All rights reserved.</div>
           </td>
         </tr>
 
