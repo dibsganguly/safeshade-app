@@ -43,7 +43,7 @@ is superseded by this one; its adoption procedure is now history, recorded in
 ## 1. Where the pass stands
 
 - **Phases 1–3 — done** (v2.5.0, v2.6.0, v2.7.0; handoff8 §1).
-- **Phase 4 — the redesign is applied.** v2.8.0, `versionCode 11`. Thirteen
+- **Phase 4 — the redesign is applied.** v2.8.0, `versionCode 11`. Fourteen
   v2.8.0 commits, `a648f99`..HEAD, **not pushed** (the user authorises every
   push). `assembleDebug` green, all unit tests pass.
   - Session one (`a648f99`..`8f7e7a9`): version bump, glyph-only dashboard
@@ -194,6 +194,16 @@ Silent SOS's four delays are "10 s / 30 s / 1 min / 5 min"; a `BankHeader`
 over a strip or a set of plates takes a plate of its own (`rule = false`);
 the ladder-stair and qr-code glyphs; the Profile watermark removed.
 
+### 3.5 The closing commit — after the review
+
+The zones bank is rows at any count again: `StripCard` has no action slot,
+so the four-or-more strip had lost guide and delete (a callback the screen
+used before must still be used the same way). Coloured watermarks glowed on
+the night plate; a lamp-glass or accent tint now draws at 0.09 in dark while
+the hairline keeps 0.22 (the user: "WAY too bright" in dark, fine in
+light). Two stale comments (the lamp is no longer a circle; the shipped kit
+sits above the leftovers, not below).
+
 ---
 
 ## 4. The kit after v2.8.0
@@ -211,7 +221,7 @@ Read `DESIGN.md` **Components** for the rules; this is the map.
 | A stamp on a plate | `TaggedPlate` / `CornerTag` | Cards.kt |
 | A plate about one thing | `WatermarkPlate(icon, tint)` with `accentFor` or `watermarkTint(state)` | Cards.kt |
 | A plate's one action | `FooterAction` (last child) | Cards.kt |
-| Four or more peers | `CardStrip { items { StripCard(...) } }` | Cards.kt |
+| Four or more peers that only open | `CardStrip { items { StripCard(...) } }` | Cards.kt |
 | The hub's head plate | `BoardPlate(hub = Hub.X)` / `MainsPlate(hub = …)` | Plates.kt, Status.kt |
 | Save + Discard | `EditorScaffold(bottomPadding = …, foot = { EditorFootBar(...) }) { footPadding -> … }` | Actions.kt |
 | Two actions, one default | `ActionPair` | Actions.kt |
@@ -283,6 +293,12 @@ Small, and none of it blocks Phase 5.
 - The four hubs, Medical ID and Fall detection in the light theme at
   **1.3x**, including the channel fix.
 - The pinned editor foot flush on the bar with the keyboard down.
+- The rewritten back chevron (plate press, not `IconButton`) tapped once on
+  Lights: it went back to the Device hub.
+- The watermark alpha in dark on Device, Safety and Profile after the drop.
+- The check-in deadline dial: the repository takes any whole minute
+  (`requestCheckIn(withinMinutes)` computes a deadline), so a dial over the
+  old four stops loses nothing.
 - `assembleDebug`; the unit tests (all pass).
 
 ### Not verified — say this to the user, plainly, every time
@@ -290,8 +306,8 @@ Small, and none of it blocks Phase 5.
 - Dark at 1.3x; the Companion role; Nearby services; any connected state;
   the keyboard-up editor (the scripted field tap did not land); the dirty
   state of the foot bar ("Unsaved changes" and amber Save enabled); the hold
-  trace in motion; the trip log's tabs; the four-or-more zones card strip
-  (the phone has one zone); the Reminders' interval dial at 1.3x.
+  trace in motion; the trip log's tabs; the Reminders' interval dial at
+  1.3x; the zones rows with four or more zones (the phone has one).
 
 ---
 
@@ -310,6 +326,9 @@ Small, and none of it blocks Phase 5.
 ### Carried debt
 
 - **`WhyDisclosure`** is dead code in `Expandable.kt` (§5.7).
+- **`StripCard` has no action slot**, so the zones bank is rows at any count
+  and `CardStrip` has no caller that needs a second action. Give the card a
+  trailing action (or a long-press) before putting zones back on a strip.
 - **`HourBars`** is a kit member with no caller (§4).
 - **`KitCandidates*.kt`** still carry private copies of `Well`, `RangeGauge`,
   `StatusWell`, `DiscWay`, `NavWay`, `MockBar`, `GroupTitle`, `hubAccent`
@@ -364,7 +383,7 @@ this session:
 
 ## 9. What the user still has to do
 
-Still open from handoff8 §11: the push (now `a648f99`..HEAD, thirteen
+Still open from handoff8 §11: the push (now `a648f99`..HEAD, fourteen
 v2.8.0 commits on top of the four v2.7.0 ones), the second account, the
 eleven-digit contact, the two Vault secrets, placing the widget and the tile,
 a `firmware_releases` row, Health Connect on the test phone, a phone with

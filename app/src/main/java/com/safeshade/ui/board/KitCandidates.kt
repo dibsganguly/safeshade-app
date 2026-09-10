@@ -137,7 +137,7 @@ private fun CandidateIntro() {
         )
         Spacer(Modifier.height(Spacing.xs))
         Text(
-            "What was not chosen from the hundred and one. The thirty-three that were are in the kit below, on every screen. Each of these is still live where it has state; name a number to adopt it.",
+            "What was not chosen from the hundred and one. The thirty-three that were are in the kit above, on every screen. Each of these is still live where it has state; name a number to adopt it.",
             style = MaterialTheme.typography.bodyMedium,
             color = colors.inkMuted
         )

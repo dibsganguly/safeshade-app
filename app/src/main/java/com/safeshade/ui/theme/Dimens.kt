@@ -28,7 +28,7 @@ object Spacing {
  * Corners are machined, not soft. A panel plate has a small milled radius —
  * the 20-28dp pill corners of a consumer wellness app read as the wrong
  * material entirely, so the scale tops out at 14dp and most surfaces sit at
- * 4-8dp. The one exception is [Radius.lamp], which is a circle by definition.
+ * 4-8dp. Even the lamp is square since v2.8.0; [Radius.lamp] scales with its size.
  */
 object Radius {
     val none = 0.dp

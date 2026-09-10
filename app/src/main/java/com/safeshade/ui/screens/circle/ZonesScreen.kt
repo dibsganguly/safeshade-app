@@ -31,7 +31,6 @@ import com.safeshade.ui.board.BankHeader
 import com.safeshade.ui.board.BoardButton
 import com.safeshade.ui.board.BoardPlate
 import com.safeshade.ui.board.ButtonWeight
-import com.safeshade.ui.board.CardStrip
 import com.safeshade.ui.board.EmptyBay
 import com.safeshade.ui.board.Hairline
 import com.safeshade.ui.board.HoldToConfirm
@@ -39,7 +38,6 @@ import com.safeshade.ui.board.LampState
 import com.safeshade.ui.board.ScreenHeader
 import com.safeshade.ui.board.ScreenTier
 import com.safeshade.ui.board.SectionPlate
-import com.safeshade.ui.board.StripCard
 import com.safeshade.ui.board.Way
 import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.shady.ShadyMood
@@ -200,59 +198,33 @@ fun ZonesScreen(
                 // list needs no section plate above it and no second "add"
                 // button below it.
                 item("zones") {
-                    if (state.zones.size >= 4) {
-                        Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                            // The strip bleeds past the gutter, so the header
-                            // cannot share its plate; it takes one of its own.
-                            BoardPlate(modifier = Modifier.fillMaxWidth()) {
-                                BankHeader(
-                                    title = "Zones",
-                                    count = state.zones.size,
-                                    actionIcon = SafeShadeIcons.Cross,
-                                    actionDescription = "Add a safe zone",
-                                    onAction = onAddZone,
-                                    rule = false
-                                )
-                            }
-                            CardStrip {
-                                items(state.zones, key = { it.id }) { zone ->
-                                    StripCard(
-                                        title = zone.name,
-                                        line = listOfNotNull(zone.detail, zone.lastChangeLabel).joinToString(" · "),
-                                        state = zone.presence.toLampState(),
-                                        icon = SafeShadeIcons.SafeZone,
-                                        accent = colors.accentFor(zone.name),
-                                        onClick = { onEditZone(zone.id) }
-                                    )
+                    // The strip (2.95) is not used here: `StripCard` has no
+                    // action slot yet, and a zone row carries guide and
+                    // delete as well as edit. Rows at any count until it does.
+                    BoardPlate(modifier = Modifier.fillMaxWidth()) {
+                        BankHeader(
+                            title = "Zones",
+                            count = state.zones.size,
+                            actionIcon = SafeShadeIcons.Cross,
+                            actionDescription = "Add a safe zone",
+                            onAction = onAddZone
+                        )
+                        state.zones.forEachIndexed { index, zone ->
+                            if (index > 0) Hairline()
+                            ZoneListRow(
+                                zone = zone,
+                                confirmingDelete = pendingDeleteId == zone.id,
+                                onEdit = { onEditZone(zone.id) },
+                                onGuide = onGuideTo?.let { g -> { g(zone.id) } },
+                                onAskDelete = {
+                                    pendingDeleteId = if (pendingDeleteId == zone.id) null else zone.id
+                                },
+                                onCancelDelete = { pendingDeleteId = null },
+                                onConfirmDelete = {
+                                    pendingDeleteId = null
+                                    onDeleteZone(zone.id)
                                 }
-                            }
-                        }
-                    } else {
-                        BoardPlate(modifier = Modifier.fillMaxWidth()) {
-                            BankHeader(
-                                title = "Zones",
-                                count = state.zones.size,
-                                actionIcon = SafeShadeIcons.Cross,
-                                actionDescription = "Add a safe zone",
-                                onAction = onAddZone
                             )
-                            state.zones.forEachIndexed { index, zone ->
-                                if (index > 0) Hairline()
-                                ZoneListRow(
-                                    zone = zone,
-                                    confirmingDelete = pendingDeleteId == zone.id,
-                                    onEdit = { onEditZone(zone.id) },
-                                    onGuide = onGuideTo?.let { g -> { g(zone.id) } },
-                                    onAskDelete = {
-                                        pendingDeleteId = if (pendingDeleteId == zone.id) null else zone.id
-                                    },
-                                    onCancelDelete = { pendingDeleteId = null },
-                                    onConfirmDelete = {
-                                        pendingDeleteId = null
-                                        onDeleteZone(zone.id)
-                                    }
-                                )
-                            }
                         }
                     }
                 }

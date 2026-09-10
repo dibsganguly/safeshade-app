@@ -226,11 +226,19 @@ fun WatermarkPlate(
             .then(if (onClick != null) Modifier.plateClickable(onClick = onClick) else Modifier)
             .fillMaxWidth()
     ) {
+        val colors = MaterialTheme.board
+        // On the night plate a lamp glass or an accent at the day alpha
+        // glows; the hairline does not, so only a coloured tint drops.
+        val alpha = when {
+            !colors.isDark -> 0.18f
+            tint == colors.hairline -> 0.22f
+            else -> 0.09f
+        }
         Box(Modifier.fillMaxWidth()) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = tint.copy(alpha = if (MaterialTheme.board.isDark) 0.22f else 0.18f),
+                tint = tint.copy(alpha = alpha),
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .offset(x = glyphSize * 0.22f, y = glyphSize * 0.22f)
