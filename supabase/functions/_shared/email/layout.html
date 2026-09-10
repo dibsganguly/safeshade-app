@@ -93,26 +93,21 @@
 
       <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" align="center" style="width:600px; max-width:600px;">
 
-        <!-- Masthead: the full logo alone, centred on a beige that never
-             changes. The logo's charcoal wordmark vanished on phones that
-             darkened the white masthead, so this cell is deliberately NOT
-             an .ss-panel: it carries its colour as both a bgcolor attribute
-             and an inline style, which is the pair most clients leave alone
-             when they invert the rest. -->
+        <!-- Masthead: one image, the full logo on its beige ground with the
+             card's top corners already rounded (brand.ts MASTHEAD_URL).
+
+             Why an image and not a coloured cell: Gmail on Android recolours
+             any background it judges light, in spite of color-scheme meta,
+             bgcolor attributes and inline styles, all of which were tried on
+             2026-09-10 and all of which it ignored. The logo's charcoal
+             wordmark then vanished into a darkened cell. Pixels inside an
+             image are the one thing no client repaints, so the whole
+             masthead is a 600x168 image. The alt text carries the brand for
+             the client that blocks remote images until asked. -->
         <tr>
-          <td class="ss-pad" align="center" bgcolor="#F2EDE3" style="background:#F2EDE3; background-color:#F2EDE3; border-radius:18px 18px 0 0; padding:26px 32px 20px; text-align:center;">
-            <!--
-              The full logo, hosted (brand.ts). It used to be the emblem plus
-              a separate wordmark and tagline built from HTML text; those are
-              now baked into this one image, so this is the only masthead
-              image and {{emblem}} is not used here. It used to be a data:
-              URI, which Gmail strips, so most readers saw the alt text and a
-              broken glyph. The alt text is still the brand name and tagline
-              for the client that blocks remote images until asked. Source
-              file is 480x292; 200x122 keeps that ratio.
-            -->
-            <img src="{{logo}}" width="200" height="122" alt="SafeShade - Your Everything Safety Companion"
-                 style="display:block; margin:0 auto; border:0; outline:none; text-decoration:none; width:200px; height:122px;">
+          <td align="center" bgcolor="#F2EDE3" style="background:#F2EDE3; padding:0; font-size:0; line-height:0; border-radius:18px 18px 0 0; text-align:center;">
+            <img src="{{masthead}}" width="600" height="168" alt="SafeShade - Your Everything Safety Companion"
+                 style="display:block; margin:0 auto; border:0; outline:none; text-decoration:none; width:600px; height:168px; max-width:100%;">
           </td>
         </tr>
 

@@ -64,10 +64,9 @@ export const LAYOUT_HTML: string = `<!doctype html>
       <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" align="center" style="width:600px; max-width:600px;">
 
         <tr>
-          <td class="ss-pad" align="center" bgcolor="#F2EDE3" style="background:#F2EDE3; background-color:#F2EDE3; border-radius:18px 18px 0 0; padding:26px 32px 20px; text-align:center;">
-
-            <img src="{{logo}}" width="200" height="122" alt="SafeShade - Your Everything Safety Companion"
-                 style="display:block; margin:0 auto; border:0; outline:none; text-decoration:none; width:200px; height:122px;">
+          <td align="center" bgcolor="#F2EDE3" style="background:#F2EDE3; padding:0; font-size:0; line-height:0; border-radius:18px 18px 0 0; text-align:center;">
+            <img src="{{masthead}}" width="600" height="168" alt="SafeShade - Your Everything Safety Companion"
+                 style="display:block; margin:0 auto; border:0; outline:none; text-decoration:none; width:600px; height:168px; max-width:100%;">
           </td>
         </tr>
 

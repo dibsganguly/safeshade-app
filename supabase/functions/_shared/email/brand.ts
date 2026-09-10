@@ -28,5 +28,13 @@ const BRAND_BASE = "https://qlgbxhlbzyykxagsvwzv.supabase.co/storage/v1/object/p
 /** The shield emblem, for the masthead. */
 export const EMBLEM_URL = `${BRAND_BASE}/emblem.png`;
 
-/** The full logo — emblem, wordmark and tagline — for above the footer. */
+/** The full logo — emblem, wordmark and tagline. Not referenced by the layout now. */
 export const LOGO_URL = `${BRAND_BASE}/logo.png`;
+
+/**
+ * The whole masthead as one image: the full logo on its beige ground, with
+ * the card's top corners already rounded. Gmail on Android recolours any
+ * background it judges light, and no CSS or bgcolor stops it; pixels inside
+ * an image are the one thing it leaves alone. 1200×336, shown at 600×168.
+ */
+export const MASTHEAD_URL = `${BRAND_BASE}/masthead.png`;

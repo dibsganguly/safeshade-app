@@ -538,7 +538,7 @@ broken-image glyph and the alt text where the emblem should have been.
 `emblem.png` stays in the bucket and in `brand.ts` for any future use, but the
 layout does not reference it.
 
-The files are in `supabase/brand/` — `emblem.png` (73×112, shown at 36×55)
+The files are in `supabase/brand/` — `masthead.png` (1200×336, shown at 600×168: the logo on its beige ground with the top corners rounded, because Gmail on Android repaints any light cell but never the pixels of an image), `emblem.png` (73×112, kept for future use)
 and `logo.png` (480×292, shown at 200 wide in the masthead), both exported at twice their
 display size from `docs/Logo/` after cropping to the artwork's bounding box
 (the sources are 2000px canvases with the art in the middle). **Upload both

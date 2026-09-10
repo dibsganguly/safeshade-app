@@ -1,4 +1,4 @@
-import { EMBLEM_URL, LOGO_URL } from "./brand.ts";
+import { EMBLEM_URL, LOGO_URL, MASTHEAD_URL } from "./brand.ts";
 import { renderEmail, renderSubject, toPlainText, type Vars } from "./render.ts";
 import { LAYOUT_HTML } from "./templates/layout.ts";
 
@@ -219,6 +219,7 @@ export async function composeEmail(
   return renderEmail(LAYOUT_HTML, template.html, {
     emblem: EMBLEM_URL,
     logo: LOGO_URL,
+    masthead: MASTHEAD_URL,
     ...vars,
   });
 }
