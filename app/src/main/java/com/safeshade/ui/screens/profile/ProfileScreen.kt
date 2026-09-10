@@ -41,8 +41,8 @@ import com.safeshade.ui.board.ScreenHeader
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.Tile
 import com.safeshade.ui.board.TileGrid
-import com.safeshade.ui.board.WatermarkPlate
 import com.safeshade.ui.board.Way
+import com.safeshade.ui.board.plateClickable
 import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.nav.Routes
 import com.safeshade.ui.screens.settings.blurb
@@ -286,11 +286,11 @@ private fun IdentityPlate(
 ) {
     val colors = MaterialTheme.board
     val shown = name.ifBlank { placeholder }
-    WatermarkPlate(
-        icon = SafeShadeIcons.User,
-        tint = colors.accentFor(shown),
-        onClick = onClick,
+    // No watermark here: the face is the plate's picture already, and a second
+    // glyph behind the name read as clutter (the user asked for it to go).
+    BoardPlate(
         modifier = Modifier
+            .plateClickable(onClick = onClick)
             .fillMaxWidth()
             .clearAndSetSemantics { contentDescription = "$shown. $line. Edit." }
     ) {

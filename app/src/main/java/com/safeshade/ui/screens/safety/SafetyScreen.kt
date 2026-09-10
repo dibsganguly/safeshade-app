@@ -216,7 +216,7 @@ fun SafetyScreen(
                             state.settings.primaryContact?.name?.ifBlank { null } ?: "Nobody yet",
                             "is called"
                         ),
-                        ChainStop(SafeShadeIcons.CallAfterAFall, "Ladder", if (ladder.enabled) "if unanswered" else "off")
+                        ChainStop(SafeShadeIcons.LadderStair, "Ladder", if (ladder.enabled) "if unanswered" else "off")
                     )
                 )
             }
@@ -307,7 +307,7 @@ fun SafetyScreen(
                     ),
                     Tile(
                         title = "If nobody answers",
-                        icon = SafeShadeIcons.CallAfterAFall,
+                        icon = SafeShadeIcons.LadderStair,
                         state = when {
                             state.escalationRunning -> LampState.ATTENTION
                             ladder.enabled -> LampState.LIVE

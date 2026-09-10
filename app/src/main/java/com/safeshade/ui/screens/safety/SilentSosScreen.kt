@@ -26,6 +26,8 @@ import com.safeshade.ui.board.Hairline
 import com.safeshade.ui.board.LampState
 import com.safeshade.ui.board.PlateField
 import com.safeshade.ui.board.SectionPlate
+import com.safeshade.ui.board.LedgerLine
+import com.safeshade.ui.board.LedgerRow
 import com.safeshade.ui.board.SegmentedChoice
 import com.safeshade.ui.board.Way
 import com.safeshade.ui.icons.SafeShadeIcons
@@ -193,7 +195,9 @@ fun SilentSosScreen(
             )
             Hairline()
             SegmentedChoice(
-                options = CallDelayChoices.map { formatDuration(it) },
+                // Short forms: four cells in one channel have room for "5 min",
+                // not "5 minutes", which broke mid-word on the phone.
+                options = CallDelayChoices.map { if (it < 60) "$it s" else "${it / 60} min" },
                 selected = CallDelayChoices.indexOf(state.stagedCallSeconds).let { if (it < 0) -1 else it },
                 onSelect = { onStageCall(CallDelayChoices[it]) },
                 consequences = CallDelayChoices.map { delayDetail(it) },
@@ -218,7 +222,7 @@ fun SilentSosScreen(
 
         BoardPlate(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(Spacing.lg)) {
-                DetailLine("Shows as", state.callerName)
+                LedgerLine(LedgerRow("Shows as", state.callerName))
                 Spacer(Modifier.height(Spacing.xs))
                 Footnote(
                     text = "An ordinary name works better than an obvious excuse. The call " +

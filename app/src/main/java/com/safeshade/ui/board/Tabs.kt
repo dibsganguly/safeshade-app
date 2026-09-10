@@ -21,6 +21,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -134,6 +137,12 @@ fun SegmentedChoice(
                 val on = i == selected
                 val fill by animateColorAsState(if (on) colors.plate else Color.Transparent, tween(Motion.fast), label = "choice-fill")
                 val edge by animateColorAsState(if (on) colors.ink else Color.Transparent, tween(Motion.fast), label = "choice-edge")
+                // A word never breaks mid-word in a cell. At 1.3x "Medium"
+                // in a three-cell channel did ("Mediu / m"), so a label that
+                // overflows first drops to the small nameplate, and if it
+                // still overflows the cell gives up its lamp for the word:
+                // the raised plate and ink edge carry the choice alone then.
+                var fit by remember(name) { mutableIntStateOf(0) }
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center,
@@ -146,21 +155,27 @@ fun SegmentedChoice(
                         .selectable(selected = on, enabled = enabled, role = Role.RadioButton, onClick = { onSelect(i) })
                         .padding(horizontal = Spacing.sm, vertical = Spacing.xs)
                 ) {
-                    PilotLamp(
-                        state = if (on) LampState.LIVE else LampState.OFF,
-                        size = 10.dp,
-                        description = if (on) "In use" else "Not chosen"
-                    )
-                    Spacer(Modifier.width(Spacing.sm))
+                    if (fit < 2) {
+                        PilotLamp(
+                            state = if (on) LampState.LIVE else LampState.OFF,
+                            size = 10.dp,
+                            description = if (on) "In use" else "Not chosen"
+                        )
+                        Spacer(Modifier.width(Spacing.sm))
+                    }
+                    val base = if (fit >= 1) MaterialTheme.boardType.nameplateSmall else MaterialTheme.boardType.nameplate
                     Text(
                         text = name,
-                        style = if (on) MaterialTheme.boardType.nameplate.copy(fontWeight = FontWeight.W700) else MaterialTheme.boardType.nameplate,
+                        style = if (on) base.copy(fontWeight = FontWeight.W700) else base,
                         color = when {
                             !enabled -> colors.inkFaint
                             on -> colors.ink
                             else -> colors.inkMuted
                         },
-                        textAlign = TextAlign.Center
+                        textAlign = TextAlign.Center,
+                        maxLines = 1,
+                        softWrap = false,
+                        onTextLayout = { if (it.hasVisualOverflow && fit < 2) fit += 1 }
                     )
                 }
             }

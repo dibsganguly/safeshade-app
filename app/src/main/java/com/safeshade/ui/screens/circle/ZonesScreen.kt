@@ -202,13 +202,18 @@ fun ZonesScreen(
                 item("zones") {
                     if (state.zones.size >= 4) {
                         Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                            BankHeader(
-                                title = "Zones",
-                                count = state.zones.size,
-                                actionIcon = SafeShadeIcons.Cross,
-                                actionDescription = "Add a safe zone",
-                                onAction = onAddZone
-                            )
+                            // The strip bleeds past the gutter, so the header
+                            // cannot share its plate; it takes one of its own.
+                            BoardPlate(modifier = Modifier.fillMaxWidth()) {
+                                BankHeader(
+                                    title = "Zones",
+                                    count = state.zones.size,
+                                    actionIcon = SafeShadeIcons.Cross,
+                                    actionDescription = "Add a safe zone",
+                                    onAction = onAddZone,
+                                    rule = false
+                                )
+                            }
                             CardStrip {
                                 items(state.zones, key = { it.id }) { zone ->
                                     StripCard(

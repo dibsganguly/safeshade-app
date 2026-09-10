@@ -99,14 +99,19 @@ fun PairedDevicesScreen(
         item("heading") {
             // The bank's own header (2.81): a count and the add action, in
             // place of a floating section plate and a full-width button below.
-            BankHeader(
-                title = "Saved",
-                count = state.devices.size,
-                actionIcon = SafeShadeIcons.ConnectToTheDevice,
-                actionDescription = if (state.isScanning) "Searching" else "Pair another device",
-                onAction = if (state.permissionsGranted) onPairNew else onRequestPermissions,
-                actionEnabled = !state.isScanning
-            )
+            // On its own plate, because each device below is a plate of its
+            // own with two buttons and cannot share one with the header.
+            BoardPlate(modifier = Modifier.fillMaxWidth()) {
+                BankHeader(
+                    title = "Saved",
+                    count = state.devices.size,
+                    actionIcon = SafeShadeIcons.ConnectToTheDevice,
+                    actionDescription = if (state.isScanning) "Searching" else "Pair another device",
+                    onAction = if (state.permissionsGranted) onPairNew else onRequestPermissions,
+                    actionEnabled = !state.isScanning,
+                    rule = false
+                )
+            }
         }
 
         if (state.devices.isEmpty()) {

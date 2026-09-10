@@ -115,7 +115,7 @@ fun EscalationScreen(
                 } else {
                     "Only the one call after a fall's countdown"
                 },
-                icon = SafeShadeIcons.CallAfterAFall,
+                icon = SafeShadeIcons.LadderStair,
                 checked = settings.enabled,
                 onCheckedChange = { onChange(settings.copy(enabled = it)) }
             )

@@ -109,7 +109,9 @@ fun BankHeader(
     /** Required with [actionIcon]: the word the button would have carried. */
     actionDescription: String? = null,
     onAction: (() -> Unit)? = null,
-    actionEnabled: Boolean = true
+    actionEnabled: Boolean = true,
+    /** Off when the header is a plate of its own over a strip or a set of plates, where a rule would underline nothing. */
+    rule: Boolean = true
 ) {
     val colors = MaterialTheme.board
     Column(modifier = modifier.fillMaxWidth()) {
@@ -151,7 +153,7 @@ fun BankHeader(
                 }
             }
         }
-        Box(Modifier.fillMaxWidth().height(Stroke.rule).background(colors.hairline))
+        if (rule) Box(Modifier.fillMaxWidth().height(Stroke.rule).background(colors.hairline))
     }
 }
 
