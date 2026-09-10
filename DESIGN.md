@@ -632,6 +632,61 @@ Two rules carried from the firmware: **no speech or thought bubbles** (text emer
 
 **The Honesty Rules.** The app draws exactly what launch would draw for the current connection state, and no more. There is no "planned", "coming soon" or "representative" anywhere in the UI; what the firmware does not yet honour is recorded in `DeviceCapabilities.awaitingFirmware` and the handoff, not on a screen. Three conventions carry the honesty instead. **Absent data is absent**: a gauge with no reading shows a dash, never an invented number. **A failed action reports its reason**, and nothing draws a tick, a "Saved" or a "Sent" before its result is known. A **device-only** row draws a readable value and no control where the app has no write path. **UNKNOWN** is a distinct lamp state meaning "we cannot currently tell" — rendered unlit and inert, never as a fault, because no link is not the same thing as a failure.
 
+## v2.0 candidates
+
+The Kit gallery opens on a numbered section of forty-one candidate members
+(`ui/board/KitCandidates.kt`, with six candidate type families in
+`ui/theme/CandidateType.kt` and their `.ttf` files in `res/font`). None is
+part of the shipped system; nothing in the frontmatter, the rules above or
+any screen refers to them. A candidate is adopted only when the user names its
+number, at which point it moves into its family's file, the rule it changes is
+rewritten above, and the rest of its group, fonts included, is deleted. The
+numbers are stable for as long as a candidate exists.
+
+| # | Candidate | Refines |
+|---|---|---|
+| 2.01 | Bricolage Grotesque titles, Instrument Sans everything else | the whole scale |
+| 2.02 | Fraunces headlines over Archivo | display and headline |
+| 2.03 | Manrope throughout | the whole scale |
+| 2.04 | Plus Jakarta Sans throughout | the whole scale |
+| 2.05 | Instrument Sans throughout, its own condensed | the whole scale |
+| 2.06 | Geist Mono for readouts | Readout, Gauge, countdown |
+| 2.07 | A readability step: rows at 17 and 14 | nameplate, rowDetail |
+| 2.08 | A ground per hub | ground |
+| 2.09 | A washed plate with an accent rule | BoardPlate |
+| 2.10 | A deeper night | dark neutrals |
+| 2.11 | A warmer bone | light neutrals |
+| 2.12 | Glyphs on discs | the icon on a Way |
+| 2.13 | A way with its glyph on a disc | Way |
+| 2.14 | Rows that open look different from rows that report | Way |
+| 2.15 | A compact way | Way, dense banks |
+| 2.16 | A bank with named groups inside it | the Device page's ways |
+| 2.17 | A way whose state is a figure | Way, logs |
+| 2.18 | An action as a way | the quiet button under a bank |
+| 2.19 | Mains plate with the person on it | MainsPlate |
+| 2.20 | A masthead per hub | the hub title |
+| 2.21 | Fact wells | readout strips |
+| 2.22 | A ledger | paragraphs that list facts |
+| 2.23 | A timeline on the bus | trip record, ladder plate |
+| 2.24 | A segmented choice | OptionWay, two to four options |
+| 2.25 | A footnote under the bank | the explanatory plate |
+| 2.26 | A callout | the paragraph that states a consequence |
+| 2.27 | What happens, as a chain | the sentence that describes a sequence |
+| 2.28 | Help on the row that needs it | WhyDisclosure |
+| 2.29 | Qualifier chips | the seal, generalised |
+| 2.30 | Glyph buttons with a caption | BoardIconButton |
+| 2.31 | A button that carries a figure | BoardButton |
+| 2.32 | The bar with words | bottom bar |
+| 2.33 | The bar with a rule | bottom bar |
+| 2.34 | A foot bar for editors | the commit button on a long editor |
+| 2.35 | A gauge with its range | Gauge |
+| 2.36 | Signal as bars | the Signal readout |
+| 2.37 | A status well | hub-level state |
+| 2.38 | Twenty-four bars | history rows |
+| 2.39 | The person plate, again | the family dashboard plate |
+| 2.40 | A wearer strip | the person switch |
+| 2.41 | The wearable's card | the Device page's head plate |
+
 ## Known evidence limits
 
 Two things about this system are documented rather than demonstrated, so the

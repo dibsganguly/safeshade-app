@@ -88,6 +88,19 @@ fun KitGallery(modifier: Modifier = Modifier) {
             )
         }
 
+        // The v2.0 candidates first, because they are what this gallery is
+        // opened for now; the shipped kit follows as the thing they refine.
+        kitCandidates()
+
+        item {
+            Spacer(Modifier.height(Spacing.xl))
+            Text(
+                "The kit as shipped",
+                style = MaterialTheme.typography.headlineMedium,
+                color = colors.ink
+            )
+        }
+
         item { SectionPlate("Type") }
         item {
             BoardPlate {
