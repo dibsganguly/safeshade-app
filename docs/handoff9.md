@@ -134,7 +134,7 @@ declares the six candidate families; `res/font` gained
 `fraunces_variable.ttf`, `manrope_variable.ttf`, `plus_jakarta_sans_variable.ttf`,
 `geist_mono_variable.ttf`.
 
-### 3.4 The sweep commit — mechanical §6 items and the focus ring
+### 3.4 `72f61fc` — mechanical §6 items and the focus ring
 
 - `ChipRow` focus ring (`ui/board/Chips.kt`, DESIGN.md).
 - `PlateField` → `ui/board/Fields.kt`; `OptionWay` → `ui/board/Way.kt`;
