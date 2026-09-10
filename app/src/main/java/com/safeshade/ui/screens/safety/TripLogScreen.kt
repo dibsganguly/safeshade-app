@@ -15,7 +15,10 @@ import com.safeshade.cloud.sync.SyncState
 import com.safeshade.ui.board.SyncDot
 import com.safeshade.ui.board.syncKey
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
@@ -28,6 +31,7 @@ import com.safeshade.ui.board.BoardPlate
 import com.safeshade.ui.board.EmptyBay
 import com.safeshade.ui.board.Hairline
 import com.safeshade.ui.board.LampState
+import com.safeshade.ui.board.PageTabs
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.Way
 import com.safeshade.ui.icons.SafeShadeIcons
@@ -74,11 +78,16 @@ fun TripLogScreen(
 
     // Grouping is done once per list change, outside the lazy content — doing
     // it inside would redo the whole sort on every scroll frame.
-    val days = remember(state.trips) {
+    val allDays = remember(state.trips) {
         state.trips
             .sortedByDescending { it.timestamp }
             .groupBy { localDateOf(it.timestamp) }
     }
+    // Recent and All (2.98): a week-old log and a year-old log are the same
+    // length otherwise, and a guardian almost always wants the last week.
+    var tab by remember { mutableIntStateOf(0) }
+    val cutoff = state.today.minusDays(6)
+    val days = if (tab == 0) allDays.filterKeys { !it.isBefore(cutoff) } else allDays
 
     LazyColumn(
         modifier = modifier
@@ -112,6 +121,10 @@ fun TripLogScreen(
                     // kind of empty a magnifying glass explains best.
                     shadyMood = ShadyMood.LOOKING
                 )
+            }
+        } else if (allDays.keys.any { it.isBefore(cutoff) }) {
+            item("tabs") {
+                PageTabs(tabs = listOf("Recent", "All"), selected = tab, onSelect = { tab = it })
             }
         }
 

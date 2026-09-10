@@ -5,11 +5,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -26,8 +27,13 @@ import com.safeshade.cloud.CloudSession
 import com.safeshade.ui.board.BoardButton
 import com.safeshade.ui.board.BoardPlate
 import com.safeshade.ui.board.ButtonWeight
+import com.safeshade.ui.board.Footnote
 import com.safeshade.ui.board.Hairline
+import com.safeshade.ui.board.HoldToConfirm
 import com.safeshade.ui.board.LampState
+import com.safeshade.ui.board.Ledger
+import com.safeshade.ui.board.LedgerRow
+import com.safeshade.ui.board.QualifierChip
 import com.safeshade.ui.board.ScreenHeader
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.Way
@@ -74,7 +80,6 @@ fun AccountScreen(
     val scope = rememberCoroutineScope()
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
-    var confirmingDelete by remember { mutableStateOf(false) }
 
     fun act(block: suspend () -> CloudResult<Unit>) {
         if (busy) return
@@ -122,7 +127,8 @@ fun AccountScreen(
                         stateLabel = "Off",
                         detail = "Saved on this phone only",
                         icon = SafeShadeIcons.LogSignIn,
-                        onClick = onOpenSignIn
+                        onClick = onOpenSignIn,
+                        trailing = { QualifierChip("Signed out") }
                     )
                     CloudSession.Loading -> Way(
                         name = "Checking",
@@ -213,38 +219,25 @@ fun AccountScreen(
                 // whether to sign in is entitled to the list, and a list is
                 // checkable against the code in a way "we respect your
                 // privacy" is not.
-                BoardPlate(modifier = Modifier.fillMaxWidth()) {
-                    Way(
-                        name = "Copied to SafeShade Cloud",
-                        state = LampState.LIVE,
-                        stateLabel = "Synced",
-                        detail = "Wearers, medical IDs, emergency contacts, paired wearables, alerts, messages, safe zones, your name",
-                        icon = SafeShadeIcons.CloudUpload
+                Column {
+                    Ledger(
+                        rows = listOf(
+                            LedgerRow(
+                                "Copied to SafeShade Cloud",
+                                "Wearers, medical IDs, contacts, wearables, alerts, messages, zones, your name",
+                                state = LampState.LIVE
+                            ),
+                            LedgerRow(
+                                "Never leaves this phone",
+                                "Parental PIN, SMS allowlist, the wearable's SIM number, custom face photos",
+                                state = LampState.OFF
+                            ),
+                            LedgerRow("Who can read it", "Circle members only", state = LampState.LIVE),
+                            LedgerRow("Where it lives", "Singapore · Supabase ap-southeast-1", state = LampState.LIVE)
+                        )
                     )
-                    Hairline()
-                    Way(
-                        name = "Never leaves this phone",
-                        state = LampState.OFF,
-                        stateLabel = "Local",
-                        detail = "The parental PIN, the SMS allowlist, the wearable's SIM number, and photos used as faces",
-                        icon = SafeShadeIcons.PadlockLocked
-                    )
-                    Hairline()
-                    Way(
-                        name = "Who can read it",
-                        state = LampState.LIVE,
-                        stateLabel = "Circle",
-                        detail = "Only members of your Circle. Every table is row-locked to the Circle on the server; a viewer can read and not write.",
-                        icon = SafeShadeIcons.UserGroup
-                    )
-                    Hairline()
-                    Way(
-                        name = "Where it lives",
-                        state = LampState.LIVE,
-                        stateLabel = "Singapore",
-                        detail = "Supabase, region ap-southeast-1. Deleting the account removes every row.",
-                        icon = SafeShadeIcons.Internet
-                    )
+                    Spacer(Modifier.height(Spacing.sm))
+                    Footnote("Every table is row-locked to your Circle on the server; a viewer can read and not write. Deleting the account removes every row.")
                 }
             }
 
@@ -264,15 +257,13 @@ fun AccountScreen(
                             enabled = !busy,
                             modifier = Modifier.fillMaxWidth()
                         )
-                        BoardButton(
-                            label = "Delete Account",
+                        HoldToConfirm(
+                            label = "Hold to Delete Account",
                             icon = SafeShadeIcons.DeleteBin,
-                            supporting = "Removes the cloud copy for good",
-                            onClick = { confirmingDelete = true },
-                            weight = ButtonWeight.DANGER,
-                            enabled = !busy,
-                            modifier = Modifier.fillMaxWidth()
+                            onConfirm = { act(onDeleteAccount) },
+                            enabled = !busy
                         )
+                        Footnote("Removes the cloud copy of every wearer, alert, zone and message. What is saved on this phone stays on this phone.")
                         val shown = error
                         if (shown != null) {
                             Text(
@@ -295,13 +286,6 @@ fun AccountScreen(
             }
         }
     }
-
-    if (confirmingDelete) {
-        DeleteAccountDialog(
-            onConfirm = { confirmingDelete = false; act(onDeleteAccount) },
-            onCancel = { confirmingDelete = false }
-        )
-    }
 }
 
 /** The sync way's lamp, word and line, from the summary's facts. */
@@ -318,41 +302,6 @@ private fun pendingLine(n: Int) =
 
 private fun timeOf(millis: Long): String =
     SimpleDateFormat("HH:mm, d MMM", Locale.getDefault()).format(Date(millis))
-
-@Composable
-private fun DeleteAccountDialog(onConfirm: () -> Unit, onCancel: () -> Unit) {
-    val colors = MaterialTheme.board
-    AlertDialog(
-        onDismissRequest = onCancel,
-        containerColor = colors.plate,
-        titleContentColor = colors.ink,
-        textContentColor = colors.inkMuted,
-        title = {
-            Text(text = "Delete this account", style = MaterialTheme.typography.titleMedium, color = colors.ink)
-        },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                Text(
-                    text = "The cloud copy of every wearer, alert, zone and message on this account is " +
-                        "removed, and the other phones in the Circle lose it too.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = colors.inkMuted
-                )
-                Text(
-                    text = "What is saved on this phone stays on this phone.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colors.inkFaint
-                )
-            }
-        },
-        confirmButton = {
-            BoardButton(label = "Delete", onClick = onConfirm, weight = ButtonWeight.DANGER)
-        },
-        dismissButton = {
-            BoardButton(label = "Keep", onClick = onCancel, weight = ButtonWeight.QUIET)
-        }
-    )
-}
 
 @Preview(name = "Account · signed in", showBackground = true)
 @Composable

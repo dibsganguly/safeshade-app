@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -37,7 +36,10 @@ import com.safeshade.platform.PhoneNumbers
 import com.safeshade.ui.board.BoardButton
 import com.safeshade.ui.board.BoardPlate
 import com.safeshade.ui.board.ButtonWeight
+import com.safeshade.ui.board.EditorFootBar
+import com.safeshade.ui.board.EditorScaffold
 import com.safeshade.ui.board.Hairline
+import com.safeshade.ui.board.HoldToConfirm
 import com.safeshade.ui.board.LampState
 import com.safeshade.ui.board.ScreenHeader
 import com.safeshade.ui.board.SectionPlate
@@ -101,7 +103,6 @@ fun WearerEditorScreen(
     var contactPhone by rememberSaveable { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
-    var confirmingRemove by remember { mutableStateOf(false) }
 
     val self = state.wearer.isSelf
     val title = when {
@@ -109,6 +110,10 @@ fun WearerEditorScreen(
         self -> "You"
         else -> state.wearer.name.ifBlank { "This person" }
     }
+    val isDirty = name != state.wearer.name ||
+        avatarId != state.wearer.avatarId ||
+        addresses != state.wearer.deviceAddresses ||
+        contacts != state.wearer.contacts
 
     fun act(block: suspend () -> WearerResult) {
         if (busy) return
@@ -123,16 +128,46 @@ fun WearerEditorScreen(
         }
     }
 
-    Column(
+    // The editor's foot is pinned (2.34): Save is amber, and Discard leaves
+    // without writing anything.
+    EditorScaffold(
         modifier = modifier
             .fillMaxSize()
-            .background(colors.ground)
-    ) {
+            .background(colors.ground),
+        bottomPadding = contentPadding.calculateBottomPadding(),
+        foot = {
+            EditorFootBar(
+                primaryLabel = if (busy) "Saving" else "Save",
+                onPrimary = {
+                    act {
+                        onSave(
+                            state.wearer.copy(
+                                name = name.trim(),
+                                avatarId = avatarId,
+                                deviceAddresses = addresses,
+                                contacts = contacts
+                            )
+                        )
+                    }
+                },
+                secondaryLabel = "Discard",
+                onSecondary = onBack ?: onDone,
+                changedLine = if (isDirty) "Unsaved changes" else "Nothing to save",
+                statusLine = error,
+                statusState = if (error != null) LampState.TRIP else null,
+                primaryEnabled = name.isNotBlank() && !busy,
+                secondaryEnabled = !busy
+            )
+        }
+    ) { footPadding ->
         Column(
             modifier = Modifier
-                .weight(1f)
+                .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(top = contentPadding.calculateTopPadding() + Spacing.sm, bottom = Spacing.lg)
+                .padding(
+                    top = contentPadding.calculateTopPadding() + Spacing.sm,
+                    bottom = footPadding.calculateBottomPadding() + Spacing.lg
+                )
         ) {
             ScreenHeader(
                 title = title,
@@ -285,72 +320,25 @@ fun WearerEditorScreen(
             if (!state.isNew && state.canRemove) {
                 Spacer(Modifier.height(Spacing.xl))
                 Column(modifier = Modifier.padding(horizontal = Spacing.gutter)) {
-                    BoardButton(
-                        label = "Remove This Person",
+                    // The one irreversible action on this page sits behind a
+                    // hold (2.67) rather than a dialog that takes the whole
+                    // screen away mid-edit.
+                    HoldToConfirm(
+                        label = "Hold to Remove This Person",
+                        onConfirm = { act(onRemove) },
                         icon = SafeShadeIcons.UserRemove,
-                        supporting = "Their medical ID and contacts go with them",
-                        onClick = { confirmingRemove = true },
-                        weight = ButtonWeight.DANGER,
                         enabled = !busy,
                         modifier = Modifier.fillMaxWidth()
+                    )
+                    Text(
+                        text = "Their medical ID and contacts go with them. A wearable bound to them stays paired and can be bound to someone else.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colors.inkFaint,
+                        modifier = Modifier.padding(top = Spacing.sm)
                     )
                 }
             }
         }
-
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .imePadding()
-                .padding(start = Spacing.gutter, end = Spacing.gutter, top = Spacing.sm, bottom = contentPadding.calculateBottomPadding() + Spacing.lg)
-        ) {
-            val shown = error
-            if (shown != null) {
-                Text(text = shown, style = MaterialTheme.typography.bodyMedium, color = colors.inkTrip)
-                Spacer(Modifier.height(Spacing.sm))
-            }
-            BoardButton(
-                label = if (busy) "Saving…" else "Save",
-                onClick = {
-                    act {
-                        onSave(
-                            state.wearer.copy(
-                                name = name.trim(),
-                                avatarId = avatarId,
-                                deviceAddresses = addresses,
-                                contacts = contacts
-                            )
-                        )
-                    }
-                },
-                weight = ButtonWeight.COMMIT,
-                enabled = name.isNotBlank() && !busy,
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
-    }
-
-    if (confirmingRemove) {
-        AlertDialog(
-            onDismissRequest = { confirmingRemove = false },
-            containerColor = colors.plate,
-            titleContentColor = colors.ink,
-            textContentColor = colors.inkMuted,
-            title = { Text("Remove ${name.ifBlank { "this person" }}", style = MaterialTheme.typography.titleMedium, color = colors.ink) },
-            text = {
-                Text(
-                    "Their medical ID and their own contacts are removed from this phone. A wearable bound to them stays paired and can be bound to someone else.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = colors.inkMuted
-                )
-            },
-            confirmButton = {
-                BoardButton(label = "Remove", onClick = { confirmingRemove = false; act(onRemove) }, weight = ButtonWeight.DANGER)
-            },
-            dismissButton = {
-                BoardButton(label = "Keep", onClick = { confirmingRemove = false }, weight = ButtonWeight.QUIET)
-            }
-        )
     }
 }
 

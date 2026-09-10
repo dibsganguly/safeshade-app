@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import com.safeshade.data.UserRole
 import com.safeshade.data.VoiceUpload
 import com.safeshade.ui.board.BoardPlate
+import com.safeshade.ui.board.Footnote
 import com.safeshade.ui.board.LampState
 import com.safeshade.ui.board.PilotLamp
 import com.safeshade.ui.board.ScreenHeader
@@ -161,12 +162,8 @@ fun TalkScreen(
 
         Column(modifier = Modifier.padding(horizontal = Spacing.gutter, vertical = Spacing.md)) {
             if (!state.signedIn) {
-                Text(
-                    text = "Notes stay on this phone until you sign in. Sign in and they reach the rest of the Circle.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colors.inkMuted,
-                    modifier = Modifier.padding(bottom = Spacing.sm)
-                )
+                Footnote("Notes stay on this phone until you sign in. Sign in and they reach the rest of the Circle.")
+                Spacer(Modifier.height(Spacing.sm))
             }
             if (state.error != null) {
                 Text(

@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -31,11 +30,13 @@ import androidx.compose.ui.unit.dp
 import com.safeshade.data.UserRole
 import com.safeshade.ui.board.BoardButton
 import com.safeshade.ui.board.ButtonWeight
+import com.safeshade.ui.board.IconDisc
 import com.safeshade.ui.board.LampState
 import com.safeshade.ui.board.Nameplate
 import com.safeshade.ui.board.PilotLamp
 import com.safeshade.ui.board.plateClickable
 import com.safeshade.ui.icons.SafeShadeIcons
+import com.safeshade.ui.theme.accentFor
 import com.safeshade.ui.theme.Radius
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
@@ -163,12 +164,10 @@ private fun RoleCard(
             )
             .padding(Spacing.lg)
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = if (selected) colors.ink else colors.inkFaint,
-            modifier = Modifier.size(24.dp)
-        )
+        // A glyph on a disc rather than a bare icon (2.12): each card gets its
+        // own mark without either one watermarking the plate, which two
+        // side-by-side cards may not both do.
+        IconDisc(icon = icon, accent = if (selected) colors.accentFor(title) else colors.inkFaint)
         Spacer(Modifier.width(Spacing.md))
         Column(modifier = Modifier.weight(1f)) {
             Text(

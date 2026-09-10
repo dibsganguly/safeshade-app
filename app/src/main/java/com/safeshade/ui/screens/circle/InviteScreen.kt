@@ -37,6 +37,7 @@ import com.safeshade.ui.board.Hairline
 import com.safeshade.ui.board.LampState
 import com.safeshade.ui.board.ScreenHeader
 import com.safeshade.ui.board.SectionPlate
+import com.safeshade.ui.board.SegmentedChoice
 import com.safeshade.ui.board.Way
 import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.board.PlateField
@@ -182,19 +183,13 @@ fun GuardiansScreen(
                     keyboardType = KeyboardType.Email,
                     imeAction = ImeAction.Done
                 )
-                Column {
-                    listOf(CircleRole.GUARDIAN, CircleRole.VIEWER).forEachIndexed { i, option ->
-                        if (i > 0) Hairline()
-                        Way(
-                            name = option.label,
-                            state = if (role == option) LampState.LIVE else LampState.OFF,
-                            stateLabel = if (role == option) "In use" else "Not chosen",
-                            detail = option.blurb,
-                            icon = SafeShadeIcons.UserGroup,
-                            onClick = { role = option }
-                        )
-                    }
-                }
+                val roleOptions = listOf(CircleRole.GUARDIAN, CircleRole.VIEWER)
+                SegmentedChoice(
+                    options = roleOptions.map { it.label },
+                    selected = roleOptions.indexOf(role).coerceAtLeast(0),
+                    onSelect = { role = roleOptions[it] },
+                    consequences = roleOptions.map { it.blurb }
+                )
                 BoardButton(
                     label = if (busy) "Sending…" else "Send the Invitation",
                     icon = SafeShadeIcons.MailSendInvite,

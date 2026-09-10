@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -32,8 +31,12 @@ import com.safeshade.shareText
 import com.safeshade.ui.board.BoardButton
 import com.safeshade.ui.board.BoardPlate
 import com.safeshade.ui.board.ButtonWeight
+import com.safeshade.ui.board.Footnote
+import com.safeshade.ui.board.FooterAction
 import com.safeshade.ui.board.Hairline
 import com.safeshade.ui.board.LampState
+import com.safeshade.ui.board.LedgerLine
+import com.safeshade.ui.board.LedgerRow
 import com.safeshade.ui.board.MainsPlate
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.Way
@@ -134,29 +137,49 @@ fun TripDetailScreen(
         SectionPlate(title = "What was recorded")
         Spacer(Modifier.height(Spacing.sm))
 
+        // A block of key: value facts is a ledger (2.22), not a column of
+        // rows with no state — Outcome carries the trip's own lamp colour,
+        // and the plate's one action rides as its footer (2.92).
         BoardPlate(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(Spacing.lg)) {
-                DetailLine("Event", trip.kind.label)
-                DetailLine("Time", formatFullTimestamp(trip.timestamp, state.today))
-                DetailLine("Outcome", trip.outcome.label)
-                DetailLine(
-                    label = "Place",
-                    value = trip.location?.takeIf { it.isNotBlank() }
-                        ?: "Not recorded. The phone had no location fix at the time."
+            Column(modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.sm)) {
+                LedgerLine(LedgerRow("Event", trip.kind.label))
+                LedgerLine(LedgerRow("Time", formatFullTimestamp(trip.timestamp, state.today)))
+                LedgerLine(LedgerRow("Outcome", trip.outcome.label, state = trip.outcome.lamp))
+                LedgerLine(
+                    LedgerRow(
+                        "Place",
+                        trip.location?.takeIf { it.isNotBlank() } ?: ""
+                    )
                 )
                 if (!trip.note.isNullOrBlank()) {
-                    DetailLine("Device said", trip.note.orEmpty())
+                    LedgerLine(LedgerRow("Device said", trip.note.orEmpty()))
                 }
-                DetailLine(
-                    label = "Contact",
-                    value = when {
-                        trip.wasEmergencyContacted && state.contactedName != null ->
-                            "${state.contactedName} was called"
-                        trip.wasEmergencyContacted -> "A contact was called"
-                        else -> "Nobody was called"
-                    }
+                // Who was called is names only in this state - no avatar id
+                // travels with a trip's contact, so it stays a ledger row
+                // rather than a FaceStack (2.88), which needs one.
+                LedgerLine(
+                    LedgerRow(
+                        "Contact",
+                        when {
+                            trip.wasEmergencyContacted && state.contactedName != null -> state.contactedName
+                            trip.wasEmergencyContacted -> "Called"
+                            else -> ""
+                        },
+                        state = if (trip.wasEmergencyContacted) LampState.LIVE else null
+                    )
                 )
             }
+            if (onSavePdf != null) {
+                FooterAction(
+                    label = "Share as PDF",
+                    icon = SafeShadeIcons.Pdf,
+                    onClick = { failure = onSavePdf() }
+                )
+            }
+        }
+        if (onSavePdf != null) {
+            Spacer(Modifier.height(Spacing.sm))
+            Footnote(text = "One page: what happened, where, the medical ID and who was called.")
         }
 
         val sensor = state.sensor
@@ -202,17 +225,6 @@ fun TripDetailScreen(
             weight = ButtonWeight.SECONDARY,
             modifier = Modifier.fillMaxWidth()
         )
-        if (onSavePdf != null) {
-            Spacer(Modifier.height(Spacing.md))
-            BoardButton(
-                label = "Share as PDF",
-                icon = SafeShadeIcons.Pdf,
-                supporting = "One page: what happened, where, the medical ID and who was called.",
-                onClick = { failure = onSavePdf() },
-                weight = ButtonWeight.SECONDARY,
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
 
         if (failure != null) {
             Spacer(Modifier.height(Spacing.sm))
@@ -251,7 +263,7 @@ fun TripDetailScreen(
             Spacer(Modifier.height(Spacing.xl))
             SectionPlate(title = "Close this off")
             Spacer(Modifier.height(Spacing.sm))
-            Note(
+            Footnote(
                 text = "This trip is still open. Say what happened so the log stays honest and " +
                     "the board stops showing it as unanswered."
             )
@@ -272,12 +284,10 @@ fun TripDetailScreen(
         }
 
         Spacer(Modifier.height(Spacing.xl))
-        Text(
+        Footnote(
             text = "Times come from this phone's clock and places from its last location fix, " +
                 "not from the device. A recorded place is where the phone was, which is not " +
-                "always where $subject was.",
-            style = MaterialTheme.typography.bodySmall,
-            color = colors.inkFaint
+                "always where $subject was."
         )
     }
 }

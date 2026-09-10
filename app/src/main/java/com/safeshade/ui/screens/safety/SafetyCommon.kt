@@ -101,36 +101,6 @@ internal fun PanelHeader(
 // ============================================
 
 /**
- * One short line of orientation.
- *
- * It used to be a paragraph, and there used to be eight of them on a screen.
- * The instinct behind that was right — every switch here changes what happens
- * to a person in an emergency, and a toggle whose consequence is not spelled
- * out is a toggle nobody dares to touch — but three sentences above the
- * controls are read once and scrolled past forever after.
- *
- * So the consequence now rides on the row itself, as a `Way`'s `detail`, where
- * it sits beside the thing it describes; the long form goes behind a
- * `WhyDisclosure`, available to the guardian who is setting this up for
- * somebody else and out of the way of everyone else. What is left for this is
- * a single sentence naming what a section is: keep it under about fifteen
- * words, and if it will not fit, that is the signal it belongs in a
- * disclosure.
- */
-@Composable
-internal fun Note(
-    text: String,
-    modifier: Modifier = Modifier
-) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.board.inkMuted,
-        modifier = modifier.fillMaxWidth()
-    )
-}
-
-/**
  * A warning that something did not happen.
  *
  * Rendered in the trip ink because it carries a real state meaning, and always

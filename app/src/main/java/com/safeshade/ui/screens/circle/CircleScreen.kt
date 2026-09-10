@@ -60,9 +60,13 @@ import com.safeshade.ui.board.Readout
 import com.safeshade.ui.board.ScreenHeader
 import com.safeshade.ui.board.ScreenTier
 import com.safeshade.ui.board.SectionPlate
+import com.safeshade.ui.board.Tile
+import com.safeshade.ui.board.TileGrid
+import com.safeshade.ui.board.QualifierChip
 import com.safeshade.ui.board.Way
 import com.safeshade.ui.board.rowClickable
 import com.safeshade.ui.icons.SafeShadeIcons
+import com.safeshade.ui.theme.Hub
 import com.safeshade.ui.theme.Motion
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
@@ -376,80 +380,71 @@ fun CircleScreen(
             SectionPlate(title = "Arrangements", modifier = Modifier.padding(top = Spacing.xl))
         }
 
+        // Every row here only navigates — none reports with no destination and
+        // none carries a switch — so the bank is a grid of tiles (2.84) rather
+        // than a list of identically-shaped ways.
         item("arrangements") {
-            BoardPlate(modifier = Modifier.fillMaxWidth().padding(top = Spacing.sm)) {
-                Way(
-                    name = "Safe zones",
-                    state = state.zones.state,
-                    stateLabel = state.zones.stateLabel,
-                    detail = state.zones.detail,
-                    icon = SafeShadeIcons.SafeZone,
-                    onClick = onOpenZones
+            TileGrid(
+                modifier = Modifier.padding(top = Spacing.sm),
+                tiles = listOf(
+                    Tile(
+                        title = "Safe zones",
+                        icon = SafeShadeIcons.SafeZone,
+                        state = state.zones.state,
+                        stateLabel = state.zones.stateLabel,
+                        onClick = onOpenZones
+                    ),
+                    Tile(
+                        title = "Walk with me",
+                        icon = SafeShadeIcons.WalkingPerson,
+                        state = state.journey.state,
+                        stateLabel = state.journey.stateLabel,
+                        onClick = onOpenJourney
+                    ),
+                    Tile(
+                        title = "Check in",
+                        icon = SafeShadeIcons.HelpCircle,
+                        state = state.checkIn.state,
+                        stateLabel = state.checkIn.stateLabel,
+                        onClick = onOpenCheckIn
+                    ),
+                    Tile(
+                        title = "Guardians",
+                        icon = SafeShadeIcons.UserGroup,
+                        state = state.guardians.state,
+                        stateLabel = state.guardians.stateLabel,
+                        onClick = onOpenGuardians
+                    ),
+                    Tile(
+                        title = "Talk",
+                        icon = SafeShadeIcons.WalkieTalkie,
+                        state = state.talk.state,
+                        stateLabel = state.talk.stateLabel,
+                        onClick = onOpenTalk
+                    ),
+                    Tile(
+                        title = "Where alerts happen",
+                        icon = SafeShadeIcons.RadarBroadcast,
+                        state = LampState.OFF,
+                        stateLabel = "Map",
+                        onClick = onOpenHeatmap
+                    ),
+                    Tile(
+                        title = "SIM and SMS",
+                        icon = SafeShadeIcons.SimAndSms,
+                        state = state.sms.state,
+                        stateLabel = state.sms.stateLabel,
+                        onClick = onOpenSim
+                    ),
+                    Tile(
+                        title = "Smart home",
+                        icon = SafeShadeIcons.SmartHome,
+                        state = state.smartHome.state,
+                        stateLabel = state.smartHome.stateLabel,
+                        onClick = onOpenSmartHome
+                    )
                 )
-                Hairline()
-                Way(
-                    name = "Walk with me",
-                    state = state.journey.state,
-                    stateLabel = state.journey.stateLabel,
-                    detail = state.journey.detail,
-                    icon = SafeShadeIcons.WalkingPerson,
-                    onClick = onOpenJourney
-                )
-                Hairline()
-                Way(
-                    name = "Check in",
-                    state = state.checkIn.state,
-                    stateLabel = state.checkIn.stateLabel,
-                    detail = state.checkIn.detail,
-                    icon = SafeShadeIcons.HelpCircle,
-                    onClick = onOpenCheckIn
-                )
-                Hairline()
-                Way(
-                    name = "Guardians",
-                    state = state.guardians.state,
-                    stateLabel = state.guardians.stateLabel,
-                    detail = state.guardians.detail,
-                    icon = SafeShadeIcons.UserGroup,
-                    onClick = onOpenGuardians
-                )
-                Hairline()
-                Way(
-                    name = "Talk",
-                    state = state.talk.state,
-                    stateLabel = state.talk.stateLabel,
-                    detail = state.talk.detail,
-                    icon = SafeShadeIcons.WalkieTalkie,
-                    onClick = onOpenTalk
-                )
-                Hairline()
-                Way(
-                    name = "Where alerts happen",
-                    state = LampState.OFF,
-                    stateLabel = "Map",
-                    detail = "Your household's places, and the community's",
-                    icon = SafeShadeIcons.RadarBroadcast,
-                    onClick = onOpenHeatmap
-                )
-                Hairline()
-                Way(
-                    name = "SIM and SMS",
-                    state = state.sms.state,
-                    stateLabel = state.sms.stateLabel,
-                    detail = state.sms.detail,
-                    icon = SafeShadeIcons.SimAndSms,
-                    onClick = onOpenSim
-                )
-                Hairline()
-                Way(
-                    name = "Smart home",
-                    state = state.smartHome.state,
-                    stateLabel = state.smartHome.stateLabel,
-                    detail = state.smartHome.detail,
-                    icon = SafeShadeIcons.SmartHome,
-                    onClick = onOpenSmartHome
-                )
-            }
+            )
         }
     }
 }
@@ -479,7 +474,10 @@ fun CircleScreen(
 private fun PersonPlate(state: CircleUiState, name: String, modifier: Modifier = Modifier) {
     val colors = MaterialTheme.board
 
-    BoardPlate(modifier = modifier.fillMaxWidth()) {
+    // The one tinted plate on this hub (2.53) — the person or guardian at
+    // the head of the screen, the same way the mains plate is the one
+    // tinted plate on the Board.
+    BoardPlate(modifier = modifier.fillMaxWidth(), hub = Hub.CIRCLE) {
         Row(
             verticalAlignment = Alignment.Top,
             modifier = Modifier.fillMaxWidth().padding(Spacing.lg)
@@ -600,6 +598,7 @@ private fun WearerPlate(
         }
         Hairline()
         Row(
+            verticalAlignment = Alignment.Top,
             horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
             modifier = Modifier
                 .fillMaxWidth()
@@ -610,21 +609,21 @@ private fun WearerPlate(
             // the spoken description now, and the glyph is the whole target.
             BoardIconButton(icon = SafeShadeIcons.SendMessage, contentDescription = "Message", onClick = onMessage, modifier = Modifier.weight(1f))
             BoardIconButton(icon = SafeShadeIcons.WhereNavigation, contentDescription = "Where", onClick = onLocate, modifier = Modifier.weight(1f))
-            BoardIconButton(
-                icon = SafeShadeIcons.TelephoneCall,
-                contentDescription = "Call",
-                onClick = onCall,
-                enabled = card.canCall,
-                modifier = Modifier.weight(1f)
-            )
-        }
-        if (!card.canCall) {
-            Text(
-                text = "Call needs the wearable's SIM number, stored under SIM and SMS.",
-                style = MaterialTheme.typography.bodySmall,
-                color = colors.inkFaint,
-                modifier = Modifier.padding(start = Spacing.lg, end = Spacing.lg, bottom = Spacing.md)
-            )
+            Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                BoardIconButton(
+                    icon = SafeShadeIcons.TelephoneCall,
+                    contentDescription = "Call",
+                    onClick = onCall,
+                    enabled = card.canCall,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                // The sentence goes; the fact the row cannot change becomes a
+                // stamp instead (2.29).
+                if (!card.canCall) {
+                    Spacer(Modifier.height(Spacing.xxs))
+                    QualifierChip("Needs SIM")
+                }
+            }
         }
     }
 }
@@ -865,6 +864,20 @@ private fun CircleGuardianLightPreview() {
                 role = UserRole.GUARDIAN,
                 wearerName = "Baba",
                 guardianName = "Priya",
+                wearers = listOf(
+                    WearerCard(
+                        id = "1",
+                        name = "Baba",
+                        avatarId = "",
+                        modeLabel = "Elderly",
+                        linkState = LampState.LIVE,
+                        linkLabel = "Reachable",
+                        batteryLabel = "74 %",
+                        placeLabel = "Home · 4 min ago",
+                        lastAlertLabel = "—",
+                        canCall = false
+                    )
+                ),
                 linkState = LampState.LIVE,
                 linkLabel = "Reachable",
                 subline = "Wearing the cane sensor · last heard from 2 minutes ago",

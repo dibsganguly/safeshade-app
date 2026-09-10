@@ -31,7 +31,8 @@ import com.safeshade.device.ConnectionState
 import com.safeshade.ui.board.BoardPlate
 import com.safeshade.ui.board.BusTick
 import com.safeshade.ui.board.Hairline
-import com.safeshade.ui.board.Readout
+import com.safeshade.ui.board.LedgerLine
+import com.safeshade.ui.board.LedgerRow
 import com.safeshade.ui.board.ScreenHeader
 import com.safeshade.ui.board.Seal
 import com.safeshade.ui.board.icon
@@ -121,31 +122,14 @@ fun ModeCompareScreen(
                         }
                         Spacer(Modifier.height(Spacing.md))
                         Hairline()
-                        Spacer(Modifier.height(Spacing.md))
-                        Row(modifier = Modifier.fillMaxWidth()) {
-                            val g = facts.impactG(state.fallSensitivity)
-                            Readout(
-                                label = "Trips at",
-                                value = if (!facts.fallDetection) "Off" else g?.let { String.format(Locale.US, "%.1f g", it) } ?: "—",
-                                compact = !facts.fallDetection,
-                                modifier = Modifier.weight(1f)
-                            )
-                            Readout(
-                                label = "Rotation",
-                                value = facts.rotationDps?.let { String.format(Locale.US, "%.0f°/s", it) } ?: "—",
-                                modifier = Modifier.weight(1f)
-                            )
-                            Readout(
-                                label = "Screens",
-                                value = facts.screens.size.toString(),
-                                modifier = Modifier.weight(1f)
-                            )
-                            Readout(
-                                label = "Position",
-                                value = "${facts.gatewayPollMs / 1000} s",
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
+                        // Each profile's own ledger. A comparison across eight
+                        // profiles is eight ledgers stacked, not one table with
+                        // eight columns the kit has no member for.
+                        val g = facts.impactG(state.fallSensitivity)
+                        LedgerLine(LedgerRow("Trips at", if (!facts.fallDetection) "Off" else g?.let { String.format(Locale.US, "%.1f g", it) } ?: "—", mono = facts.fallDetection))
+                        LedgerLine(LedgerRow("Rotation", facts.rotationDps?.let { String.format(Locale.US, "%.0f°/s", it) } ?: "—", mono = true))
+                        LedgerLine(LedgerRow("Screens", facts.screens.size.toString(), mono = true))
+                        LedgerLine(LedgerRow("Position updates", "${facts.gatewayPollMs / 1000} s", mono = true))
                     }
                 }
             }

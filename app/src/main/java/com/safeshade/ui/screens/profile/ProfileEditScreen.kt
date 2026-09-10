@@ -11,9 +11,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -28,8 +26,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.safeshade.ui.board.AvatarSpec
-import com.safeshade.ui.board.BoardButton
-import com.safeshade.ui.board.ButtonWeight
+import com.safeshade.ui.board.EditorFootBar
+import com.safeshade.ui.board.EditorScaffold
+import com.safeshade.ui.board.LampState
 import com.safeshade.ui.board.Nameplate
 import com.safeshade.ui.board.ScreenHeader
 import com.safeshade.ui.theme.SafeShadeTheme
@@ -66,19 +65,33 @@ fun ProfileEditScreen(
     var name by rememberSaveable { mutableStateOf(state.name) }
     var avatarId by rememberSaveable { mutableStateOf(state.avatarId) }
     val owner = state.target == ProfileTarget.OWNER
+    val dirty = name.trim() != state.name || avatarId != state.avatarId
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(colors.ground)
-    ) {
+    // The editor's foot is pinned (candidate 2.34), the same shape every
+    // editor in this app uses: Save amber, Discard beside it in trip ink.
+    EditorScaffold(
+        modifier = modifier.fillMaxSize().background(colors.ground),
+        bottomPadding = contentPadding.calculateBottomPadding(),
+        foot = {
+            EditorFootBar(
+                primaryLabel = "Save",
+                onPrimary = { onSave(name.trim(), avatarId) },
+                secondaryLabel = "Discard",
+                onSecondary = { onBack?.invoke() },
+                changedLine = if (dirty) "Unsaved changes" else "Nothing to save",
+                statusState = if (dirty) LampState.ATTENTION else null,
+                primaryEnabled = name.isNotBlank() && dirty,
+                secondaryEnabled = dirty
+            )
+        }
+    ) { footPadding ->
         Column(
             modifier = Modifier
-                .weight(1f)
+                .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .padding(
                     top = contentPadding.calculateTopPadding() + Spacing.sm,
-                    bottom = Spacing.lg
+                    bottom = footPadding.calculateBottomPadding() + Spacing.lg
                 )
         ) {
             ScreenHeader(
@@ -97,20 +110,6 @@ fun ProfileEditScreen(
                 onAvatarChange = { avatarId = it },
                 nameLabel = if (owner) "Your name" else "Their name",
                 namePlaceholder = if (owner) "Priya" else "Baba"
-            )
-        }
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .imePadding()
-                .padding(start = Spacing.gutter, end = Spacing.gutter, top = Spacing.sm, bottom = contentPadding.calculateBottomPadding() + Spacing.lg)
-        ) {
-            BoardButton(
-                label = "Save",
-                onClick = { onSave(name.trim(), avatarId) },
-                weight = ButtonWeight.COMMIT,
-                enabled = name.isNotBlank(),
-                modifier = Modifier.fillMaxWidth()
             )
         }
     }

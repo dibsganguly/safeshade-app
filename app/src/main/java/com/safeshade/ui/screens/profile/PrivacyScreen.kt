@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.safeshade.ui.board.BoardPlate
+import com.safeshade.ui.board.Footnote
 import com.safeshade.ui.board.Hairline
 import com.safeshade.ui.board.LampState
 import com.safeshade.ui.board.ScreenHeader
@@ -107,11 +108,7 @@ fun PrivacyScreen(
                 onClick = if (state.signedIn && share != null) { { onSharePlacesChange(!share) } } else null
             )
         }
-        Text(
-            text = "The map never shows a single alert, a name, or a time. It shows cells where enough alerts happened to be worth knowing about.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = colors.inkMuted
-        )
+        Footnote("The map never shows a single alert, a name, or a time. It shows cells where enough alerts happened to be worth knowing about.")
 
         SectionPlate(title = "On this phone only")
         BoardPlate(modifier = Modifier.fillMaxWidth()) {

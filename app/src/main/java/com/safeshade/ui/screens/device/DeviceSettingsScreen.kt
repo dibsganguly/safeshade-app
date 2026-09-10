@@ -46,10 +46,11 @@ import com.safeshade.ui.board.Nameplate
 import com.safeshade.ui.board.PilotLamp
 import com.safeshade.ui.board.ScreenHeader
 import com.safeshade.ui.board.SectionPlate
+import com.safeshade.ui.board.SegmentedChoice
 import com.safeshade.ui.board.TimeStrip
+import com.safeshade.ui.board.TitledPlate
 import com.safeshade.ui.board.formatClock
 import com.safeshade.ui.board.Way
-import com.safeshade.ui.board.OptionWay
 import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
@@ -162,32 +163,18 @@ fun DeviceSettingsScreen(
                 label = "Fall sensitivity",
                 ack = state.ackFor("fallSensitivity")
             ) {
-                // OptionWay rows, the same control the fall-settings screen
-                // uses for this same value.
-                //
-                // There were two. This screen had a row of three plates with
-                // the selected one filled, and FallSettingsScreen had these
-                // rows - one setting, two widgets, and a user who changes it in
-                // one place and then finds something that looks like a
-                // different control in the other. Rows win because each option
-                // states its own consequence: the plate row could only show the
-                // blurb for whichever option was already chosen, which is the
-                // one the user least needs explained.
-                //
-                // Deliberately NOT a slider. Three named settings on a track
-                // reads as a continuum with two invisible stops, and this is a
-                // choice between three named behaviours.
-                Column {
-                    FallSensitivity.entries.forEachIndexed { index, level ->
-                        if (index > 0) Hairline()
-                        OptionWay(
-                            name = level.label,
-                            detail = level.blurb,
-                            selected = state.fallSensitivity == level,
-                            onSelect = { onFallSensitivityChange(level) }
-                        )
-                    }
-                }
+                // A segmented choice (2.24): three named behaviours in one
+                // channel rather than three plate rows, with the chosen
+                // option's consequence as the one line under the control.
+                // Deliberately not a slider - three named settings on a
+                // track reads as a continuum with two invisible stops, and
+                // this is a choice between three named behaviours.
+                SegmentedChoice(
+                    options = FallSensitivity.entries.map { it.label },
+                    selected = FallSensitivity.entries.indexOf(state.fallSensitivity),
+                    onSelect = { onFallSensitivityChange(FallSensitivity.entries[it]) },
+                    consequences = FallSensitivity.entries.map { it.blurb }
+                )
             }
         }
 
@@ -382,10 +369,10 @@ fun DeviceSettingsScreen(
         }
 
         // ---------- Identity ----------
-        item("identity-heading") { SectionPlate(title = "Identity") }
-
-        item("device-name") {
-            BoardPlate(modifier = Modifier.fillMaxWidth()) {
+        // A single named thing (the device's name), so the heading is
+        // machined into the plate rather than floating over it.
+        item("identity") {
+            TitledPlate(title = "Identity") {
                 ValueRow(
                     label = "Device name",
                     value = state.deviceName,

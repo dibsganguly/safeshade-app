@@ -30,14 +30,16 @@ import com.safeshade.device.ConnectionState
 import com.safeshade.ui.board.BoardButton
 import com.safeshade.ui.board.BoardPlate
 import com.safeshade.ui.board.ButtonWeight
+import com.safeshade.ui.board.Footnote
 import com.safeshade.ui.board.Hairline
 import com.safeshade.ui.board.LampState
-import com.safeshade.ui.board.Nameplate
+import com.safeshade.ui.board.Ledger
+import com.safeshade.ui.board.LedgerRow
 import com.safeshade.ui.board.PilotLamp
-import com.safeshade.ui.board.Readout
 import com.safeshade.ui.board.ScreenHeader
 import com.safeshade.ui.board.Seal
 import com.safeshade.ui.board.SectionPlate
+import com.safeshade.ui.board.TaggedPlate
 import com.safeshade.ui.board.Way
 import com.safeshade.ui.board.icon
 import com.safeshade.ui.icons.SafeShadeIcons
@@ -109,8 +111,7 @@ fun ModeDetailScreen(
                 subtitle = facts.forWhom,
                 onBack = onBack,
                 backDescription = "Back to the profiles",
-                modifier = gutter,
-                trailing = if (mode.isGuardianLocked) ({ Seal() }) else null
+                modifier = gutter
             )
         }
 
@@ -137,7 +138,9 @@ fun ModeDetailScreen(
         }
 
         item("status") {
-            BoardPlate(modifier = gutter.fillMaxWidth()) {
+            // The page's head plate. A locked mode carries its stamp in the
+            // corner (2.90) rather than beside the header title.
+            val statusRow: @Composable () -> Unit = {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.padding(Spacing.lg)
@@ -173,6 +176,11 @@ fun ModeDetailScreen(
                     PilotLamp(state = lamp, size = 18.dp)
                 }
             }
+            if (mode.isGuardianLocked) {
+                TaggedPlate(tag = "Sealed", modifier = gutter.fillMaxWidth()) { statusRow() }
+            } else {
+                BoardPlate(modifier = gutter.fillMaxWidth()) { statusRow() }
+            }
         }
 
         item("offline") {
@@ -187,39 +195,26 @@ fun ModeDetailScreen(
             Column(modifier = gutter) {
                 SectionPlate(title = "Fall detection")
                 Spacer(Modifier.height(Spacing.md))
-                BoardPlate(modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.padding(Spacing.lg)) {
-                        if (facts.fallDetection) {
-                            val g = facts.impactG(state.fallSensitivity)
-                            Row(modifier = Modifier.fillMaxWidth()) {
-                                Readout(
-                                    label = "Trips at",
-                                    value = g?.let { String.format(Locale.US, "%.1f g", it) } ?: "—",
-                                    large = true,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                Readout(
-                                    label = "Sensitivity",
-                                    value = state.fallSensitivity.label,
-                                    compact = true,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                Readout(
-                                    label = "Rotation",
-                                    value = facts.rotationDps?.let { String.format(Locale.US, "%.0f°/s", it) } ?: "Not checked",
-                                    compact = facts.rotationDps == null,
-                                    modifier = Modifier.weight(1f)
-                                )
-                            }
-                            Spacer(Modifier.height(Spacing.md))
-                            Hairline()
-                            Spacer(Modifier.height(Spacing.md))
-                            Text(
-                                text = fallExplanation(facts, state.fallSensitivity),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = colors.inkMuted
+                if (facts.fallDetection) {
+                    val g = facts.impactG(state.fallSensitivity)
+                    // The facts read off the firmware, as a ledger: a
+                    // quantity in mono, never prose.
+                    Ledger(
+                        listOf(
+                            LedgerRow("Trips at", g?.let { String.format(Locale.US, "%.1f g", it) } ?: "—", mono = true),
+                            LedgerRow("Sensitivity", state.fallSensitivity.label),
+                            LedgerRow(
+                                "Rotation",
+                                facts.rotationDps?.let { String.format(Locale.US, "%.0f°/s", it) } ?: "Not checked",
+                                mono = facts.rotationDps != null
                             )
-                        } else {
+                        )
+                    )
+                    Spacer(Modifier.height(Spacing.sm))
+                    Footnote(fallExplanation(facts, state.fallSensitivity))
+                } else {
+                    BoardPlate(modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(Spacing.lg)) {
                             Text(
                                 text = "Off in this profile.",
                                 style = MaterialTheme.typography.titleMedium,
@@ -242,21 +237,19 @@ fun ModeDetailScreen(
             Column(modifier = gutter) {
                 SectionPlate(title = "On the wearable")
                 Spacer(Modifier.height(Spacing.md))
-                BoardPlate(modifier = Modifier.fillMaxWidth()) {
-                    FactRow("Screens", facts.screens.joinToString(" · "))
-                    Hairline()
-                    FactRow("Home screen", facts.homeScreen)
-                    Hairline()
-                    FactRow("Lights", facts.lights)
-                    Hairline()
-                    FactRow("Position updates", "Every ${facts.gatewayPollMs / 1000} seconds from the gateway.")
-                    Hairline()
-                    FactRow(
-                        "Cancelling a fall",
-                        if (mode == PersonaMode.HELMET) "Two presses within ten seconds: “Are you OK?”, then “Press again”."
-                        else "A double press within five seconds of the impact."
+                Ledger(
+                    listOf(
+                        LedgerRow("Screens", facts.screens.joinToString(" · ")),
+                        LedgerRow("Home screen", facts.homeScreen),
+                        LedgerRow("Lights", facts.lights),
+                        LedgerRow("Position updates", "Every ${facts.gatewayPollMs / 1000} s", mono = true),
+                        LedgerRow(
+                            "Cancelling a fall",
+                            if (mode == PersonaMode.HELMET) "Two presses within ten seconds: “Are you OK?”, then “Press again”."
+                            else "A double press within five seconds of the impact."
+                        )
                     )
-                }
+                )
             }
         }
 
@@ -327,11 +320,12 @@ fun ModeDetailScreen(
             Column(modifier = gutter) {
                 SectionPlate(title = "In short")
                 Spacer(Modifier.height(Spacing.md))
-                BoardPlate(modifier = Modifier.fillMaxWidth()) {
-                    FactRow("Algorithm", facts.algorithm)
-                    Hairline()
-                    FactRow("Screen", facts.uiChanges)
-                }
+                Ledger(
+                    listOf(
+                        LedgerRow("Algorithm", facts.algorithm),
+                        LedgerRow("Screen", facts.uiChanges)
+                    )
+                )
             }
         }
 
@@ -357,17 +351,6 @@ fun ModeDetailScreen(
 
     if (state.confirming) {
         GuardianLockDialog(mode = mode, onConfirm = onConfirm, onCancel = onCancelConfirm)
-    }
-}
-
-/** A label above a sentence. For facts, which are neither circuits nor settings. */
-@Composable
-private fun FactRow(label: String, value: String) {
-    val colors = MaterialTheme.board
-    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.lg, vertical = Spacing.md)) {
-        Nameplate(label, small = true, muted = true)
-        Spacer(Modifier.height(2.dp))
-        Text(text = value, style = MaterialTheme.typography.bodyMedium, color = colors.ink)
     }
 }
 

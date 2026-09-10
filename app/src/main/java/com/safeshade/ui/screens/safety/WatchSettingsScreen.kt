@@ -22,6 +22,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.safeshade.ui.board.BoardPlate
 import com.safeshade.ui.board.DialControl
+import com.safeshade.ui.board.Footnote
 import com.safeshade.ui.board.Hairline
 import com.safeshade.ui.board.LampState
 import com.safeshade.ui.board.ScreenHeader
@@ -145,7 +146,7 @@ fun WatchSettingsScreen(
             spokenValue = { if (it < 1f) "Off" else "${it.roundToInt()} percent" }
         )
         Spacer(Modifier.height(Spacing.sm))
-        Note(text = "Each notice comes once: once per time out of reach, once per discharge. The phone checks every minute while it is running.")
+        Footnote(text = "Each notice comes once: once per time out of reach, once per discharge. The phone checks every minute while it is running.")
     }
 }
 

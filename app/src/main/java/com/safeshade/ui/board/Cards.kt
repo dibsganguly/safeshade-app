@@ -228,7 +228,7 @@ fun WatermarkPlate(
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = tint.copy(alpha = if (MaterialTheme.board.isDark) 0.14f else 0.10f),
+                tint = tint.copy(alpha = if (MaterialTheme.board.isDark) 0.22f else 0.18f),
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .offset(x = glyphSize * 0.22f, y = glyphSize * 0.22f)

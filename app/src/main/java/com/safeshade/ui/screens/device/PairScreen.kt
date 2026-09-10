@@ -35,6 +35,8 @@ import com.safeshade.ui.board.PilotLamp
 import com.safeshade.ui.board.ProductSilhouette
 import com.safeshade.ui.board.ScreenHeader
 import com.safeshade.ui.board.SectionPlate
+import com.safeshade.ui.board.Step
+import com.safeshade.ui.board.Steps
 import com.safeshade.ui.board.Way
 import com.safeshade.ui.theme.accentFor
 import com.safeshade.ui.icons.SafeShadeIcons
@@ -99,6 +101,13 @@ fun PairScreen(
             subtitle = "Which SafeShade is in your hand?",
             onBack = onBack
         )
+
+        Spacer(Modifier.height(Spacing.lg))
+        // Pairing is a procedure (2.96): which product, then the search, then
+        // the link. Done and current follow the connection itself, not a
+        // guess about how far a person has got.
+        Steps(pairingSteps(state.connection))
+        Spacer(Modifier.height(Spacing.lg))
 
         Row(
             modifier = Modifier.fillMaxWidth().selectableGroup(),
@@ -191,6 +200,17 @@ fun PairScreen(
             )
         }
     }
+}
+
+/** The three-step procedure this page walks, done and current read off the link itself. */
+private fun pairingSteps(connection: ConnectionState): List<Step> {
+    val linked = connection.isUsable
+    val searching = !linked
+    return listOf(
+        Step(lead = "Choose the product", line = "Pick which SafeShade this is.", done = true),
+        Step(lead = "Search and connect", line = "Hold it near the phone and switch it on.", done = linked, current = searching),
+        Step(lead = "Ready to use", line = "The wearable is on the link.", done = false, current = linked)
+    )
 }
 
 private data class Fact(val name: String, val word: String, val line: String, val lamp: LampState)

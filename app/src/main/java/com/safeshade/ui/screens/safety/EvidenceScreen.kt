@@ -1,7 +1,6 @@
 package com.safeshade.ui.screens.safety
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -27,12 +26,16 @@ import androidx.compose.ui.unit.dp
 import com.safeshade.ui.board.BoardButton
 import com.safeshade.ui.board.BoardPlate
 import com.safeshade.ui.board.ButtonWeight
+import com.safeshade.ui.board.Callout
 import com.safeshade.ui.board.DialControl
+import com.safeshade.ui.board.Footnote
 import com.safeshade.ui.board.Hairline
+import com.safeshade.ui.board.HoldToConfirm
 import com.safeshade.ui.board.LampState
 import com.safeshade.ui.board.Readout
 import com.safeshade.ui.board.ScreenHeader
 import com.safeshade.ui.board.SectionPlate
+import com.safeshade.ui.board.TitledPlate
 import com.safeshade.ui.board.Way
 import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.theme.SafeShadeTheme
@@ -194,10 +197,18 @@ fun EvidenceScreen(
             }
         )
         Spacer(Modifier.height(Spacing.sm))
-        Note(text = "A notification shows the whole time the microphone is open. The recording is saved on this phone first, whatever the switch below says.")
+        Footnote(text = "A notification shows the whole time the microphone is open. The recording is saved on this phone first, whatever the switch below says.")
 
         Spacer(Modifier.height(Spacing.xl))
         SectionPlate(title = "Where it goes")
+        Spacer(Modifier.height(Spacing.sm))
+        // The one thing on this page a person must not miss: a recording
+        // does not leave the phone unless the row below is switched on, and
+        // even then the phone keeps its own copy first.
+        Callout(
+            lead = "Stays on this phone",
+            sentence = "A recording never leaves this phone unless SafeShade Cloud is switched on below, and nobody but this phone's own account can hear it even then."
+        )
         Spacer(Modifier.height(Spacing.sm))
         BoardPlate(modifier = Modifier.fillMaxWidth()) {
             Way(
@@ -215,7 +226,7 @@ fun EvidenceScreen(
                 detail = when {
                     state.uploadToCloud && state.signedIn -> "Each recording is copied to the Circle's private store once it is finished."
                     state.uploadToCloud -> "Recordings stay here until this phone is signed in."
-                    else -> "Recordings stay on this phone. Nobody else can hear them."
+                    else -> null
                 },
                 icon = SafeShadeIcons.FolderLock,
                 checked = state.uploadToCloud,
@@ -270,12 +281,10 @@ fun EvidenceScreen(
         }
         if (state.calibrationNote.isNotBlank()) {
             Spacer(Modifier.height(Spacing.sm))
-            Note(text = state.calibrationNote)
+            Footnote(text = state.calibrationNote)
         }
 
         Spacer(Modifier.height(Spacing.xl))
-        SectionPlate(title = "Recordings")
-        Spacer(Modifier.height(Spacing.sm))
         if (recording) {
             BoardPlate(modifier = Modifier.fillMaxWidth()) {
                 Way(
@@ -308,11 +317,19 @@ fun EvidenceScreen(
             Spacer(Modifier.height(Spacing.sm))
             FailureNote(text = state.recordError)
         }
-        Spacer(Modifier.height(Spacing.md))
-        if (state.clips.isEmpty()) {
-            Note(text = "No recordings. Each one appears here with where it is and a play button.")
-        } else {
-            BoardPlate(modifier = Modifier.fillMaxWidth()) {
+        Spacer(Modifier.height(Spacing.xl))
+        // The whole bank of recordings under one engraved title (2.91),
+        // replacing the section plate that used to float over it.
+        TitledPlate(title = "Recordings") {
+            if (state.clips.isEmpty()) {
+                Column(Modifier.padding(Spacing.lg)) {
+                    Text(
+                        text = "No recordings. Each one appears here with where it is and a play button.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = colors.inkMuted
+                    )
+                }
+            } else {
                 state.clips.forEachIndexed { i, clip ->
                     if (i > 0) Hairline()
                     val playing = state.playingId == clip.id
@@ -325,21 +342,19 @@ fun EvidenceScreen(
                         onClick = if (clip.onThisPhone) ({ if (playing) onStop() else onPlay(clip.id) }) else null
                     )
                     if (playing) {
-                        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.lg, vertical = Spacing.sm),
-                            horizontalArrangement = Arrangement.End) {
-                            BoardButton(
-                                label = "Delete",
-                                onClick = { onDelete(clip.id) },
-                                weight = ButtonWeight.QUIET,
+                        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.lg, vertical = Spacing.sm)) {
+                            HoldToConfirm(
+                                label = "Hold to Delete",
+                                onConfirm = { onDelete(clip.id) },
                                 icon = SafeShadeIcons.DeleteBin
                             )
                         }
                     }
                 }
             }
-            Spacer(Modifier.height(Spacing.sm))
-            Note(text = "Tap a recording to hear it; while it plays, Delete removes it from this phone. A copy already on SafeShade Cloud stays there.")
         }
+        Spacer(Modifier.height(Spacing.sm))
+        Footnote(text = "Tap a recording to hear it; while it plays, hold Delete to remove it from this phone. A copy already on SafeShade Cloud stays there.")
     }
 }
 

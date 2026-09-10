@@ -35,6 +35,7 @@ import com.safeshade.data.PersonaMode
 import com.safeshade.device.ConnectionState
 import com.safeshade.ui.board.BoardPlate
 import com.safeshade.ui.board.BusTick
+import com.safeshade.ui.board.Footnote
 import com.safeshade.ui.board.Hairline
 import com.safeshade.ui.board.LampState
 import com.safeshade.ui.board.PilotLamp
@@ -152,11 +153,8 @@ fun ModePickerScreen(
         }
 
         item("footnote") {
-            Text(
-                text = "Fall sensitivity is the profile's starting point. It can be changed " +
-                    "afterwards in device settings without leaving the profile.",
-                style = MaterialTheme.typography.bodySmall,
-                color = colors.inkFaint,
+            Footnote(
+                "Fall sensitivity is the profile's starting point. It can be changed afterwards in device settings without leaving the profile.",
                 modifier = gutter
             )
         }

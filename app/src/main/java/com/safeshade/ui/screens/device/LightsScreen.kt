@@ -51,6 +51,7 @@ import com.safeshade.data.LedPattern
 import com.safeshade.device.ConnectionState
 import com.safeshade.ui.board.BoardPlate
 import com.safeshade.ui.board.BusTick
+import com.safeshade.ui.board.Callout
 import com.safeshade.ui.board.Hairline
 import com.safeshade.ui.board.LampState
 import com.safeshade.ui.board.Nameplate
@@ -214,29 +215,14 @@ fun LightsScreen(
 
         // The master on/off is not here because it cannot be here: the firmware
         // has no characteristic for it. Saying that plainly is better than a
-        // switch at the top of this screen that does nothing.
+        // switch at the top of this screen that does nothing. The one thing on
+        // this page a person must not miss, so it is the page's one callout.
         item("master-note") {
-            BoardPlate(modifier = Modifier.fillMaxWidth(), recessed = true) {
-                Column(
-                    modifier = Modifier.padding(Spacing.lg),
-                    verticalArrangement = Arrangement.spacedBy(Spacing.xs)
-                ) {
-                    Nameplate("Turning the lights on and off", small = true, muted = true)
-                    Text(
-                        text = "The master switch for the LED ring is set on the " +
-                            "wearable itself, under Settings › Lights. This app can " +
-                            "choose the pattern but cannot switch the ring on or off.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = colors.inkMuted
-                    )
-                    Text(
-                        text = "If a pattern is confirmed here and nothing happens on " +
-                            "the device, that switch is the first thing to check.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = colors.inkFaint
-                    )
-                }
-            }
+            Callout(
+                lead = "The master switch is on the device",
+                sentence = "Set under the wearable's own Settings › Lights. If a pattern " +
+                    "is confirmed here and nothing happens, that switch is the first thing to check."
+            )
         }
 
     }

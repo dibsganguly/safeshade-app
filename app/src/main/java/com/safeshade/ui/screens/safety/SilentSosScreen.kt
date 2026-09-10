@@ -21,13 +21,13 @@ import androidx.compose.ui.unit.dp
 import com.safeshade.ui.board.BoardButton
 import com.safeshade.ui.board.BoardPlate
 import com.safeshade.ui.board.ButtonWeight
+import com.safeshade.ui.board.Footnote
 import com.safeshade.ui.board.Hairline
 import com.safeshade.ui.board.LampState
-import com.safeshade.ui.board.OptionWay
 import com.safeshade.ui.board.PlateField
 import com.safeshade.ui.board.SectionPlate
+import com.safeshade.ui.board.SegmentedChoice
 import com.safeshade.ui.board.Way
-import com.safeshade.ui.board.WhyDisclosure
 import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
@@ -115,18 +115,6 @@ fun SilentSosScreen(
         SectionPlate(title = "Alert without a sound")
         Spacer(Modifier.height(Spacing.sm))
 
-        Note(text = "Hold the button on the device. Your contacts get your location.")
-        Spacer(Modifier.height(Spacing.xs))
-        WhyDisclosure(
-            label = "What happens when you hold it",
-            text = "Holding the button on the device sends every emergency contact your last " +
-                "known location. There is no call to place and nothing to say out loud. " +
-                "The device stays dark and quiet while it does it, so somebody standing " +
-                "next to you sees you put a hand in your pocket and nothing more."
-        )
-
-        Spacer(Modifier.height(Spacing.md))
-
         // Whether the wearable's firmware honours the quiet path is recorded in
         // DeviceCapabilities.awaitingFirmware and the handoff, not on the
         // screen: the page reads as it will at launch.
@@ -137,12 +125,16 @@ fun SilentSosScreen(
                     state = if (state.silentSosEnabled) LampState.LIVE else LampState.OFF,
                     stateLabel = if (state.silentSosEnabled) "Armed" else "Off",
                     detail = if (state.hasContacts) {
-                        "Sends every emergency contact a message. No call, no siren."
+                        "Hold the button on the device. Sends every emergency contact your location. No call, no siren."
                     } else {
                         "There are no contacts yet, so this would reach nobody."
                     },
                     checked = state.silentSosEnabled,
-                    onCheckedChange = onSilentSosChange
+                    onCheckedChange = onSilentSosChange,
+                    help = "Holding the button on the device sends every emergency contact your last " +
+                        "known location. There is no call to place and nothing to say out loud. " +
+                        "The device stays dark and quiet while it does it, so somebody standing " +
+                        "next to you sees you put a hand in your pocket and nothing more."
                 )
                 if (!state.hasContacts) {
                     Hairline()
@@ -188,30 +180,25 @@ fun SilentSosScreen(
         SectionPlate(title = "Stage a call")
         Spacer(Modifier.height(Spacing.sm))
 
-        Note(text = "Your phone rings after the delay you pick. Nobody is calling.")
-        Spacer(Modifier.height(Spacing.xs))
-        WhyDisclosure(
-            label = "What a staged call is and is not",
-            text = "Your phone rings after the delay you pick, as though somebody were " +
-                "calling. Nobody is: there is no call and no connection, and it costs " +
-                "nothing. It is a reason to stand up and leave a room, a car or a " +
-                "conversation without explaining yourself – nothing more."
-        )
-
-        Spacer(Modifier.height(Spacing.md))
-
         BoardPlate(modifier = Modifier.fillMaxWidth()) {
-            CallDelayChoices.forEachIndexed { index, seconds ->
-                if (index > 0) Hairline()
-                OptionWay(
-                    name = formatDuration(seconds),
-                    detail = delayDetail(seconds),
-                    selected = state.stagedCallSeconds == seconds,
-                    onSelect = { onStageCall(seconds) },
-                    selectedLabel = "Staged",
-                    unselectedLabel = "Not staged"
-                )
-            }
+            Way(
+                name = "Stage a call",
+                state = if (state.stagedCallSeconds != null) LampState.ATTENTION else LampState.OFF,
+                stateLabel = if (state.stagedCallSeconds != null) "Staged" else "Not staged",
+                detail = "Your phone rings after the delay you pick. Nobody is calling.",
+                help = "Your phone rings after the delay you pick, as though somebody were " +
+                    "calling. Nobody is: there is no call and no connection, and it costs " +
+                    "nothing. It is a reason to stand up and leave a room, a car or a " +
+                    "conversation without explaining yourself, nothing more."
+            )
+            Hairline()
+            SegmentedChoice(
+                options = CallDelayChoices.map { formatDuration(it) },
+                selected = CallDelayChoices.indexOf(state.stagedCallSeconds).let { if (it < 0) -1 else it },
+                onSelect = { onStageCall(CallDelayChoices[it]) },
+                consequences = CallDelayChoices.map { delayDetail(it) },
+                modifier = Modifier.padding(Spacing.lg)
+            )
         }
 
         val staged = state.stagedCallSeconds
@@ -233,8 +220,7 @@ fun SilentSosScreen(
             Column(modifier = Modifier.padding(Spacing.lg)) {
                 DetailLine("Shows as", state.callerName)
                 Spacer(Modifier.height(Spacing.xs))
-                WhyDisclosure(
-                    label = "Choosing a name",
+                Footnote(
                     text = "An ordinary name works better than an obvious excuse. The call " +
                         "rings with your normal ringtone, so leave your phone unmuted if you " +
                         "want it heard."

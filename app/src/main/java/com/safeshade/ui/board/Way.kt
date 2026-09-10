@@ -30,6 +30,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -214,12 +215,16 @@ fun Way(
                 }
                 if (help != null) {
                     Spacer(Modifier.width(Spacing.xs))
-                    // A 16dp glyph on a 28dp target, so it can be hit
-                    // without being the size of the title beside it.
+                    // A 16dp glyph on a 28dp target that takes only the
+                    // title line's 20dp of layout: `requiredSize` lets the
+                    // target overhang the line rather than tallen it, which
+                    // is what pushed the detail line 4dp down on every row
+                    // with help.
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
-                            .size(28.dp)
+                            .size(20.dp)
+                            .requiredSize(28.dp)
                             .clip(RoundedCornerShape(Radius.tight))
                             .rowClickable(role = Role.Button, onClick = { helpOpen = !helpOpen })
                     ) {

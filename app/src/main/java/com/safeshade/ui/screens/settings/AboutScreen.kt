@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -25,11 +24,11 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.safeshade.R
 import com.safeshade.ui.board.BoardPlate
+import com.safeshade.ui.board.Footnote
 import com.safeshade.ui.board.Hairline
-import com.safeshade.ui.board.Nameplate
-import com.safeshade.ui.board.Readout
+import com.safeshade.ui.board.Ledger
+import com.safeshade.ui.board.LedgerRow
 import com.safeshade.ui.board.ScreenHeader
-import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.board
@@ -111,40 +110,23 @@ fun AboutScreen(
                     )
                 }
                 Hairline()
-                Row(
-                    modifier = Modifier.padding(Spacing.lg),
-                    horizontalArrangement = Arrangement.spacedBy(Spacing.xl)
-                ) {
-                    Readout(label = "Version", value = state.versionName.ifBlank { "--" })
-                    if (state.versionCode.isNotBlank()) {
-                        Readout(label = "Build", value = state.versionCode)
-                    }
-                    if (state.buildLabel.isNotBlank()) {
-                        Readout(label = "Type", value = state.buildLabel)
-                    }
-                }
-                if (state.firmwareTarget.isNotBlank()) {
-                    Hairline()
-                    Column(modifier = Modifier.padding(Spacing.lg)) {
-                        Nameplate("Firmware this build talks to", small = true, muted = true)
-                        Text(
-                            text = state.firmwareTarget,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = colors.inkMuted
-                        )
-                    }
-                }
+                Ledger(
+                    rows = listOfNotNull(
+                        LedgerRow("Version", state.versionName.ifBlank { "—" }, mono = true),
+                        state.versionCode.takeIf { it.isNotBlank() }?.let { LedgerRow("Build", it, mono = true) },
+                        state.buildLabel.takeIf { it.isNotBlank() }?.let { LedgerRow("Type", it) },
+                        state.firmwareTarget.takeIf { it.isNotBlank() }?.let { LedgerRow("Firmware this build talks to", it) }
+                    )
+                )
             }
         }
 
         item("footnote") {
-            Text(
-                text = "Fall alerts and SOS travel straight between the wearable and this " +
+            Footnote(
+                "Fall alerts and SOS travel straight between the wearable and this " +
                     "phone and never wait on a server. Signing in adds your Circle, " +
                     "history and the family dashboard on top; the Privacy section of " +
-                    "your Profile lists exactly what leaves the phone and when.",
-                style = MaterialTheme.typography.bodySmall,
-                color = colors.inkFaint
+                    "your Profile lists exactly what leaves the phone and when."
             )
         }
     }

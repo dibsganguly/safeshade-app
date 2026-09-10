@@ -48,6 +48,9 @@ import com.safeshade.ui.board.BoardButton
 import com.safeshade.ui.board.BoardPlate
 import com.safeshade.ui.board.ButtonWeight
 import com.safeshade.ui.board.EmptyBay
+import com.safeshade.ui.board.Footnote
+import com.safeshade.ui.board.Ledger
+import com.safeshade.ui.board.LedgerRow
 import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.theme.Radius
 import com.safeshade.ui.theme.SafeShadeTheme
@@ -153,15 +156,22 @@ fun EmergencyCardScreen(
 
         Spacer(Modifier.height(Spacing.xl))
 
-        // The same content in words, for when the camera will not cooperate.
-        BoardPlate(modifier = Modifier.fillMaxWidth()) {
-            Text(
-                text = cardText,
-                style = MaterialTheme.boardType.readout,
-                color = colors.ink,
-                modifier = Modifier.padding(Spacing.lg)
+        // The same content in words, for when the camera will not cooperate —
+        // as a ledger (2.22) rather than the raw wire text, so a responder
+        // reads "Blood type: B+" instead of decoding a comma-delimited string.
+        val id = state.medicalId
+        Ledger(
+            listOf(
+                LedgerRow("Blood type", id.bloodType),
+                LedgerRow("Allergies", id.allergies),
+                LedgerRow("Contact", id.contactName),
+                LedgerRow("Contact number", id.emergencyContact, mono = true),
+                LedgerRow("Age", if (id.age > 0) "${id.age}" else "", mono = true),
+                LedgerRow("Conditions", id.conditions),
+                LedgerRow("Medications", id.medications),
+                LedgerRow("Organ donor", if (id.organDonor) "Yes" else "")
             )
-        }
+        )
 
         Spacer(Modifier.height(Spacing.xl))
 
@@ -208,7 +218,7 @@ fun EmergencyCardScreen(
 
         Spacer(Modifier.height(Spacing.lg))
 
-        Note(
+        Footnote(
             text = "The screen is at full brightness while this card is open so that it scans " +
                 "cleanly, and goes back to normal when you leave."
         )

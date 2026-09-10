@@ -31,13 +31,14 @@ import com.safeshade.service.EscalationTarget
 import com.safeshade.service.StepOutcome
 import com.safeshade.ui.board.BoardPlate
 import com.safeshade.ui.board.DialControl
+import com.safeshade.ui.board.Footnote
 import com.safeshade.ui.board.Hairline
 import com.safeshade.ui.board.LampState
+import com.safeshade.ui.board.NumberedRow
 import com.safeshade.ui.board.PlateField
 import com.safeshade.ui.board.ScreenHeader
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.Way
-import com.safeshade.ui.board.WhyDisclosure
 import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
@@ -169,22 +170,22 @@ fun EscalationScreen(
                             if (state.directCallsAllowed) "called without a press" else "the dialer opens"
                         is EscalationTarget.Emergency -> "the dialer opens, never called by itself"
                     }
-                    Way(
+                    NumberedRow(
+                        number = index + 1,
                         name = rungName(step.target),
                         state = if (settings.enabled) LampState.LIVE else LampState.OFF,
-                        stateLabel = "${index + 1}",
+                        stateLabel = if (settings.enabled) "On" else "Off",
                         detail = if (step.outcome is StepOutcome.Skipped) {
                             (step.outcome as StepOutcome.Skipped).reason
                         } else {
                             "$when_ · $how"
-                        },
-                        icon = SafeShadeIcons.CallAfterAFall
+                        }
                     )
                 }
             }
             if (usable.size == 1) {
                 Spacer(Modifier.height(Spacing.sm))
-                Note(text = "One contact stored. A second would be tried before the emergency number.")
+                Footnote(text = "One contact stored. A second would be tried before the emergency number.")
             }
         }
 
@@ -216,7 +217,7 @@ fun EscalationScreen(
             format = { formatDuration(it.roundToInt()) }
         )
         Spacer(Modifier.height(Spacing.sm))
-        Note(text = "The whole ladder should finish while a fall is still an emergency. Somebody who did not answer in thirty seconds is not more likely to answer in five minutes.")
+        Footnote(text = "The whole ladder should finish while a fall is still an emergency. Somebody who did not answer in thirty seconds is not more likely to answer in five minutes.")
 
         Spacer(Modifier.height(Spacing.xl))
         SectionPlate(title = "The end of the ladder")
@@ -227,13 +228,17 @@ fun EscalationScreen(
                 state = if (settings.thenEmergency) LampState.LIVE else LampState.OFF,
                 stateLabel = if (settings.thenEmergency) "On" else "Off",
                 detail = if (settings.thenEmergency) {
-                    "After the contacts, the dialer opens with ${settings.emergencyNumber} ready"
+                    "After the contacts, the dialer opens with ${settings.emergencyNumber} ready. It is never called by itself."
                 } else {
                     "The ladder stops after the last contact"
                 },
                 icon = SafeShadeIcons.TelephoneCall,
                 checked = settings.thenEmergency,
-                onCheckedChange = { onChange(settings.copy(thenEmergency = it)) }
+                onCheckedChange = { onChange(settings.copy(thenEmergency = it)) },
+                help = "An unattended call to the emergency services, made by a timer, with nobody " +
+                    "holding the phone and nothing to say, is the one thing here that cannot be taken " +
+                    "back. Contacts can be rung directly because a person chose them for exactly this. " +
+                    "The emergency number gets the dialer, one press away for whoever is there."
             )
             Hairline()
             Column(modifier = Modifier.padding(Spacing.lg)) {
@@ -251,16 +256,6 @@ fun EscalationScreen(
                 )
             }
         }
-        Spacer(Modifier.height(Spacing.sm))
-        Note(text = "The emergency number is never called by itself. The dialer opens with it ready and a person presses call.")
-        Spacer(Modifier.height(Spacing.xs))
-        WhyDisclosure(
-            label = "Why the phone will not call ${settings.emergencyNumber} on its own",
-            text = "An unattended call to the emergency services, made by a timer, with nobody " +
-                "holding the phone and nothing to say, is the one thing here that cannot be taken " +
-                "back. Contacts can be rung directly because a person chose them for exactly this. " +
-                "The emergency number gets the dialer, one press away for whoever is there."
-        )
     }
 }
 

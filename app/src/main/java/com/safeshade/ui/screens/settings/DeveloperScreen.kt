@@ -19,7 +19,9 @@ import com.safeshade.BuildConfig
 import com.safeshade.ui.board.BoardButton
 import com.safeshade.ui.board.BoardPlate
 import com.safeshade.ui.board.ButtonWeight
+import com.safeshade.ui.board.Callout
 import com.safeshade.ui.board.EmptyBay
+import com.safeshade.ui.board.Footnote
 import com.safeshade.ui.board.Hairline
 import com.safeshade.ui.board.LampState
 import com.safeshade.ui.board.Nameplate
@@ -113,14 +115,9 @@ fun DeveloperScreen(
         item("sim-heading") { SectionPlate(title = "Simulator") }
 
         item("sim-intro") {
-            Text(
-                text = "Every Bluetooth-dependent screen is unreachable on an emulator: " +
-                    "with no radio the link never leaves Disconnected, so the connected, " +
-                    "tripped, ringing and live-telemetry layouts are exactly the ones " +
-                    "nobody ever looks at. These scenarios drive a fake link through a " +
-                    "fixed timeline instead, so a screenshot of one is reproducible.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = colors.inkMuted
+            Callout(
+                lead = "No radio on an emulator.",
+                sentence = "With no radio the link never leaves Disconnected, so the connected, tripped, ringing and live-telemetry layouts are exactly the ones nobody ever looks at. These scenarios drive a fake link through a fixed timeline instead, so a screenshot of one is reproducible."
             )
         }
 
@@ -198,13 +195,7 @@ fun DeveloperScreen(
         }
 
         item("kit-note") {
-            Text(
-                text = "The gallery is com.safeshade.ui.board.KitGallery. It is not in " +
-                    "the navigation graph – this row is the only way in – and it is the " +
-                    "reference to check before inventing a seventh kind of card.",
-                style = MaterialTheme.typography.bodySmall,
-                color = colors.inkFaint
-            )
+            Footnote("The gallery is com.safeshade.ui.board.KitGallery. It is not in the navigation graph – this row is the only way in – and it is the reference to check before inventing a seventh kind of card.")
         }
 
         if (state.buildFingerprint.isNotBlank()) {

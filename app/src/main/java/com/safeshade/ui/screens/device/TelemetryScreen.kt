@@ -32,6 +32,7 @@ import com.safeshade.ui.board.BoardButton
 import com.safeshade.ui.board.BoardPlate
 import com.safeshade.ui.board.ButtonWeight
 import com.safeshade.ui.board.EmptyBay
+import com.safeshade.ui.board.Footnote
 import com.safeshade.ui.board.Gauge
 import com.safeshade.ui.board.Hairline
 import com.safeshade.ui.board.LampState
@@ -217,13 +218,7 @@ fun TelemetryScreen(
         }
 
         if (state.historySummary != null) {
-            item("history-note") {
-                Text(
-                    text = state.historySummary,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colors.inkFaint
-                )
-            }
+            item("history-note") { Footnote(state.historySummary) }
         }
 
         item("read-signal") {

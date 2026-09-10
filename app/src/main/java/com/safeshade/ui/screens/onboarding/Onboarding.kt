@@ -50,11 +50,10 @@ import com.safeshade.ui.board.AvatarSpec
 import com.safeshade.ui.board.BoardButton
 import com.safeshade.ui.board.BoardPlate
 import com.safeshade.ui.board.ButtonWeight
-import com.safeshade.ui.board.LampState
 import com.safeshade.ui.board.Nameplate
-import com.safeshade.ui.board.PilotLamp
 import com.safeshade.ui.board.Hairline
-import com.safeshade.ui.board.Way
+import com.safeshade.ui.board.Step
+import com.safeshade.ui.board.Steps
 import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.theme.accentFor
 import com.safeshade.ui.board.PlateField
@@ -360,26 +359,31 @@ fun PermissionsScreen(
         modifier = modifier
     ) {
         Column(modifier = Modifier.padding(horizontal = Spacing.gutter)) {
-            BoardPlate(modifier = Modifier.fillMaxWidth()) {
-                Way(
-                    name = "Bluetooth",
-                    state = if (bluetoothGranted) LampState.LIVE else LampState.OFF,
-                    stateLabel = if (bluetoothGranted) "Granted" else "Needed",
-                    detail = "Finds and talks to the wearable. Without it nothing else works."
+            // Three permissions to grant, in the order this screen asks for
+            // them, so the procedure reads as steps rather than a list of
+            // switches (candidate 2.96).
+            Steps(
+                listOf(
+                    Step(
+                        lead = "Bluetooth",
+                        line = "Finds and talks to the wearable. Without it nothing else works.",
+                        done = bluetoothGranted,
+                        current = !bluetoothGranted
+                    ),
+                    Step(
+                        lead = "Location",
+                        line = "Weather on the device and safe-zone alerts. Scanning never derives your position.",
+                        done = locationGranted,
+                        current = bluetoothGranted && !locationGranted
+                    ),
+                    Step(
+                        lead = "Notifications",
+                        line = "Without this you will not hear about a fall while the app is closed.",
+                        done = notificationsGranted,
+                        current = bluetoothGranted && locationGranted && !notificationsGranted
+                    )
                 )
-                Way(
-                    name = "Location",
-                    state = if (locationGranted) LampState.LIVE else LampState.OFF,
-                    stateLabel = if (locationGranted) "Granted" else "Needed",
-                    detail = "Weather on the device and safe-zone alerts. Scanning never derives your position."
-                )
-                Way(
-                    name = "Notifications",
-                    state = if (notificationsGranted) LampState.LIVE else LampState.ATTENTION,
-                    stateLabel = if (notificationsGranted) "Granted" else "Recommended",
-                    detail = "Without this you will not hear about a fall while the app is closed."
-                )
-            }
+            )
             Spacer(Modifier.height(Spacing.lg))
             BoardButton(
                 label = if (granted == 3) "All Granted" else "Grant Permissions",
@@ -404,56 +408,45 @@ fun PairScreen(
     onContinue: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val colors = MaterialTheme.board
     val paired = connection is ConnectionState.Ready
 
     OnboardingStep(
         stepIndex = 4,
         scene = { OnboardingScene(OnboardingSceneKind.PAIR, progress = if (paired) 1f else 0f) },
         title = if (paired) "Paired" else "Find the wearable",
-        body = if (paired) "Connected to $deviceName. Everything you set from here reaches it."
-        else "Switch it on and keep it within a few metres. Pairing takes a few seconds.",
+        body = if (paired) "Everything you set from here reaches the wearable." else null,
         onContinue = onContinue,
         continueLabel = if (paired) "Continue" else "Do This Later",
         continueWeight = if (paired) ButtonWeight.PRIMARY else ButtonWeight.SECONDARY,
         modifier = modifier
     ) {
         Column(modifier = Modifier.padding(horizontal = Spacing.gutter)) {
-            BoardPlate(modifier = Modifier.fillMaxWidth()) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(Spacing.lg)
-                ) {
-                    PilotLamp(
-                        state = when {
-                            paired -> LampState.LIVE
-                            connection.isBusy -> LampState.ATTENTION
-                            else -> LampState.OFF
-                        }
+            // The pairing progress as steps with done/current (candidate
+            // 2.96), rather than one status row: switch it on, wait for the
+            // search, land connected.
+            val switchedOn = connection !is ConnectionState.Disconnected
+            Steps(
+                listOf(
+                    Step(
+                        lead = "Switch it on",
+                        line = "Press and hold the button until the light comes on.",
+                        done = switchedOn,
+                        current = !switchedOn
+                    ),
+                    Step(
+                        lead = "Searching",
+                        line = "Keep it within a few metres of the phone.",
+                        done = paired,
+                        current = switchedOn && !paired
+                    ),
+                    Step(
+                        lead = "Paired",
+                        line = if (paired) "Connected to $deviceName." else "Ready once the wearable answers.",
+                        done = paired,
+                        current = false
                     )
-                    Spacer(Modifier.width(Spacing.md))
-                    Column {
-                        Text(
-                            text = when (connection) {
-                                is ConnectionState.Ready -> "Connected"
-                                is ConnectionState.Scanning -> "Searching"
-                                is ConnectionState.Connecting -> "Connecting"
-                                is ConnectionState.Connected -> "Starting up"
-                                is ConnectionState.BluetoothUnavailable -> "Bluetooth is off"
-                                is ConnectionState.ScanFailed -> "Search failed"
-                                else -> "Not connected"
-                            },
-                            style = MaterialTheme.typography.titleMedium,
-                            color = colors.ink
-                        )
-                        Text(
-                            text = if (paired) deviceName else "Looking for a SafeShade wearable",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = colors.inkMuted
-                        )
-                    }
-                }
-            }
+                )
+            )
             if (!paired) {
                 Spacer(Modifier.height(Spacing.lg))
                 BoardButton(

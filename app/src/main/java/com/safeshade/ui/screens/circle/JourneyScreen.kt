@@ -30,15 +30,20 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.safeshade.data.UserRole
+import com.safeshade.ui.board.ActionPair
 import com.safeshade.ui.board.BoardButton
 import com.safeshade.ui.board.BoardPlate
 import com.safeshade.ui.board.ButtonWeight
+import com.safeshade.ui.board.Callout
+import com.safeshade.ui.board.Footnote
 import com.safeshade.ui.board.LampState
 import com.safeshade.ui.board.PilotLamp
 import com.safeshade.ui.board.Readout
 import com.safeshade.ui.board.ScreenHeader
 import com.safeshade.ui.board.ScreenTier
 import com.safeshade.ui.board.SectionPlate
+import com.safeshade.ui.board.WatermarkPlate
+import com.safeshade.ui.board.watermarkTint
 import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
@@ -227,28 +232,29 @@ private fun LazyListScope.journeySetup(
         BargainPlate(state)
     }
 
-    item("walk-home") {
-        BoardButton(
-            label = "Walk Home",
-            icon = SafeShadeIcons.WalkingPerson,
-            supporting = "Home, twenty minutes. The same journey, filled in for the walk everybody makes.",
-            onClick = onWalkHome,
-            enabled = !state.isBusy,
-            weight = ButtonWeight.SECONDARY,
-            modifier = Modifier.fillMaxWidth()
-        )
-    }
-
-    item("start") {
-        BoardButton(
-            label = if (state.isBusy) "Starting" else "Start the journey",
-            icon = SafeShadeIcons.RouteNavigation,
-            supporting = if (state.canStart || state.isBusy) null else "A destination and a time are needed",
-            onClick = onStart,
-            enabled = state.canStart,
-            weight = ButtonWeight.PRIMARY,
-            modifier = Modifier.fillMaxWidth()
-        )
+    item("start-or-walk") {
+        Column {
+            // One object rather than two loose buttons: starting a journey
+            // and filling in the everyday walk home are the same action with
+            // a different destination, not two separate decisions.
+            ActionPair(
+                primaryLabel = if (state.isBusy) "Starting" else "Start the Journey",
+                onPrimary = onStart,
+                primaryWeight = ButtonWeight.PRIMARY,
+                primaryEnabled = state.canStart,
+                secondaryLabel = "Walk Home",
+                onSecondary = onWalkHome,
+                secondaryEnabled = !state.isBusy
+            )
+            if (!state.canStart && !state.isBusy) {
+                Spacer(Modifier.height(Spacing.sm))
+                Text(
+                    text = "A destination and a time are needed to start. Walk Home fills both in for the walk everybody makes.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.board.inkMuted
+                )
+            }
+        }
     }
 }
 
@@ -262,48 +268,37 @@ private fun LazyListScope.journeySetup(
  */
 @Composable
 private fun BargainPlate(state: JourneyUiState) {
-    val colors = MaterialTheme.board
     val minutes = state.effectiveEtaMinutes
 
-    BoardPlate(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(Spacing.lg)) {
-            Text(
-                text = "What happens if you do not end it",
-                style = MaterialTheme.typography.titleSmall,
-                color = colors.ink
-            )
-            Spacer(Modifier.height(Spacing.sm))
-            Text(
-                text = buildString {
-                    append("If you have not tapped ")
-                    append("\"I have arrived\"")
-                    if (minutes != null) {
-                        append(" within ")
-                        append(minutes)
-                        append(" minutes")
-                    }
-                    append(", ")
-                    append(state.contactsSummary)
-                    append(" are sent a message saying where you were going and the last place this phone knew you were.")
-                },
-                style = MaterialTheme.typography.bodyMedium,
-                color = colors.inkMuted
-            )
-            Spacer(Modifier.height(Spacing.sm))
-            Text(
-                text = when (state.role) {
-                    // A guardian phone starts journeys for the guardian's own
-                    // walk. Saying "we will tell Baba you are late" would be
-                    // exactly backwards.
-                    UserRole.GUARDIAN ->
-                        "This is for your own walk. Nothing here is sent to the device or to the person wearing it."
-                    UserRole.COMPANION ->
-                        "Ending the journey yourself is always enough. Nobody is contacted if you tap arrived."
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = colors.inkFaint
-            )
-        }
+    // The one thing on this page a person must not miss, before they accept
+    // it (2.26) — not a footnote read afterwards.
+    Column {
+        Callout(
+            lead = "If this is not ended",
+            sentence = buildString {
+                append("Without \"I have arrived\"")
+                if (minutes != null) {
+                    append(" within ")
+                    append(minutes)
+                    append(" minutes")
+                }
+                append(", ")
+                append(state.contactsSummary)
+                append(" are sent where you were going and the last place this phone knew you were.")
+            }
+        )
+        Spacer(Modifier.height(Spacing.sm))
+        Footnote(
+            when (state.role) {
+                // A guardian phone starts journeys for the guardian's own
+                // walk. Saying "we will tell Baba you are late" would be
+                // exactly backwards.
+                UserRole.GUARDIAN ->
+                    "This is for your own walk. Nothing here is sent to the device or to the person wearing it."
+                UserRole.COMPANION ->
+                    "Ending the journey yourself is always enough. Nobody is contacted if you tap arrived."
+            }
+        )
     }
 }
 
@@ -347,16 +342,19 @@ private fun LazyListScope.activeJourney(
     }
 }
 
+/** The lamp a running journey earns: live, past its time, or overdue and told. */
+private fun journeyLamp(state: JourneyUiState): LampState = when {
+    state.escalated -> LampState.TRIP
+    state.isOverdue -> LampState.ATTENTION
+    else -> LampState.LIVE
+}
+
 /** The countdown, its lamp, and the one sentence that explains both. */
 @Composable
 private fun JourneyClock(state: JourneyUiState) {
     val colors = MaterialTheme.board
 
-    val lamp = when {
-        state.escalated -> LampState.TRIP
-        state.isOverdue -> LampState.ATTENTION
-        else -> LampState.LIVE
-    }
+    val lamp = journeyLamp(state)
     val word = when {
         state.escalated -> "Overdue – contacts told"
         state.isOverdue -> "Past the time"
@@ -436,7 +434,13 @@ private fun JourneyClock(state: JourneyUiState) {
 @Composable
 private fun JourneyDetail(state: JourneyUiState) {
     val colors = MaterialTheme.board
-    BoardPlate(modifier = Modifier.fillMaxWidth()) {
+    // A card about one identity — this journey — with the same lamp state
+    // its bus tick would carry (2.94). One per bank.
+    WatermarkPlate(
+        icon = SafeShadeIcons.RouteNavigation,
+        tint = watermarkTint(journeyLamp(state)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
         Column(modifier = Modifier.padding(Spacing.lg)) {
             Text(
                 text = state.destinationLabel.ifBlank { "No destination was written down" },

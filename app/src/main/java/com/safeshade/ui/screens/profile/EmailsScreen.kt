@@ -27,6 +27,7 @@ import com.safeshade.cloud.WeeklyReportSend
 import com.safeshade.ui.board.BoardButton
 import com.safeshade.ui.board.BoardPlate
 import com.safeshade.ui.board.ButtonWeight
+import com.safeshade.ui.board.Footnote
 import com.safeshade.ui.board.Hairline
 import com.safeshade.ui.board.LampState
 import com.safeshade.ui.board.ScreenHeader
@@ -198,11 +199,7 @@ fun EmailsScreen(
             Text(text = e, style = MaterialTheme.typography.bodyMedium, color = colors.inkTrip)
         }
 
-        Text(
-            text = "Sign-in codes and password emails are not listed: they are how signing in works, and there is nothing to switch off. Every email says why it was sent.",
-            style = MaterialTheme.typography.bodySmall,
-            color = colors.inkMuted
-        )
+        Footnote("Sign-in codes and password emails are not listed: they are how signing in works, and there is nothing to switch off. Every email says why it was sent.")
     }
 }
 
@@ -226,7 +223,7 @@ private fun PrefWay(
             true -> "On"
             false -> "Off"
         },
-        detail = detail,
+        help = detail,
         icon = SafeShadeIcons.MessageInbox,
         checked = on == true,
         onCheckedChange = if (on != null && enabled) onToggle else null,

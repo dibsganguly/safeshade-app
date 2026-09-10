@@ -13,12 +13,14 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -125,15 +127,20 @@ fun ScreenHeader(
                     modifier = Modifier.width(BackSlotWidth),
                     contentAlignment = Alignment.CenterStart
                 ) {
-                    IconButton(
-                        onClick = onBack,
+                    // Not an IconButton: that draws Material's ripple, the
+                    // one grey flash left on this panel, and it showed on
+                    // every scripted back press. A plain plate press instead.
+                    Box(
+                        contentAlignment = Alignment.Center,
                         modifier = Modifier
                             .requiredSize(Spacing.touchTarget)
                             .offset(x = (-12).dp)
+                            .plateClickable(role = Role.Button, onClick = onBack)
+                            .clearAndSetSemantics { contentDescription = backDescription }
                     ) {
                         Icon(
                             imageVector = SafeShadeIcons.ArrowLeft01,
-                            contentDescription = backDescription,
+                            contentDescription = null,
                             // The amber *ink*, not the amber lamp glass. Raw
                             // brand amber on the bone panel measures about
                             // 1.9:1, which is not a contrast a control glyph
@@ -213,10 +220,17 @@ fun BackOnlyHeader(
             .fillMaxWidth()
             .padding(vertical = Spacing.xs)
     ) {
-        IconButton(onClick = onBack, modifier = Modifier.offset(x = (-12).dp)) {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .requiredSize(Spacing.touchTarget)
+                .offset(x = (-12).dp)
+                .plateClickable(role = Role.Button, onClick = onBack)
+                .clearAndSetSemantics { contentDescription = backDescription }
+        ) {
             Icon(
                 imageVector = SafeShadeIcons.ArrowLeft01,
-                contentDescription = backDescription,
+                contentDescription = null,
                 tint = colors.inkAttention,
                 modifier = Modifier.size(20.dp)
             )

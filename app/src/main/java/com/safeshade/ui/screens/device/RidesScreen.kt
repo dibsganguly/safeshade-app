@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
@@ -22,7 +21,9 @@ import androidx.compose.ui.unit.dp
 import com.safeshade.ui.board.BoardButton
 import com.safeshade.ui.board.BoardPlate
 import com.safeshade.ui.board.ButtonWeight
+import com.safeshade.ui.board.Footnote
 import com.safeshade.ui.board.Hairline
+import com.safeshade.ui.board.HoldToConfirm
 import com.safeshade.ui.board.LampState
 import com.safeshade.ui.board.Readout
 import com.safeshade.ui.board.ScreenHeader
@@ -98,7 +99,7 @@ fun RidesScreen(
         SectionPlate(title = "Rides")
         Spacer(Modifier.height(Spacing.sm))
         if (state.rides.isEmpty()) {
-            Note("Nothing tracked yet. A ride is recorded while a journey runs.")
+            Footnote("Nothing tracked yet. A ride is recorded while a journey runs.")
             Spacer(Modifier.height(Spacing.md))
             BoardButton(label = "Start a Journey", icon = SafeShadeIcons.Bicycle01, onClick = onStartJourney, weight = ButtonWeight.SECONDARY, modifier = Modifier.fillMaxWidth())
         } else {
@@ -119,10 +120,13 @@ fun RidesScreen(
                 }
             }
             Spacer(Modifier.height(Spacing.md))
-            BoardButton(label = "Clear the Log", onClick = onClear, weight = ButtonWeight.QUIET, icon = SafeShadeIcons.DeleteBin, modifier = Modifier.fillMaxWidth())
+            // The one irreversible action on this page (2.67): the whole log,
+            // gone, in place of a quiet button that read no differently from
+            // Start a Journey beside it.
+            HoldToConfirm(label = "Hold to Clear the Log", onConfirm = onClear, icon = SafeShadeIcons.DeleteBin)
         }
         Spacer(Modifier.height(Spacing.sm))
-        Note(
+        Footnote(
             if (state.bikeMode) "Bike profile: the wearable's brake light strobes red on a hard stop by itself; nothing on the phone changes that."
             else "Distances come from this phone's own position fixes, once a minute while a journey runs."
         )
@@ -133,11 +137,6 @@ internal fun minutesLabel(minutes: Int): String = when {
     minutes < 60 -> "$minutes min"
     minutes % 60 == 0 -> "${minutes / 60} h"
     else -> "${minutes / 60} h ${minutes % 60}"
-}
-
-@Composable
-private fun Note(text: String) {
-    Text(text = text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.board.inkMuted, modifier = Modifier.fillMaxWidth())
 }
 
 @Preview(name = "Rides", showBackground = true, heightDp = 900)

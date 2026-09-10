@@ -22,10 +22,12 @@ import com.safeshade.device.OtaProtocol.OtaStep
 import com.safeshade.ui.board.BoardButton
 import com.safeshade.ui.board.BoardPlate
 import com.safeshade.ui.board.ButtonWeight
+import com.safeshade.ui.board.Footnote
 import com.safeshade.ui.board.Hairline
 import com.safeshade.ui.board.LampState
+import com.safeshade.ui.board.LedgerLine
+import com.safeshade.ui.board.LedgerRow
 import com.safeshade.ui.board.ProductSilhouette
-import com.safeshade.ui.board.Readout
 import com.safeshade.ui.board.ScreenHeader
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.Way
@@ -111,17 +113,17 @@ fun FirmwareScreen(
             ) {
                 ProductSilhouette(model = state.model, size = 72.dp)
                 Spacer(Modifier.padding(Spacing.sm))
+                // The version facts read off the wearable, as a ledger
+                // rather than one big readout with a paragraph under it.
                 Column(Modifier.weight(1f)) {
-                    Readout(label = state.model.label.uppercase(), value = state.installedVersion ?: "—", large = true)
-                    Text(
-                        text = when {
-                            state.installedVersion != null -> "Reported by the wearable over the link."
-                            state.versionNote != null -> state.versionNote
-                            state.connected -> "Not asked yet."
-                            else -> "Off the link. The version is read from the wearable itself."
-                        },
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = colors.inkMuted
+                    LedgerLine(LedgerRow("Model", state.model.label))
+                    LedgerLine(
+                        LedgerRow(
+                            key = "Installed version",
+                            value = state.installedVersion ?: "—",
+                            mono = true,
+                            state = if (state.installedVersion != null) LampState.LIVE else null
+                        )
                     )
                 }
             }
@@ -135,6 +137,15 @@ fun FirmwareScreen(
                 onClick = if (state.connected && !busy) onAskVersion else null
             )
         }
+        Spacer(Modifier.height(Spacing.sm))
+        Footnote(
+            when {
+                state.installedVersion != null -> "Reported by the wearable over the link."
+                state.versionNote != null -> state.versionNote
+                state.connected -> "Not asked yet."
+                else -> "Off the link. The version is read from the wearable itself."
+            }
+        )
 
         Spacer(Modifier.height(Spacing.xl))
         SectionPlate(title = "Published for the ${state.model.label.removePrefix("SafeShade ")}")

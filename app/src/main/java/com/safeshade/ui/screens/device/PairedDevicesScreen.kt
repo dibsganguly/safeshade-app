@@ -6,8 +6,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -20,14 +22,16 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.safeshade.data.PairedDevice
 import com.safeshade.device.ConnectionState
+import com.safeshade.ui.board.BankHeader
 import com.safeshade.ui.board.BoardButton
 import com.safeshade.ui.board.BoardPlate
 import com.safeshade.ui.board.ButtonWeight
 import com.safeshade.ui.board.EmptyBay
+import com.safeshade.ui.board.Footnote
 import com.safeshade.ui.board.Hairline
+import com.safeshade.ui.board.HoldToConfirm
 import com.safeshade.ui.board.LampState
 import com.safeshade.ui.board.ScreenHeader
-import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.Way
 import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.shady.ShadyMood
@@ -92,7 +96,18 @@ fun PairedDevicesScreen(
             ScreenHeader(title = "Paired devices", onBack = onBack)
         }
 
-        item("heading") { SectionPlate(title = "Saved") }
+        item("heading") {
+            // The bank's own header (2.81): a count and the add action, in
+            // place of a floating section plate and a full-width button below.
+            BankHeader(
+                title = "Saved",
+                count = state.devices.size,
+                actionIcon = SafeShadeIcons.ConnectToTheDevice,
+                actionDescription = if (state.isScanning) "Searching" else "Pair another device",
+                onAction = if (state.permissionsGranted) onPairNew else onRequestPermissions,
+                actionEnabled = !state.isScanning
+            )
+        }
 
         if (state.devices.isEmpty()) {
             item("empty") {
@@ -116,30 +131,15 @@ fun PairedDevicesScreen(
                     onForget = { onForgetRequested(device.address) }
                 )
             }
-
-            item("pair") {
-                BoardButton(
-                    label = if (state.isScanning) "Searching" else "Pair Another Device",
-                    supporting = if (state.permissionsGranted) {
-                        "Hold the button on the wearable until it shows the pairing screen"
-                    } else {
-                        "Bluetooth permission is needed before the app can search"
-                    },
-                    icon = SafeShadeIcons.ConnectToTheDevice,
-                    onClick = if (state.permissionsGranted) onPairNew else onRequestPermissions,
-                    enabled = !state.isScanning,
-                    weight = ButtonWeight.ATTENTION,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
         }
 
         item("note") {
-            Text(
-                text = "Only one device is connected at a time. Forgetting a device " +
-                    "removes it from this phone; it does not reset the wearable.",
-                style = MaterialTheme.typography.bodySmall,
-                color = colors.inkFaint
+            Footnote(
+                if (state.permissionsGranted) {
+                    "Only one device is connected at a time. Forgetting a device removes it from this phone; it does not reset the wearable."
+                } else {
+                    "Bluetooth permission is needed before the app can search for another device."
+                }
             )
         }
     }
@@ -249,11 +249,14 @@ private fun ForgetDialog(
                     style = MaterialTheme.typography.bodySmall,
                     color = colors.inkFaint
                 )
+                Spacer(Modifier.height(Spacing.md))
+                // The one irreversible action on this page (2.67): holding
+                // is the confirmation, in place of a second tap on a red
+                // button that looked exactly like every other tap.
+                HoldToConfirm(label = "Hold to Forget", onConfirm = onConfirm)
             }
         },
-        confirmButton = {
-            BoardButton(label = "Forget", onClick = onConfirm, weight = ButtonWeight.DANGER)
-        },
+        confirmButton = {},
         dismissButton = {
             BoardButton(label = "Keep", onClick = onCancel, weight = ButtonWeight.QUIET)
         }

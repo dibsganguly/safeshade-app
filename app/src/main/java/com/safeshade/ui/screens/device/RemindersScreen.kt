@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -21,7 +20,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -33,14 +31,14 @@ import com.safeshade.device.ConnectionState
 import com.safeshade.ui.board.BoardButton
 import com.safeshade.ui.board.BoardPlate
 import com.safeshade.ui.board.ButtonWeight
+import com.safeshade.ui.board.Callout
 import com.safeshade.ui.board.CHECK_IN_INTERVAL_RANGE
 import com.safeshade.ui.board.CHECK_IN_INTERVAL_STEP
 import com.safeshade.ui.board.DEFAULT_CHECK_IN_INTERVAL_MINUTES
 import com.safeshade.ui.board.DialControl
+import com.safeshade.ui.board.Footnote
 import com.safeshade.ui.board.Hairline
 import com.safeshade.ui.board.LampState
-import com.safeshade.ui.board.Nameplate
-import com.safeshade.ui.board.PilotLamp
 import com.safeshade.ui.board.ScreenHeader
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.TimeStrip
@@ -255,42 +253,26 @@ private fun InexactAlarmNotice(
     modifier: Modifier = Modifier
 ) {
     val colors = MaterialTheme.board
-    BoardPlate(modifier = modifier.fillMaxWidth()) {
-        Column(
-            modifier = Modifier.padding(Spacing.lg),
-            verticalArrangement = Arrangement.spacedBy(Spacing.sm)
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                // The lamp is paired with the words beside it, never left to
-                // carry the meaning by itself.
-                PilotLamp(
-                    state = LampState.ATTENTION,
-                    description = "Reminders may run late"
-                )
-                Spacer(Modifier.width(Spacing.sm))
-                Nameplate(text = "Reminders may run late", modifier = Modifier.weight(1f))
-            }
-            Text(
-                text = "Android is not letting this app set alarms to the minute, so " +
-                    "reminders fire in a window rather than at a time. They can be " +
-                    "up to 15 minutes late.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = colors.ink
+    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+        // The one thing on this page a person must not miss: it changes how
+        // every schedule below actually behaves.
+        Callout(
+            lead = "Reminders may run late",
+            sentence = "Android is not letting this app set alarms to the minute, so reminders fire in a window rather than at a time. They can be up to 15 minutes late."
+        )
+        if (grantable) {
+            BoardButton(
+                label = "Allow exact alarms",
+                onClick = onGrant,
+                weight = ButtonWeight.PRIMARY,
+                modifier = Modifier.fillMaxWidth()
             )
-            if (grantable) {
-                BoardButton(
-                    label = "Allow exact alarms",
-                    onClick = onGrant,
-                    weight = ButtonWeight.PRIMARY,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            } else {
-                Text(
-                    text = "This device does not offer a setting to change it.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colors.inkFaint
-                )
-            }
+        } else {
+            Text(
+                text = "This device does not offer a setting to change it.",
+                style = MaterialTheme.typography.bodySmall,
+                color = colors.inkFaint
+            )
         }
     }
 }
@@ -310,13 +292,15 @@ private fun ProfileNote(
     relevant: Boolean,
     modifier: Modifier = Modifier
 ) {
-    val colors = MaterialTheme.board
-    Text(
-        text = text,
-        style = MaterialTheme.typography.bodySmall,
-        color = if (relevant) colors.inkMuted else colors.inkFaint,
-        modifier = modifier
-    )
+    // Relevance still reads as a difference in ink even through Footnote's
+    // fixed faint tone would otherwise erase it, so only the truly relevant
+    // note takes the stronger voice; the other keeps the plain footnote.
+    if (relevant) {
+        val colors = MaterialTheme.board
+        Text(text = text, style = MaterialTheme.typography.bodySmall, color = colors.inkMuted, modifier = modifier)
+    } else {
+        Footnote(text, modifier = modifier)
+    }
 }
 
 /** "30m" / "1h" / "1h 30m" / "2h" ... from a minute count. Never "90m". */

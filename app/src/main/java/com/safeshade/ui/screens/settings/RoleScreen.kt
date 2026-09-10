@@ -14,20 +14,18 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.safeshade.data.UserRole
 import com.safeshade.ui.board.BoardButton
 import com.safeshade.ui.board.BoardPlate
 import com.safeshade.ui.board.ButtonWeight
+import com.safeshade.ui.board.Footnote
 import com.safeshade.ui.board.Hairline
-import com.safeshade.ui.board.LampState
 import com.safeshade.ui.board.Nameplate
 import com.safeshade.ui.board.ScreenHeader
 import com.safeshade.ui.board.SectionPlate
-import com.safeshade.ui.board.Way
-import com.safeshade.ui.icons.SafeShadeIcons
+import com.safeshade.ui.board.SegmentedChoice
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.board
@@ -84,20 +82,14 @@ fun RoleScreen(
         item("heading") { SectionPlate(title = "Who is using this phone") }
 
         item("options") {
-            BoardPlate(modifier = Modifier.fillMaxWidth()) {
-                UserRole.entries.forEachIndexed { index, option ->
-                    if (index > 0) Hairline()
-                    val selected = state.role == option
-                    Way(
-                        name = option.label,
-                        state = if (selected) LampState.LIVE else LampState.OFF,
-                        stateLabel = if (selected) "In use" else "Off",
-                        detail = option.blurb,
-                        icon = iconFor(option),
-                        onClick = { onSelectRole(option) }
-                    )
-                }
-            }
+            // A two-option behaviour (2.24): the choice and its consequence
+            // are one control, not a bank of rows plus a paragraph.
+            SegmentedChoice(
+                options = UserRole.entries.map { it.label },
+                selected = UserRole.entries.indexOf(state.role),
+                onSelect = { onSelectRole(UserRole.entries[it]) },
+                consequences = UserRole.entries.map { it.blurb }
+            )
         }
 
         item("preview-heading") { SectionPlate(title = "How it reads") }
@@ -130,12 +122,7 @@ fun RoleScreen(
         }
 
         item("note") {
-            Text(
-                text = "Switching roles keeps everything else: the paired device, the " +
-                    "medical card, contacts and history are unchanged.",
-                style = MaterialTheme.typography.bodySmall,
-                color = colors.inkFaint
-            )
+            Footnote("Switching roles keeps everything else: the paired device, the medical card, contacts and history are unchanged.")
         }
     }
 
@@ -231,11 +218,6 @@ private fun RoleChangeDialog(
             )
         }
     )
-}
-
-private fun iconFor(role: UserRole): ImageVector = when (role) {
-    UserRole.GUARDIAN -> SafeShadeIcons.NavbarSafety
-    UserRole.COMPANION -> SafeShadeIcons.User
 }
 
 // ============================================================================

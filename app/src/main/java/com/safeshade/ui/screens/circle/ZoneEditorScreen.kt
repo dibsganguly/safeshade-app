@@ -31,7 +31,10 @@ import com.safeshade.ui.board.BoardButton
 import com.safeshade.ui.board.BoardPlate
 import com.safeshade.ui.board.ButtonWeight
 import com.safeshade.ui.board.DialControl
+import com.safeshade.ui.board.EditorFootBar
+import com.safeshade.ui.board.EditorScaffold
 import com.safeshade.ui.board.Hairline
+import com.safeshade.ui.board.HoldToConfirm
 import com.safeshade.ui.board.LampState
 import com.safeshade.ui.board.Readout
 import com.safeshade.ui.board.ScreenHeader
@@ -92,16 +95,32 @@ fun ZoneEditorScreen(
 ) {
     val colors = MaterialTheme.board
     val subject = wearerSubject(state.role, state.wearerName)
-    var confirmingDelete by rememberSaveable { mutableStateOf(false) }
 
-    Column(
+    // The editor's foot is pinned (2.34): Save is amber, and Discard leaves
+    // without writing anything — the same contract every editor in the kit
+    // now keeps.
+    EditorScaffold(
         modifier = modifier
             .fillMaxSize()
             .background(colors.ground)
             // The theme draws edge to edge, so the window does not resize
             // when the keyboard opens: without this inset a focused field would sit behind it.
-            .imePadding()
-    ) {
+            .imePadding(),
+        foot = {
+            EditorFootBar(
+                primaryLabel = if (state.isSaving) "Saving" else "Save",
+                onPrimary = onSave,
+                secondaryLabel = "Discard",
+                onSecondary = onBack,
+                changedLine = if (state.canSave || state.isSaving) null else "A name and a place are needed",
+                statusLine = state.errorText,
+                statusState = if (state.errorText != null) LampState.ATTENTION else null,
+                primaryEnabled = state.canSave,
+                secondaryEnabled = !state.isSaving
+            )
+        }
+    ) { footPadding ->
+    Column(modifier = Modifier.fillMaxSize()) {
         ScreenHeader(
             title = if (state.isNew) "New safe zone" else state.name.ifBlank { "Safe zone" },
             subtitle = if (state.isNew) "It starts alerting as soon as it is saved" else null,
@@ -128,7 +147,7 @@ fun ZoneEditorScreen(
                 start = Spacing.gutter,
                 end = Spacing.gutter,
                 top = Spacing.lg,
-                bottom = Spacing.xxl
+                bottom = footPadding.calculateBottomPadding() + Spacing.lg
             ),
             verticalArrangement = Arrangement.spacedBy(Spacing.lg)
         ) {
@@ -238,66 +257,23 @@ fun ZoneEditorScreen(
                 }
             }
 
-            if (state.errorText != null) {
-                item("error") {
-                    Text(
-                        text = state.errorText,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = colors.inkAttention
-                    )
-                }
-            }
-
-            item("save") {
-                BoardButton(
-                    label = if (state.isSaving) "Saving" else "Save this zone",
-                    supporting = if (state.canSave || state.isSaving) null else "A name and a place are needed",
-                    onClick = onSave,
-                    enabled = state.canSave,
-                    weight = ButtonWeight.PRIMARY,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
+            // The error, and the save action itself, now live in the pinned
+            // foot bar rather than at the end of the content.
 
             if (onDelete != null) {
                 item("delete") {
-                    if (confirmingDelete) {
-                        Column {
-                            Text(
-                                text = "Remove ${state.name.ifBlank { "this zone" }}? No more alerts will come from this place.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = colors.ink
-                            )
-                            Spacer(Modifier.height(Spacing.md))
-                            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                                BoardButton(
-                                    label = "Keep it",
-                                    onClick = { confirmingDelete = false },
-                                    weight = ButtonWeight.SECONDARY,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                BoardButton(
-                                    label = "Remove",
-                                    onClick = {
-                                        confirmingDelete = false
-                                        onDelete()
-                                    },
-                                    weight = ButtonWeight.DANGER,
-                                    modifier = Modifier.weight(1f)
-                                )
-                            }
-                        }
-                    } else {
-                        BoardButton(
-                            label = "Remove this zone",
-                            onClick = { confirmingDelete = true },
-                            weight = ButtonWeight.QUIET,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
+                    // The one irreversible action on this page sits behind a
+                    // hold rather than a dialog and a second button (2.67).
+                    HoldToConfirm(
+                        label = "Hold to Remove This Zone",
+                        onConfirm = onDelete,
+                        icon = SafeShadeIcons.DeleteBin,
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
             }
         }
+    }
     }
 }
 

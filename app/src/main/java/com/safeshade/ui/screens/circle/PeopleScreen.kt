@@ -15,9 +15,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.safeshade.data.UserRole
-import com.safeshade.ui.board.BoardButton
+import com.safeshade.ui.board.BankHeader
 import com.safeshade.ui.board.BoardPlate
-import com.safeshade.ui.board.ButtonWeight
 import com.safeshade.ui.board.Hairline
 import com.safeshade.ui.board.LampState
 import com.safeshade.ui.board.PersonRow
@@ -84,6 +83,17 @@ fun PeopleScreen(
 
         item("people") {
             BoardPlate(modifier = Modifier.fillMaxWidth()) {
+                // The bank's own header (2.81) carries the add action, so a
+                // Guardian needs no second button below the list.
+                if (guardian) {
+                    BankHeader(
+                        title = "Everyone you look after",
+                        count = people.size,
+                        actionIcon = SafeShadeIcons.UserAdd,
+                        actionDescription = "Add a Person",
+                        onAction = onAdd
+                    )
+                }
                 if (people.isEmpty()) {
                     Text(
                         text = "Nobody yet. Add the person who wears the device.",
@@ -104,18 +114,6 @@ fun PeopleScreen(
                         onClick = { onOpen(person.id) }
                     )
                 }
-            }
-        }
-
-        if (guardian) {
-            item("add") {
-                BoardButton(
-                    label = "Add a Person",
-                    icon = SafeShadeIcons.UserAdd,
-                    onClick = onAdd,
-                    weight = ButtonWeight.COMMIT,
-                    modifier = Modifier.fillMaxWidth()
-                )
             }
         }
     }

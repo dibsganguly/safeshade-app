@@ -28,6 +28,7 @@ import com.safeshade.ui.board.BoardButton
 import com.safeshade.ui.board.BoardPlate
 import com.safeshade.ui.board.ButtonWeight
 import com.safeshade.ui.board.DialControl
+import com.safeshade.ui.board.Footnote
 import com.safeshade.ui.board.Hairline
 import com.safeshade.ui.board.LampState
 import com.safeshade.ui.board.Readout
@@ -321,7 +322,7 @@ fun VitalsScreen(
             advice = { if (it < 38f) "Skin runs cooler than core; a warm room reaches this." else "A fever. %.1f° is where most clinicians start to act.".format(it) }
         )
         Spacer(Modifier.height(Spacing.sm))
-        Note(text = "A reading outside a range lights the row above and the Safety page. Nobody is called: these are readings, not alerts.")
+        Footnote(text = "A reading outside a range lights the row above and the Safety page. Nobody is called: these are readings, not alerts.")
 
         if (state.history.isNotEmpty()) {
             Spacer(Modifier.height(Spacing.xl))

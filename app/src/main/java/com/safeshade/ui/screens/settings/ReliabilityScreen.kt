@@ -28,6 +28,8 @@ import androidx.compose.ui.unit.dp
 import com.safeshade.ui.board.BoardButton
 import com.safeshade.ui.board.BoardPlate
 import com.safeshade.ui.board.ButtonWeight
+import com.safeshade.ui.board.Callout
+import com.safeshade.ui.board.Footnote
 import com.safeshade.ui.board.Hairline
 import com.safeshade.ui.board.LampState
 import com.safeshade.ui.board.Nameplate
@@ -212,6 +214,13 @@ fun ReliabilityScreen(
         // ---------- The test ----------
         item("test-heading") { SectionPlate(title = "Test") }
 
+        item("test-callout") {
+            Callout(
+                lead = "A pass here is not a guarantee.",
+                sentence = "Every check above can pass and an alert can still be killed by something this app cannot see. Sending a test is the only way to watch it happen, or watch it not."
+            )
+        }
+
         item("test") {
             BoardPlate(modifier = Modifier.fillMaxWidth()) {
                 Column(
@@ -219,20 +228,6 @@ fun ReliabilityScreen(
                     verticalArrangement = Arrangement.spacedBy(Spacing.sm)
                 ) {
                     Nameplate("Send a test alert")
-                    Text(
-                        text = "Every check above can pass and an alert can still be " +
-                            "killed by something this app cannot see. Sending a test " +
-                            "is the only way to turn that into something you can watch " +
-                            "happen – or watch not happen.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = colors.ink
-                    )
-                    Text(
-                        text = "Lock the phone first, then send. The alert should take " +
-                            "over the screen within a few seconds.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = colors.inkMuted
-                    )
                     if (state.lastTestAlertLabel != null) {
                         Text(
                             text = state.lastTestAlertLabel,
@@ -241,7 +236,8 @@ fun ReliabilityScreen(
                         )
                     }
                     BoardButton(
-                        label = "Send a test alert",
+                        label = "Send a Test Alert",
+                        supporting = "Lock the phone first. It should take over the screen within a few seconds.",
                         // A callback, unlike the rows: firing a test alert needs
                         // the notifier and the alert machinery, which is the
                         // caller's, and it must be the same code path a real
@@ -255,13 +251,7 @@ fun ReliabilityScreen(
         }
 
         item("footnote") {
-            Text(
-                text = "This app never asks for a permission it does not use. " +
-                    "Location is for weather and safe zones; SMS is the fallback " +
-                    "when Bluetooth is out of range.",
-                style = MaterialTheme.typography.bodySmall,
-                color = colors.inkFaint
-            )
+            Footnote("This app never asks for a permission it does not use. Location is for weather and safe zones; SMS is the fallback when Bluetooth is out of range.")
         }
     }
 }
@@ -290,10 +280,7 @@ private fun CheckWay(
             CheckStatus.FAILING -> "Blocked"
             CheckStatus.UNKNOWN -> "Unknown"
         },
-        detail = when (status) {
-            CheckStatus.PASSING -> null
-            else -> consequence
-        },
+        help = consequence,
         icon = icon,
         onClick = onOpen
     )

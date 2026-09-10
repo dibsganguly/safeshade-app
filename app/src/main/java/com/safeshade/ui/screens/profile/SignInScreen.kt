@@ -37,6 +37,7 @@ import com.safeshade.cloud.CloudResult
 import com.safeshade.ui.board.BoardButton
 import com.safeshade.ui.board.BoardPlate
 import com.safeshade.ui.board.ButtonWeight
+import com.safeshade.ui.board.Footnote
 import com.safeshade.ui.board.Hairline
 import com.safeshade.ui.board.Nameplate
 import com.safeshade.ui.board.ScreenHeader
@@ -291,13 +292,7 @@ fun SignInScreen(
             }
         }
 
-        Text(
-            text = "Everything keeps working on this phone without an account. Signing in adds a copy on " +
-                "SafeShade Cloud and lets the rest of the Circle see the same board.",
-            style = MaterialTheme.typography.bodySmall,
-            color = colors.inkFaint
-        )
-        Spacer(Modifier.height(Spacing.sm))
+        Footnote("Everything keeps working on this phone without an account. Signing in adds a copy on SafeShade Cloud and lets the rest of the Circle see the same board.")
     }
 }
 

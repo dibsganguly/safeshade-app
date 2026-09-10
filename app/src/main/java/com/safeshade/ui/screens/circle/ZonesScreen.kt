@@ -25,21 +25,27 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.lazy.items
 import com.safeshade.data.UserRole
+import com.safeshade.ui.board.BankHeader
 import com.safeshade.ui.board.BoardButton
 import com.safeshade.ui.board.BoardPlate
 import com.safeshade.ui.board.ButtonWeight
+import com.safeshade.ui.board.CardStrip
 import com.safeshade.ui.board.EmptyBay
 import com.safeshade.ui.board.Hairline
+import com.safeshade.ui.board.HoldToConfirm
 import com.safeshade.ui.board.LampState
 import com.safeshade.ui.board.ScreenHeader
 import com.safeshade.ui.board.ScreenTier
 import com.safeshade.ui.board.SectionPlate
+import com.safeshade.ui.board.StripCard
 import com.safeshade.ui.board.Way
 import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.shady.ShadyMood
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
+import com.safeshade.ui.theme.accentFor
 import com.safeshade.ui.theme.board
 
 /**
@@ -171,11 +177,10 @@ fun ZonesScreen(
                 }
             }
 
-            item("heading") {
-                SectionPlate(title = "Zones")
-            }
-
             if (state.zones.isEmpty()) {
+                item("heading") {
+                    SectionPlate(title = "Zones")
+                }
                 item("empty") {
                     EmptyBay(
                         message = if (state.isLoaded) {
@@ -191,37 +196,60 @@ fun ZonesScreen(
                     )
                 }
             } else {
+                // The bank's own header (2.81) carries the add action, so the
+                // list needs no section plate above it and no second "add"
+                // button below it.
                 item("zones") {
-                    BoardPlate(modifier = Modifier.fillMaxWidth()) {
-                        state.zones.forEachIndexed { index, zone ->
-                            if (index > 0) Hairline()
-                            ZoneListRow(
-                                zone = zone,
-                                confirmingDelete = pendingDeleteId == zone.id,
-                                onEdit = { onEditZone(zone.id) },
-                                onGuide = onGuideTo?.let { g -> { g(zone.id) } },
-                                onAskDelete = { pendingDeleteId = zone.id },
-                                onCancelDelete = { pendingDeleteId = null },
-                                onConfirmDelete = {
-                                    pendingDeleteId = null
-                                    onDeleteZone(zone.id)
-                                }
+                    if (state.zones.size >= 4) {
+                        Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                            BankHeader(
+                                title = "Zones",
+                                count = state.zones.size,
+                                actionIcon = SafeShadeIcons.Cross,
+                                actionDescription = "Add a safe zone",
+                                onAction = onAddZone
                             )
+                            CardStrip {
+                                items(state.zones, key = { it.id }) { zone ->
+                                    StripCard(
+                                        title = zone.name,
+                                        line = listOfNotNull(zone.detail, zone.lastChangeLabel).joinToString(" · "),
+                                        state = zone.presence.toLampState(),
+                                        icon = SafeShadeIcons.SafeZone,
+                                        accent = colors.accentFor(zone.name),
+                                        onClick = { onEditZone(zone.id) }
+                                    )
+                                }
+                            }
+                        }
+                    } else {
+                        BoardPlate(modifier = Modifier.fillMaxWidth()) {
+                            BankHeader(
+                                title = "Zones",
+                                count = state.zones.size,
+                                actionIcon = SafeShadeIcons.Cross,
+                                actionDescription = "Add a safe zone",
+                                onAction = onAddZone
+                            )
+                            state.zones.forEachIndexed { index, zone ->
+                                if (index > 0) Hairline()
+                                ZoneListRow(
+                                    zone = zone,
+                                    confirmingDelete = pendingDeleteId == zone.id,
+                                    onEdit = { onEditZone(zone.id) },
+                                    onGuide = onGuideTo?.let { g -> { g(zone.id) } },
+                                    onAskDelete = {
+                                        pendingDeleteId = if (pendingDeleteId == zone.id) null else zone.id
+                                    },
+                                    onCancelDelete = { pendingDeleteId = null },
+                                    onConfirmDelete = {
+                                        pendingDeleteId = null
+                                        onDeleteZone(zone.id)
+                                    }
+                                )
+                            }
                         }
                     }
-                }
-
-                // The empty bay above already carries this action while the
-                // list has nothing in it — a second "add" button beside it
-                // would just be the same offer said twice.
-                item("add") {
-                    BoardButton(
-                        label = "Add a safe zone",
-                        icon = SafeShadeIcons.Cross,
-                        onClick = onAddZone,
-                        weight = ButtonWeight.PRIMARY,
-                        modifier = Modifier.fillMaxWidth()
-                    )
                 }
             }
         }
@@ -289,26 +317,12 @@ private fun ZoneListRow(
         if (confirmingDelete) {
             Hairline()
             Column(modifier = Modifier.padding(Spacing.lg)) {
-                Text(
-                    text = "Remove ${zone.name}? No more alerts will come from this place.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = colors.ink
+                HoldToConfirm(
+                    label = "Hold to Remove ${zone.name}",
+                    onConfirm = onConfirmDelete,
+                    icon = SafeShadeIcons.DeleteBin,
+                    modifier = Modifier.fillMaxWidth()
                 )
-                Spacer(Modifier.height(Spacing.md))
-                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                    BoardButton(
-                        label = "Keep it",
-                        onClick = onCancelDelete,
-                        weight = ButtonWeight.SECONDARY,
-                        modifier = Modifier.weight(1f)
-                    )
-                    BoardButton(
-                        label = "Remove",
-                        onClick = onConfirmDelete,
-                        weight = ButtonWeight.DANGER,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
             }
         }
     }
@@ -354,6 +368,12 @@ private val sampleZones = listOf(
         name = "Clinic",
         detail = "300 m · told when arriving",
         presence = ZonePresence.UNKNOWN
+    ),
+    ZoneRow(
+        id = "4",
+        name = "Temple",
+        detail = "100 m · told when arriving",
+        presence = ZonePresence.OUTSIDE
     )
 )
 

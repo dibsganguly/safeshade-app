@@ -3,22 +3,14 @@ package com.safeshade.ui.screens.safety
 import android.content.res.Configuration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -31,20 +23,22 @@ import com.safeshade.data.UserRole
 import com.safeshade.ui.board.BoardButton
 import com.safeshade.ui.board.BoardPlate
 import com.safeshade.ui.board.ButtonWeight
+import com.safeshade.ui.board.Chain
+import com.safeshade.ui.board.ChainStop
+import com.safeshade.ui.board.Footnote
 import com.safeshade.ui.board.Hairline
 import com.safeshade.ui.board.LampState
 import com.safeshade.ui.board.ScreenHeader
 import com.safeshade.ui.board.ScreenTier
-import com.safeshade.ui.board.Seal
 import com.safeshade.ui.board.SectionPlate
+import com.safeshade.ui.board.Tile
+import com.safeshade.ui.board.TileGrid
 import com.safeshade.ui.board.Way
 import com.safeshade.ui.icons.SafeShadeIcons
+import com.safeshade.ui.theme.Hub
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.board
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 /**
  * Everything the Safety hub draws.
@@ -169,6 +163,65 @@ fun SafetyScreen(
             )
         }
 
+        // The head plate (2.53): the one tinted plate on this hub, answering
+        // "is this person covered" before anything else. Trumps the old
+        // per-condition "unresolved trip" banner — an open trip is this row's
+        // TRIP state, not a second alert above it.
+        item("head") {
+            val fallOn = state.activeMode != PersonaMode.PET
+            val headState = when {
+                state.unresolvedTripCount > 0 -> LampState.TRIP
+                !fallOn || contacts.isEmpty() -> LampState.ATTENTION
+                else -> LampState.LIVE
+            }
+            val headLabel = when {
+                state.unresolvedTripCount == 1 -> "1 open"
+                state.unresolvedTripCount > 1 -> "${state.unresolvedTripCount} open"
+                contacts.isEmpty() -> "No contacts"
+                !fallOn -> "Detection off"
+                else -> "Covered"
+            }
+            val headDetail = when {
+                state.unresolvedTripCount > 0 -> state.lastTripLabel
+                contacts.isEmpty() -> "Add a contact so a fall has somewhere to go."
+                !fallOn -> "Off in ${state.activeMode.label} mode. Movement would trip it constantly."
+                else -> "Fall detection and ${contacts.size} contact(s) are on for $subject."
+            }
+            BoardPlate(modifier = Modifier.fillMaxWidth(), hub = Hub.SAFETY) {
+                Way(
+                    name = "Protection",
+                    state = headState,
+                    stateLabel = headLabel,
+                    detail = headDetail,
+                    icon = SafeShadeIcons.ShieldWithKeyhole,
+                    onClick = if (state.unresolvedTripCount > 0) onOpenTrips else null
+                )
+            }
+        }
+
+        // What happens, as a chain (2.27), in place of the paragraph this
+        // screen used to open with. Only drawn while the path it describes is
+        // actually live — a chain showing a call nobody will make is a chain
+        // lying about the board.
+        val fallOnForChain = state.activeMode != PersonaMode.PET
+        if (fallOnForChain) {
+            item("chain") {
+                val ladder = state.settings.escalation
+                Chain(
+                    listOf(
+                        ChainStop(SafeShadeIcons.FallDetection, "Fall", "detected"),
+                        ChainStop(SafeShadeIcons.HourglassTimer, "${state.settings.fallCountdownSeconds} s", "to cancel"),
+                        ChainStop(
+                            SafeShadeIcons.CallAfterAFall,
+                            state.settings.primaryContact?.name?.ifBlank { null } ?: "Nobody yet",
+                            "is called"
+                        ),
+                        ChainStop(SafeShadeIcons.CallAfterAFall, "Ladder", if (ladder.enabled) "if unanswered" else "off")
+                    )
+                )
+            }
+        }
+
         // Top of the screen, above everything, always - and in the SOS's red.
         //
         // This used to argue the opposite: that DANGER was reserved for actions
@@ -186,7 +239,7 @@ fun SafetyScreen(
         item("services") {
             BoardButton(
                 label = "Emergency Numbers",
-                supporting = "112 and 7 more. Opens the dialer – never calls by itself.",
+                supporting = "112 and 7 more. Opens the dialer, never calls by itself.",
                 icon = SafeShadeIcons.Cross,
                 onClick = onOpenServices,
                 weight = ButtonWeight.DANGER,
@@ -194,43 +247,13 @@ fun SafetyScreen(
             )
         }
 
-        if (state.unresolvedTripCount > 0) {
-            item("unresolved") {
-                BoardPlate(modifier = Modifier.fillMaxWidth()) {
-                    Way(
-                        name = if (state.unresolvedTripCount == 1) "1 trip needs a reply" else "${state.unresolvedTripCount} trips need a reply",
-                        state = LampState.TRIP,
-                        stateLabel = "Open",
-                        detail = state.lastTripLabel,
-                        icon = SafeShadeIcons.History,
-                        onClick = onOpenTrips
-                    )
-                }
-            }
-        }
-
         item("detection-heading") { SectionPlate(title = "Detection") }
 
-        item("detection") {
+        // The two rows that report a setting rather than opening one stay
+        // Ways, in a plate of their own above the destinations (2.84): a
+        // switch has nothing to navigate to.
+        item("detection-switches") {
             BoardPlate(modifier = Modifier.fillMaxWidth()) {
-                // Pet mode runs with fall detection switched off in firmware —
-                // an animal's normal movement trips every threshold — so the
-                // row reports OFF rather than claiming cover that is not there.
-                val fallOn = state.activeMode != PersonaMode.PET
-                Way(
-                    name = "Fall detection",
-                    state = if (fallOn) LampState.LIVE else LampState.OFF,
-                    stateLabel = if (fallOn) state.settings.fallSensitivity.label else "Off",
-                    detail = if (fallOn) {
-                        "${state.settings.fallSensitivity.blurb}. ${formatDuration(state.settings.fallCountdownSeconds)} to cancel before a call."
-                    } else {
-                        "Off in ${state.activeMode.label} mode. Movement would trip it constantly."
-                    },
-                    icon = SafeShadeIcons.FallDetection,
-                    sealed = locked,
-                    onClick = onOpenFallSettings
-                )
-                Hairline()
                 Way(
                     name = "Call after a fall",
                     state = if (state.settings.autoCallEmergency) LampState.LIVE else LampState.OFF,
@@ -254,45 +277,12 @@ fun SafetyScreen(
                     checked = state.settings.smsFallbackEnabled,
                     onCheckedChange = onSmsFallbackChange
                 )
-                Hairline()
-                val ladder = state.settings.escalation
-                Way(
-                    name = "If nobody answers",
-                    state = when {
-                        state.escalationRunning -> LampState.ATTENTION
-                        ladder.enabled -> LampState.LIVE
-                        else -> LampState.OFF
-                    },
-                    stateLabel = when {
-                        state.escalationRunning -> "Calling"
-                        ladder.enabled -> "On"
-                        else -> "Off"
-                    },
-                    detail = ladderDetail(state),
-                    icon = SafeShadeIcons.CallAfterAFall,
-                    sealed = locked,
-                    onClick = onOpenEscalation
-                )
-                Hairline()
-                Way(
-                    name = "Evidence",
-                    state = if (state.evidenceArmed) LampState.LIVE else LampState.OFF,
-                    stateLabel = if (state.evidenceArmed) "Armed" else "Off",
-                    detail = when {
-                        state.evidenceArmed && state.evidenceClipCount > 0 ->
-                            "The microphone records after a fall or an SOS. ${state.evidenceClipCount} on this phone."
-                        state.evidenceArmed -> "The microphone records after a fall or an SOS."
-                        else -> "The microphone stays off when something happens."
-                    },
-                    icon = SafeShadeIcons.Microphone,
-                    onClick = onOpenEvidence
-                )
             }
         }
 
         if (!state.settingsSynced) {
             item("sync-note") {
-                Note(
+                Footnote(
                     text = if (state.linkLive) {
                         "Sending these settings to the device."
                     } else {
@@ -302,183 +292,139 @@ fun SafetyScreen(
             }
         }
 
-        if (locked) {
-            item("locked") { GuardianLockPlate(mode = state.activeMode, subject = subject) }
+        item("detection-tiles") {
+            val fallOn = state.activeMode != PersonaMode.PET
+            val ladder = state.settings.escalation
+            TileGrid(
+                listOf(
+                    Tile(
+                        title = "Fall detection",
+                        icon = SafeShadeIcons.FallDetection,
+                        state = if (fallOn) LampState.LIVE else LampState.OFF,
+                        stateLabel = if (fallOn) state.settings.fallSensitivity.label else "Off",
+                        onClick = onOpenFallSettings,
+                        tag = if (locked) "Sealed" else null
+                    ),
+                    Tile(
+                        title = "If nobody answers",
+                        icon = SafeShadeIcons.CallAfterAFall,
+                        state = when {
+                            state.escalationRunning -> LampState.ATTENTION
+                            ladder.enabled -> LampState.LIVE
+                            else -> LampState.OFF
+                        },
+                        stateLabel = when {
+                            state.escalationRunning -> "Calling"
+                            ladder.enabled -> "On"
+                            else -> "Off"
+                        },
+                        onClick = onOpenEscalation,
+                        tag = if (locked) "Sealed" else null
+                    ),
+                    Tile(
+                        title = "Evidence",
+                        icon = SafeShadeIcons.Microphone,
+                        state = if (state.evidenceArmed) LampState.LIVE else LampState.OFF,
+                        stateLabel = if (state.evidenceArmed) "Armed" else "Off",
+                        onClick = onOpenEvidence
+                    )
+                )
+            )
         }
 
         item("people-heading") { SectionPlate(title = "Who gets called") }
 
-        item("people") {
-            BoardPlate(modifier = Modifier.fillMaxWidth()) {
-                Way(
-                    name = "Emergency contacts",
-                    // No contacts is not a neutral empty state — it means the
-                    // whole detection chain above ends nowhere.
-                    state = if (contacts.isEmpty()) LampState.ATTENTION else LampState.LIVE,
-                    stateLabel = if (contacts.isEmpty()) "None" else "${contacts.size}",
-                    detail = contactsDetail(contacts),
-                    icon = SafeShadeIcons.EmergencyContacts,
-                    onClick = onOpenContacts
+        item("people-tiles") {
+            TileGrid(
+                listOf(
+                    Tile(
+                        title = "Emergency contacts",
+                        icon = SafeShadeIcons.EmergencyContacts,
+                        // No contacts is not a neutral empty state — it means
+                        // the whole detection chain above ends nowhere.
+                        state = if (contacts.isEmpty()) LampState.ATTENTION else LampState.LIVE,
+                        stateLabel = if (contacts.isEmpty()) "None" else "${contacts.size}",
+                        onClick = onOpenContacts
+                    ),
+                    Tile(
+                        title = "Medical ID",
+                        icon = SafeShadeIcons.MedicalId,
+                        state = medicalLamp(state.medicalId),
+                        stateLabel = medicalLabel(state.medicalId),
+                        onClick = onOpenMedicalId
+                    ),
+                    Tile(
+                        title = "Emergency card",
+                        icon = SafeShadeIcons.QrCode,
+                        state = if (state.medicalId.isUsable) LampState.LIVE else LampState.OFF,
+                        stateLabel = if (state.medicalId.isUsable) "Ready" else "Empty",
+                        onClick = onOpenEmergencyCard
+                    )
                 )
-                Hairline()
-                Way(
-                    name = "Medical ID",
-                    state = medicalLamp(state.medicalId),
-                    stateLabel = medicalLabel(state.medicalId),
-                    detail = "${state.medicalId.filledFieldCount} of 11 details filled in. This is what a responder reads on the device.",
-                    icon = SafeShadeIcons.MedicalId,
-                    onClick = onOpenMedicalId
-                )
-                Hairline()
-                Way(
-                    name = "Emergency card",
-                    state = if (state.medicalId.isUsable) LampState.LIVE else LampState.OFF,
-                    stateLabel = if (state.medicalId.isUsable) "Ready" else "Empty",
-                    icon = SafeShadeIcons.MedicalId,
-                    onClick = onOpenEmergencyCard
-                )
-            }
+            )
         }
 
         item("watch-heading") { SectionPlate(title = "Watching") }
 
-        item("watch") {
-            BoardPlate(modifier = Modifier.fillMaxWidth()) {
-                Way(
-                    name = "Safe zones",
-                    state = safeZoneLamp(state.safeZoneCount, state.insideSafeZone),
-                    stateLabel = safeZoneLabel(state.safeZoneCount, state.insideSafeZone),
-                    detail = safeZoneDetail(state.safeZoneCount, state.insideSafeZone, subject),
-                    icon = SafeShadeIcons.SafeZone,
-                    onClick = onOpenZones
+        item("watch-tiles") {
+            val watching = state.settings.offlineAlertMinutes > 0 || state.settings.lowBatteryPercent > 0
+            val offline = state.wearableOfflineSince != null && !state.linkLive
+            TileGrid(
+                listOf(
+                    Tile(
+                        title = "Safe zones",
+                        icon = SafeShadeIcons.SafeZone,
+                        state = safeZoneLamp(state.safeZoneCount, state.insideSafeZone),
+                        stateLabel = safeZoneLabel(state.safeZoneCount, state.insideSafeZone),
+                        onClick = onOpenZones
+                    ),
+                    Tile(
+                        title = "Silent SOS",
+                        icon = SafeShadeIcons.SilentSos,
+                        state = if (state.silentSosEnabled) LampState.LIVE else LampState.OFF,
+                        stateLabel = if (state.silentSosEnabled) "Armed" else "Off",
+                        onClick = onOpenSilentSos
+                    ),
+                    Tile(
+                        title = "Out of reach",
+                        icon = SafeShadeIcons.ConnectToTheDevice,
+                        state = when {
+                            offline && watching -> LampState.ATTENTION
+                            watching -> LampState.LIVE
+                            else -> LampState.OFF
+                        },
+                        stateLabel = when {
+                            offline && watching -> "Out of reach"
+                            watching -> "Watching"
+                            else -> "Off"
+                        },
+                        onClick = onOpenWatch
+                    ),
+                    Tile(
+                        title = "Vitals",
+                        icon = SafeShadeIcons.HeartWithPulse,
+                        state = when {
+                            state.vitalsLine == null -> LampState.UNKNOWN
+                            state.vitalsFlagged -> LampState.ATTENTION
+                            else -> LampState.LIVE
+                        },
+                        stateLabel = when {
+                            state.vitalsLine == null -> "—"
+                            state.vitalsFlagged -> "Outside range"
+                            else -> "In range"
+                        },
+                        onClick = onOpenVitals
+                    ),
+                    Tile(
+                        title = "Trip log",
+                        icon = SafeShadeIcons.History,
+                        state = if (state.unresolvedTripCount > 0) LampState.TRIP else LampState.OFF,
+                        stateLabel = if (state.unresolvedTripCount > 0) "Open" else "Clear",
+                        onClick = onOpenTrips
+                    )
                 )
-                Hairline()
-                Way(
-                    name = "Silent SOS",
-                    state = if (state.silentSosEnabled) LampState.LIVE else LampState.OFF,
-                    stateLabel = if (state.silentSosEnabled) "Armed" else "Off",
-                    icon = SafeShadeIcons.SilentSos,
-                    onClick = onOpenSilentSos
-                )
-                Hairline()
-                val watching = state.settings.offlineAlertMinutes > 0 || state.settings.lowBatteryPercent > 0
-                val offline = state.wearableOfflineSince != null && !state.linkLive
-                Way(
-                    name = "Out of reach",
-                    state = when {
-                        offline && watching -> LampState.ATTENTION
-                        watching -> LampState.LIVE
-                        else -> LampState.OFF
-                    },
-                    stateLabel = when {
-                        offline && watching -> "Out of reach"
-                        watching -> "Watching"
-                        else -> "Off"
-                    },
-                    detail = watchDetail(state),
-                    icon = SafeShadeIcons.ConnectToTheDevice,
-                    onClick = onOpenWatch
-                )
-                Hairline()
-                Way(
-                    name = "Vitals",
-                    state = when {
-                        state.vitalsLine == null -> LampState.UNKNOWN
-                        state.vitalsFlagged -> LampState.ATTENTION
-                        else -> LampState.LIVE
-                    },
-                    stateLabel = when {
-                        state.vitalsLine == null -> "—"
-                        state.vitalsFlagged -> "Outside range"
-                        else -> "In range"
-                    },
-                    detail = state.vitalsLine ?: "No reading yet. From the wearable or from Health Connect.",
-                    icon = SafeShadeIcons.HeartWithPulse,
-                    onClick = onOpenVitals
-                )
-                Hairline()
-                Way(
-                    name = "Trip log",
-                    state = if (state.unresolvedTripCount > 0) LampState.TRIP else LampState.OFF,
-                    stateLabel = if (state.unresolvedTripCount > 0) "Open" else "Clear",
-                    detail = state.lastTripLabel ?: "Nothing recorded yet.",
-                    icon = SafeShadeIcons.History,
-                    onClick = onOpenTrips
-                )
-            }
-        }
-
-    }
-}
-
-/** One line on the ladder: who would be rung, or why nobody would. */
-private fun ladderDetail(state: SafetyUiState): String {
-    val ladder = state.settings.escalation
-    if (!ladder.enabled) return "Off. Only the one call after a fall's countdown."
-    val names = state.settings.emergencyContacts
-        .filter { it.phone.isNotBlank() }
-        .take(2)
-        .map { it.name.ifBlank { it.phone } }
-    if (names.isEmpty()) return "Nobody to call yet. With no contact the phone dials nothing."
-    val chain = names + if (ladder.thenEmergency) listOf(ladder.emergencyNumber) else emptyList()
-    return "Calls " + chain.joinToString(", then ") + " while the trip stays open."
-}
-
-/** One line on the watch: the thresholds, or the outage in progress. */
-private fun watchDetail(state: SafetyUiState): String {
-    val s = state.settings
-    val since = state.wearableOfflineSince
-    if (since != null && !state.linkLive && s.offlineAlertMinutes > 0) {
-        val mins = ((System.currentTimeMillis() - since) / 60_000L).toInt().coerceAtLeast(0)
-        return "Since ${SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(since))} · ${minutesShort(mins)}" +
-            if (state.wearableOfflineAlerted) " · you were told" else ""
-    }
-    val parts = buildList {
-        if (s.offlineAlertMinutes > 0) add("told after ${minutesShort(s.offlineAlertMinutes)} out of reach")
-        if (s.lowBatteryPercent > 0) add("battery below ${s.lowBatteryPercent}%")
-    }
-    return if (parts.isEmpty()) "No notices about the wearable itself." else parts.joinToString(" · ").replaceFirstChar { it.uppercase() }
-}
-
-/**
- * The notice that the wearable has handed these settings over.
- *
- * Gated on `PersonaMode.isGuardianLocked` rather than a list of mode names, so
- * a mode added on either side of the link cannot quietly slip past it.
- */
-@Composable
-private fun GuardianLockPlate(mode: PersonaMode, subject: String) {
-    val colors = MaterialTheme.board
-    BoardPlate(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(Spacing.lg)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Seal()
-                Spacer(Modifier.width(Spacing.sm))
-                Text(
-                    text = "${mode.label} mode",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = colors.ink
-                )
-            }
-            Spacer(Modifier.height(Spacing.sm))
-            Text(
-                text = "In this mode the device hides its own Safety menu, so $subject cannot " +
-                    "turn any of this down while wearing it. These settings live here and only here.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = colors.inkMuted
             )
         }
-    }
-}
-
-private fun contactsDetail(contacts: List<EmergencyContact>): String {
-    if (contacts.isEmpty()) return "Add at least one. Without a contact, an alert has nowhere to go."
-    val first = contacts.firstOrNull { it.isPrimary } ?: contacts.first()
-    val others = contacts.size - 1
-    return when (others) {
-        0 -> "${first.name} is called first."
-        1 -> "${first.name} is called first, then 1 other."
-        else -> "${first.name} is called first, then $others others."
     }
 }
 
@@ -511,13 +457,6 @@ private fun safeZoneLabel(count: Int, inside: Boolean?): String = when {
     inside == null -> "No fix"
     inside -> "Inside"
     else -> "Outside"
-}
-
-private fun safeZoneDetail(count: Int, inside: Boolean?, subject: String): String = when {
-    count == 0 -> "Mark a home or a school and you will be told when the device leaves it."
-    inside == null -> "$count set. Waiting for a location fix before it can tell you where $subject is."
-    inside -> if (count == 1) "1 zone set. Inside it now." else "$count zones set. Inside one now."
-    else -> "$count set. Outside all of them right now."
 }
 
 // ============================================

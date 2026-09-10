@@ -28,10 +28,12 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.safeshade.device.ConnectionState
+import com.safeshade.ui.board.ActionPair
 import com.safeshade.ui.board.BoardButton
 import com.safeshade.ui.board.BoardPlate
 import com.safeshade.ui.board.ButtonWeight
 import com.safeshade.ui.board.EmptyBay
+import com.safeshade.ui.board.Footnote
 import com.safeshade.ui.board.Hairline
 import com.safeshade.ui.board.LampState
 import com.safeshade.ui.board.Nameplate
@@ -174,12 +176,7 @@ fun LocateScreen(
         item("proximity") { ProximityMeter(rssiDbm = state.rssiDbm) }
 
         item("proximity-note") {
-            Text(
-                text = "Signal strength only tells you nearer or further, not which " +
-                    "direction. Walk a few steps and watch which way the number moves.",
-                style = MaterialTheme.typography.bodySmall,
-                color = colors.inkFaint
-            )
+            Footnote("Signal strength only tells you nearer or further, not which direction. Walk a few steps and watch which way the number moves.")
         }
 
         // ---------- (c) Last known location ----------
@@ -234,17 +231,12 @@ fun LocateScreen(
                     }
                     Hairline()
                     Column(modifier = Modifier.padding(Spacing.lg)) {
-                        // The honest framing. The wearable has no GPS on this
-                        // link, so this is a fact about the phone, not about the
+                        // The honest framing, and the fact a person reads after
+                        // the rows above: the wearable has no GPS on this link,
+                        // so this is a fact about the phone, not about the
                         // device — and if the two were separated after this fix
                         // was taken, it is worth nothing at all.
-                        Text(
-                            text = "This is where your phone was when it last saw " +
-                                "the device, not where the device is now. The " +
-                                "wearable has no GPS on this connection.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = colors.inkMuted
-                        )
+                        Footnote("This is where your phone was when it last saw the device, not where the device is now. The wearable has no GPS on this connection.")
                         Spacer(Modifier.height(Spacing.md))
                         BoardButton(
                             label = "Open in maps",
@@ -293,19 +285,15 @@ private fun RingConfirm(
                 color = colors.inkMuted
             )
             Spacer(Modifier.height(Spacing.xs))
-            BoardButton(
-                label = "Ring it now",
-                onClick = onConfirm,
-                // DANGER is reserved for actions that fire something real in
-                // the world. A siren on somebody's person qualifies.
-                weight = ButtonWeight.DANGER,
-                modifier = Modifier.fillMaxWidth()
-            )
-            BoardButton(
-                label = "Cancel",
-                onClick = onCancel,
-                weight = ButtonWeight.QUIET,
-                modifier = Modifier.fillMaxWidth()
+            // Two decisions with a default (2.65): ring it, or back out. DANGER
+            // is reserved for actions that fire something real in the world,
+            // and a siren on somebody's person qualifies.
+            ActionPair(
+                primaryLabel = "Ring It Now",
+                onPrimary = onConfirm,
+                primaryWeight = ButtonWeight.DANGER,
+                secondaryLabel = "Cancel",
+                onSecondary = onCancel
             )
         }
     }

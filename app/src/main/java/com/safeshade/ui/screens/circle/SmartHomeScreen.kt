@@ -22,9 +22,17 @@ import androidx.compose.ui.unit.dp
 import com.safeshade.ui.board.BoardButton
 import com.safeshade.ui.board.BoardPlate
 import com.safeshade.ui.board.ButtonWeight
+import com.safeshade.ui.board.Chain
+import com.safeshade.ui.board.ChainStop
 import com.safeshade.ui.board.ChipRow
+import com.safeshade.ui.board.EditorFootBar
+import com.safeshade.ui.board.EditorScaffold
+import com.safeshade.ui.board.Footnote
 import com.safeshade.ui.board.Hairline
+import com.safeshade.ui.board.HoldToConfirm
 import com.safeshade.ui.board.LampState
+import com.safeshade.ui.board.Ledger
+import com.safeshade.ui.board.LedgerRow
 import com.safeshade.ui.board.ScreenHeader
 import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.Way
@@ -103,10 +111,22 @@ fun SmartHomeScreen(
     ) {
         ScreenHeader(title = "Smart home", subtitle = "What the house does when something happens", onBack = onBack)
 
+        // What an automation does, as a chain (2.27) rather than a paragraph:
+        // one of these four things happens, SafeShade posts a signed
+        // request, and the automation does the rest.
+        Chain(
+            listOf(
+                ChainStop(SafeShadeIcons.SmartHome, "A fall, SOS,", "zone change or low battery"),
+                ChainStop(SafeShadeIcons.SendMessage, "SafeShade posts", "a signed request"),
+                ChainStop(SafeShadeIcons.CpuChip, "Your automation", "does the rest")
+            )
+        )
+
+        Spacer(Modifier.height(Spacing.xl))
         SectionPlate(title = "Automations")
         Spacer(Modifier.height(Spacing.sm))
         if (state.hooks.isEmpty()) {
-            Note("None yet. An automation posts to an address you give it, signed, the moment a fall, an SOS, a zone crossing or a low battery happens.")
+            Footnote("None yet. Add one below and point a routine at it.")
         } else {
             BoardPlate(modifier = Modifier.fillMaxWidth()) {
                 state.hooks.forEachIndexed { i, h ->
@@ -153,18 +173,15 @@ fun SmartHomeScreen(
             Way(name = state.matter.name, state = state.matter.state, stateLabel = state.matter.word, detail = state.matter.line, icon = SafeShadeIcons.CpuChip, onClick = onMatter)
         }
         Spacer(Modifier.height(Spacing.sm))
-        Note("Google Home and Alexa take a webhook through their own routines: make an automation here, then point a routine at it from their app.")
+        Footnote("Google Home and Alexa take a webhook through their own routines: make an automation here, then point a routine at it from their app.")
 
         if (state.recent.isNotEmpty()) {
             Spacer(Modifier.height(Spacing.xl))
             SectionPlate(title = "Recent")
             Spacer(Modifier.height(Spacing.sm))
-            BoardPlate(modifier = Modifier.fillMaxWidth()) {
-                state.recent.take(8).forEachIndexed { i, line ->
-                    if (i > 0) Hairline()
-                    Text(line, style = MaterialTheme.typography.bodyMedium, color = colors.inkMuted, modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.md))
-                }
-            }
+            // The hooks' last firing facts, as a ledger (2.22) rather than a
+            // list of loose sentences.
+            Ledger(state.recent.take(8).mapIndexed { i, line -> LedgerRow(key = "${i + 1}", value = line) })
         }
     }
 }
@@ -224,16 +241,35 @@ fun SmartHookEditorScreen(
     contentPadding: PaddingValues = PaddingValues(0.dp)
 ) {
     val colors = MaterialTheme.board
+    val canSave = !state.saving && state.name.isNotBlank() && state.endpointUrl.isNotBlank() && state.urlError == null
+
+    // The editor's foot is pinned (2.34): Save is amber, Discard leaves
+    // without writing anything.
+    EditorScaffold(
+        modifier = modifier.fillMaxSize().background(colors.ground),
+        bottomPadding = contentPadding.calculateBottomPadding(),
+        foot = {
+            EditorFootBar(
+                primaryLabel = if (state.saving) "Saving" else "Save",
+                onPrimary = onSave,
+                secondaryLabel = "Discard",
+                onSecondary = onBack ?: {},
+                statusLine = state.saveError,
+                statusState = if (state.saveError != null) LampState.TRIP else null,
+                primaryEnabled = canSave,
+                secondaryEnabled = !state.saving && onBack != null
+            )
+        }
+    ) { footPadding ->
     Column(
-        modifier = modifier
+        modifier = Modifier
             .fillMaxSize()
-            .background(colors.ground)
             .verticalScroll(rememberScrollState())
             .padding(
                 start = Spacing.gutter,
                 end = Spacing.gutter,
                 top = contentPadding.calculateTopPadding() + Spacing.sm,
-                bottom = contentPadding.calculateBottomPadding() + Spacing.xxl
+                bottom = footPadding.calculateBottomPadding() + Spacing.lg
             )
     ) {
         ScreenHeader(title = if (state.id == null) "New automation" else "Automation", onBack = onBack)
@@ -291,29 +327,16 @@ fun SmartHookEditorScreen(
             weight = ButtonWeight.SECONDARY,
             modifier = Modifier.fillMaxWidth()
         )
-        Spacer(Modifier.height(Spacing.md))
-        BoardButton(
-            label = if (state.saving) "Saving…" else "Save",
-            onClick = onSave,
-            enabled = !state.saving && state.name.isNotBlank() && state.endpointUrl.isNotBlank() && state.urlError == null,
-            weight = ButtonWeight.COMMIT,
-            modifier = Modifier.fillMaxWidth()
-        )
-        if (state.saveError != null) {
-            Spacer(Modifier.height(Spacing.sm))
-            Text(state.saveError, style = MaterialTheme.typography.bodyMedium, color = colors.inkTrip)
-        }
         if (onDelete != null) {
             Spacer(Modifier.height(Spacing.xl))
-            BoardButton(label = "Delete", onClick = onDelete, weight = ButtonWeight.QUIET, icon = SafeShadeIcons.DeleteBin, modifier = Modifier.fillMaxWidth())
+            // Deleting an automation is irreversible, so it sits behind a
+            // hold rather than a plain button (2.67).
+            HoldToConfirm(label = "Hold to Delete", onConfirm = onDelete, icon = SafeShadeIcons.DeleteBin, modifier = Modifier.fillMaxWidth())
         }
+    }
     }
 }
 
-@Composable
-private fun Note(text: String) {
-    Text(text = text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.board.inkMuted, modifier = Modifier.fillMaxWidth())
-}
 
 @Preview(name = "Smart home", showBackground = true, heightDp = 1200)
 @Composable
@@ -323,7 +346,11 @@ private fun SmartHomePreview() {
             SmartHomeScreen(
                 state = SmartHomeUiState(
                     hooks = listOf(SmartHookRow("1", "Hall lights on", "A fall", "Home Assistant", true, "Fired 09:12 · 200", false)),
-                    googleHome = PlatformRow("Google Home", LampState.OFF, "Not installed", "The Google Home app is not on this phone.")
+                    googleHome = PlatformRow("Google Home", LampState.OFF, "Not installed", "The Google Home app is not on this phone."),
+                    recent = listOf(
+                        "Hall lights on · fired 09:12 · 200",
+                        "Hall lights on · fired yesterday 21:40 · 200"
+                    )
                 ),
                 onAdd = {}, onOpen = {}, onToggle = { _, _ -> }, onGoogleHome = {}, onAlexa = {}, onMatter = {}, onBack = {}
             )

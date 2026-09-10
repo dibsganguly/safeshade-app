@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -26,10 +27,10 @@ import com.safeshade.ui.board.BoardPlate
 import com.safeshade.ui.board.ButtonWeight
 import com.safeshade.ui.board.Hairline
 import com.safeshade.ui.board.LampState
-import com.safeshade.ui.board.PilotLamp
 import com.safeshade.ui.board.Readout
 import com.safeshade.ui.board.ScreenHeader
 import com.safeshade.ui.board.SectionPlate
+import com.safeshade.ui.board.TaggedPlate
 import com.safeshade.ui.board.Way
 import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.theme.SafeShadeTheme
@@ -176,7 +177,7 @@ private fun TierPlate(
     onOpenSignIn: () -> Unit
 ) {
     val colors = MaterialTheme.board
-    BoardPlate(modifier = Modifier.fillMaxWidth()) {
+    val body: @Composable ColumnScope.() -> Unit = {
         Row(
             verticalAlignment = Alignment.Top,
             modifier = Modifier.fillMaxWidth().padding(Spacing.lg)
@@ -185,21 +186,13 @@ private fun TierPlate(
                 Text(text = tier.label, style = MaterialTheme.typography.headlineSmall, color = colors.ink)
                 Spacer(Modifier.height(Spacing.xs))
                 Text(
-                    text = when {
-                        current && overridden -> "Your plan, set by the developer switch"
-                        current -> "Your plan"
-                        else -> tier.oneLine
-                    },
+                    text = if (current && overridden) "${tier.oneLine} Set by the developer switch." else tier.oneLine,
                     style = MaterialTheme.boardType.rowDetail,
                     color = colors.inkMuted
                 )
             }
             Spacer(Modifier.padding(Spacing.sm))
-            Column(horizontalAlignment = Alignment.End) {
-                PilotLamp(state = if (current) LampState.LIVE else LampState.OFF, size = 22.dp, description = if (current) "Your plan" else "Not your plan")
-                Spacer(Modifier.height(Spacing.sm))
-                Readout(label = if (priceFromPlay) "Play price" else "List price", value = price, compact = true, horizontalAlignment = Alignment.End)
-            }
+            Readout(label = if (priceFromPlay) "Play price" else "List price", value = price, compact = true, horizontalAlignment = Alignment.End)
         }
         Hairline()
         Column(modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.sm)) {
@@ -235,6 +228,14 @@ private fun TierPlate(
                 }
             }
         }
+    }
+    // The current tier is stamped rather than lit (2.90): one signal for
+    // "this is yours" instead of a lamp beside a line that said the same
+    // thing.
+    if (current) {
+        TaggedPlate(tag = "Your plan", tagColor = colors.inkLive, modifier = Modifier.fillMaxWidth(), content = body)
+    } else {
+        BoardPlate(modifier = Modifier.fillMaxWidth(), content = body)
     }
 }
 

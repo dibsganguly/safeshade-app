@@ -52,6 +52,8 @@ import com.safeshade.ui.board.LampState
 import com.safeshade.ui.board.MainsPlate
 import com.safeshade.ui.board.Nameplate
 import com.safeshade.ui.board.SectionPlate
+import com.safeshade.ui.board.Tile
+import com.safeshade.ui.board.TileGrid
 import com.safeshade.ui.board.Way
 import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.nav.BottomDestination
@@ -62,6 +64,7 @@ import com.safeshade.ui.shady.ShadyStage
 import com.safeshade.ui.shady.rememberShadyReactor
 import com.safeshade.ui.shady.shadyMoodFor
 import com.safeshade.ui.theme.BoardColors
+import com.safeshade.ui.theme.Hub
 import com.safeshade.ui.theme.Radius
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.board
@@ -207,6 +210,8 @@ fun BoardScreen(
                 batteryPercent = state.batteryPercent,
                 signalDbm = state.signalDbm,
                 protectedName = state.protectedName,
+                // The one tinted plate on this hub.
+                hub = Hub.BOARD,
                 // Shady rides in the plate's trailing slot rather than floating
                 // over it. Overlaying the mascot on the headline was legible
                 // with a short status and unreadable with a long one, which is
@@ -259,6 +264,8 @@ fun BoardScreen(
                     // screen is offering, and it should not change colour
                     // when the link comes up.
                     weight = ButtonWeight.ATTENTION,
+                    // The one prominent action on the Board's root.
+                    glyphOnDisc = true,
                     modifier = Modifier.fillMaxWidth()
                 )
             } else {
@@ -271,29 +278,49 @@ fun BoardScreen(
                     // only thing on the screen worth pressing and it looked
                     // exactly like every other plate on it.
                     weight = ButtonWeight.ATTENTION,
+                    glyphOnDisc = true,
                     modifier = Modifier.fillMaxWidth()
                 )
             }
         }
 
-        item("ways-heading") {
-            SectionPlate(title = "Ways")
+        // Every way here navigates somewhere, so the bank is a tile grid
+        // (2.84) rather than a list of identical rows; a way that only
+        // reports (no route) stays a `Way` in a plate above the grid.
+        val (reportingWays, navigatingWays) = state.ways.partition { it.route == null }
+
+        if (reportingWays.isNotEmpty()) {
+            item("ways-reporting") {
+                BoardPlate(modifier = Modifier.fillMaxWidth()) {
+                    reportingWays.forEachIndexed { index, way ->
+                        if (index > 0) Hairline()
+                        Way(
+                            name = way.name,
+                            state = way.state,
+                            stateLabel = way.stateLabel,
+                            detail = way.detail,
+                            icon = way.icon,
+                            sealed = way.sealed
+                        )
+                    }
+                }
+            }
         }
 
-        item("ways") {
-            BoardPlate(modifier = Modifier.fillMaxWidth()) {
-                state.ways.forEachIndexed { index, way ->
-                    if (index > 0) Hairline()
-                    Way(
-                        name = way.name,
-                        state = way.state,
-                        stateLabel = way.stateLabel,
-                        detail = way.detail,
-                        icon = way.icon,
-                        sealed = way.sealed,
-                        onClick = way.route?.let { route -> { onOpenWay(route) } }
-                    )
-                }
+        if (navigatingWays.isNotEmpty()) {
+            item("ways") {
+                TileGrid(
+                    tiles = navigatingWays.map { way ->
+                        Tile(
+                            title = way.name,
+                            icon = way.icon ?: SafeShadeIcons.ArrowRight01,
+                            state = way.state,
+                            stateLabel = way.stateLabel,
+                            onClick = { onOpenWay(way.route!!) },
+                            tag = if (way.sealed) "Sealed" else null
+                        )
+                    }
+                )
             }
         }
 

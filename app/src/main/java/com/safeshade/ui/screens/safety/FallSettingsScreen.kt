@@ -4,23 +4,19 @@ import android.content.res.Configuration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -33,14 +29,13 @@ import com.safeshade.data.UserRole
 import com.safeshade.ui.board.BoardPlate
 import com.safeshade.ui.board.DialControl
 import com.safeshade.ui.board.ExpandableSection
+import com.safeshade.ui.board.Footnote
 import com.safeshade.ui.board.Hairline
 import com.safeshade.ui.board.LampState
-import com.safeshade.ui.board.OptionWay
 import com.safeshade.ui.board.PlateField
-import com.safeshade.ui.board.Seal
 import com.safeshade.ui.board.SectionPlate
+import com.safeshade.ui.board.SegmentedChoice
 import com.safeshade.ui.board.Way
-import com.safeshade.ui.board.WhyDisclosure
 import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
@@ -125,9 +120,6 @@ fun FallSettingsScreen(
     val settings = state.settings
     val mode = state.activeMode
     val locked = mode.isGuardianLocked
-    val subject = state.wearerName.ifBlank {
-        if (state.role == UserRole.GUARDIAN) "the wearer" else "you"
-    }
     val fallDetectionOff = mode == PersonaMode.PET
 
     Column(
@@ -163,15 +155,8 @@ fun FallSettingsScreen(
         // 20dp when neither one appears and Sensitivity is the first thing
         // on the screen.
         var contentAboveSensitivity = false
-        if (locked) {
-            LockPlate(mode = mode, subject = subject)
-            contentAboveSensitivity = true
-            if (!state.settingsSynced) {
-                Spacer(Modifier.height(Spacing.lg))
-                Note(text = syncNoteText)
-            }
-        } else if (!state.settingsSynced) {
-            Note(text = syncNoteText)
+        if (!state.settingsSynced) {
+            Footnote(text = syncNoteText)
             contentAboveSensitivity = true
         }
 
@@ -181,55 +166,41 @@ fun FallSettingsScreen(
         SectionPlate(title = "Sensitivity")
         Spacer(Modifier.height(Spacing.sm))
 
-        if (fallDetectionOff) {
-            // The second half of this line is not a detail. Somebody who reads
-            // only "off in Pet mode" reasonably concludes the whole screen is
-            // dead and leaves, when in fact everything below it still fires on
-            // a held SOS button — so both facts stay in the open together.
-            Note(
-                text = "Off in ${mode.label} mode. Everything below still applies to the SOS button."
-            )
-            Spacer(Modifier.height(Spacing.xs))
-            WhyDisclosure(
-                label = "Why it is off in ${mode.label} mode",
-                text = "An animal's normal movement crosses every impact threshold, so leaving " +
-                    "fall detection on would mean an alert every few minutes. The countdown, " +
-                    "who gets called and the siren all still run when the button on the device " +
-                    "is held."
-            )
-            Spacer(Modifier.height(Spacing.md))
-        }
-
+        // The row carries the mechanism as its help (2.28) — Pet mode's
+        // reason for being off, or how the device decides everywhere else —
+        // so the screen keeps no paragraph above the choice below it.
         BoardPlate(modifier = Modifier.fillMaxWidth()) {
-            FallSensitivity.entries.forEachIndexed { index, level ->
-                if (index > 0) Hairline()
-                OptionWay(
-                    name = level.label,
-                    detail = sensitivityDetail(level, mode),
-                    selected = settings.fallSensitivity == level,
-                    onSelect = { onSensitivityChange(level) }
-                )
-            }
+            Way(
+                name = "Fall detection",
+                state = if (fallDetectionOff) LampState.OFF else LampState.LIVE,
+                stateLabel = if (fallDetectionOff) "Off in ${mode.label} mode" else settings.fallSensitivity.label,
+                detail = if (fallDetectionOff) {
+                    "Everything below still applies to the SOS button."
+                } else if (mode == PersonaMode.ELDERLY) {
+                    "Also alerts a second time if nobody moves after an impact."
+                } else {
+                    null
+                },
+                icon = SafeShadeIcons.FallDetection,
+                help = if (fallDetectionOff) {
+                    "An animal's normal movement crosses every impact threshold, so leaving fall " +
+                        "detection on would mean an alert every few minutes. The countdown, who " +
+                        "gets called and the siren all still run when the button on the device is held."
+                } else {
+                    sensitivityFootnote(mode)
+                }
+            )
+            Hairline()
+            SegmentedChoice(
+                options = FallSensitivity.entries.map { it.label },
+                selected = FallSensitivity.entries.indexOf(settings.fallSensitivity),
+                onSelect = { onSensitivityChange(FallSensitivity.entries[it]) },
+                consequences = FallSensitivity.entries.map { sensitivityDetail(it, mode) },
+                enabled = !fallDetectionOff,
+                sealed = locked,
+                modifier = Modifier.padding(Spacing.lg)
+            )
         }
-
-        // Elderly mode raises an alert nobody chose here and nothing else in
-        // the app mentions. That is a behaviour, not an explanation of one, so
-        // it stays in the open even though the mechanism behind it does not —
-        // a guardian who is going to receive a second alert should not have to
-        // open a disclosure to find out it exists.
-        if (mode == PersonaMode.ELDERLY) {
-            Spacer(Modifier.height(Spacing.sm))
-            Note(text = "It also alerts a second time if nobody moves after an impact.")
-        }
-
-        // Each option already carries its own consequence as a `detail`, so
-        // what is left here is the mechanism behind all three — real, worth
-        // reading once, and not worth a paragraph above the choice every time.
-        Spacer(Modifier.height(Spacing.sm))
-        WhyDisclosure(
-            label = "How the device decides",
-            text = sensitivityFootnote(mode)
-        )
 
         Spacer(Modifier.height(Spacing.xl))
         SectionPlate(title = "After a fall")
@@ -287,15 +258,11 @@ fun FallSettingsScreen(
         )
 
         Spacer(Modifier.height(Spacing.sm))
-        Note(text = "The device waits five seconds of its own before this starts.")
-        Spacer(Modifier.height(Spacing.xs))
-        WhyDisclosure(
-            label = "Why there are two countdowns",
-            text = "Two waits, one after the other. The device holds a detected fall for five " +
-                "seconds first – a double-click on the device in that time cancels it and " +
-                "nobody is told. Only then does this countdown start on the phone. Conflating " +
-                "the two is how people end up expecting a call sooner, or later, than it comes."
-        )
+        // The field's own footnote (WhyDisclosure retired): two waits, one
+        // after the other. The device holds a detected fall for five seconds
+        // first - a double-click on the device in that time cancels it and
+        // nobody is told - and only then does this countdown start.
+        Footnote(text = "The device waits five seconds of its own before this starts. Only after that does this countdown begin.")
 
         // Everything from here down is set once, during setup, and then not
         // looked at again for months. It is not less important — the siren is
@@ -318,19 +285,20 @@ fun FallSettingsScreen(
                 count = VolumeChoices.size + 1
             ) {
                 Hairline()
-                VolumeChoices.forEachIndexed { index, (level, name, blurb) ->
-                    if (index > 0) Hairline()
-                    OptionWay(
-                        name = name,
-                        detail = blurb,
-                        // Floats that have been through a percentage round-trip
-                        // to the device rarely come back exactly equal.
-                        selected = abs(settings.sosVolumeLevel - level) < 0.05f,
-                        onSelect = { onSosVolumeChange(level) }
+                // Floats that have been through a percentage round-trip to
+                // the device rarely come back exactly equal.
+                val volumeIndex = VolumeChoices.indexOfFirst { abs(settings.sosVolumeLevel - it.first) < 0.05f }
+                    .let { if (it < 0) 1 else it }
+                Column(modifier = Modifier.padding(Spacing.lg)) {
+                    SegmentedChoice(
+                        options = VolumeChoices.map { it.second },
+                        selected = volumeIndex,
+                        onSelect = { onSosVolumeChange(VolumeChoices[it].first) },
+                        consequences = VolumeChoices.map { it.third }
                     )
                 }
                 Column(modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.md)) {
-                    Note(
+                    Footnote(
                         text = "The siren is what brings a person who is nearby. It sounds on " +
                             "the device during an SOS and after an unanswered fall."
                     )
@@ -340,19 +308,13 @@ fun FallSettingsScreen(
                     name = "Send a text as well",
                     state = if (settings.smsFallbackEnabled) LampState.LIVE else LampState.OFF,
                     stateLabel = if (settings.smsFallbackEnabled) "On" else "Off",
-                    detail = "Texts every contact with the last known location.",
+                    detail = "Texts every contact with the last known location. Needs permission to send messages, and may cost whatever your operator charges for an SMS.",
                     icon = SafeShadeIcons.TextAsWell,
                     checked = settings.smsFallbackEnabled,
-                    onCheckedChange = onSmsFallbackChange
+                    onCheckedChange = onSmsFallbackChange,
+                    help = "It is the only path that still works when the phone and the device are " +
+                        "out of range of each other."
                 )
-                Column(modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.md)) {
-                    Note(
-                        text = "This needs permission to send messages, and it may cost " +
-                            "whatever your operator charges for an SMS. It is the only path " +
-                            "that still works when the phone and the device are out of range " +
-                            "of each other."
-                    )
-                }
             }
         }
 
@@ -397,43 +359,11 @@ fun FallSettingsScreen(
                 // number, and a PIN they cannot check is a PIN they will lock
                 // themselves out with. It is not a credential — it guards a
                 // settings menu.
-                Note(
+                Footnote(
                     text = "Keep this somewhere you will find it. There is no way to read it " +
                         "back off the device."
                 )
             }
-        }
-    }
-}
-
-/**
- * The seal notice.
- *
- * Reads off `isGuardianLocked` rather than naming the four modes, so a mode
- * added later cannot slip past this by not being on a list.
- */
-@Composable
-private fun LockPlate(mode: PersonaMode, subject: String) {
-    val colors = MaterialTheme.board
-    BoardPlate(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(Spacing.lg)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Seal()
-                Spacer(Modifier.width(Spacing.sm))
-                Text(
-                    text = "${mode.label} mode",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = colors.ink
-                )
-            }
-            Spacer(Modifier.height(Spacing.sm))
-            Text(
-                text = "The device hides its own Safety menu in this mode, so $subject cannot " +
-                    "weaken any of this while wearing it. This screen is the only place these " +
-                    "settings can be changed.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = colors.inkMuted
-            )
         }
     }
 }

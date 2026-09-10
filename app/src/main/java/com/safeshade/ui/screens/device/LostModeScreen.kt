@@ -17,9 +17,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.safeshade.ui.board.ActionPair
 import com.safeshade.ui.board.BoardButton
 import com.safeshade.ui.board.BoardPlate
 import com.safeshade.ui.board.ButtonWeight
+import com.safeshade.ui.board.Chain
+import com.safeshade.ui.board.ChainStop
 import com.safeshade.ui.board.Hairline
 import com.safeshade.ui.board.LampState
 import com.safeshade.ui.board.ScreenHeader
@@ -101,6 +104,18 @@ fun LostModeScreen(
     ) {
         ScreenHeader(title = "Lost", subtitle = "Finding a wearable that is off the link", onBack = onBack)
 
+        // What lost mode does, as a chain rather than a paragraph: marking a
+        // device lost starts this phone listening for it, and asks the
+        // community to report a sighting too.
+        Chain(
+            listOf(
+                ChainStop(SafeShadeIcons.Search01, "Marked lost", "Starts listening"),
+                ChainStop(SafeShadeIcons.Bluetooth, "Nearby sweep", "Twenty seconds, in range"),
+                ChainStop(SafeShadeIcons.LocationCheck, "The community", "Reports a sighting")
+            )
+        )
+        Spacer(Modifier.height(Spacing.lg))
+
         SectionPlate(title = "This phone's wearables")
         Spacer(Modifier.height(Spacing.sm))
         if (state.devices.isEmpty()) {
@@ -118,10 +133,22 @@ fun LostModeScreen(
                             append("This phone heard it ${d.ownLastSeenLabel ?: "—"}. ")
                             append("Community: ${d.communityLastSeenLabel ?: "—"}.")
                         },
-                        icon = SafeShadeIcons.Search01,
-                        checked = d.lost,
-                        onCheckedChange = { if (it) onMarkLost(d.address) else onMarkFound(d.address) }
+                        icon = SafeShadeIcons.Search01
                     )
+                    Column(modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.sm)) {
+                        // Two decisions with a default (2.65) in place of the
+                        // switch: which state to set this wearable to, with the
+                        // one it is already in shown quiet and disabled.
+                        ActionPair(
+                            primaryLabel = "Mark Lost",
+                            onPrimary = { onMarkLost(d.address) },
+                            primaryWeight = ButtonWeight.ATTENTION,
+                            primaryEnabled = !d.lost,
+                            secondaryLabel = "Mark Found",
+                            onSecondary = { onMarkFound(d.address) },
+                            secondaryEnabled = d.lost
+                        )
+                    }
                     if (d.lost && d.communityLat != null && d.communityLon != null) {
                         Hairline()
                         Way(
@@ -172,6 +199,9 @@ fun LostModeScreen(
                 onClick = onSweep,
                 enabled = !state.sweeping,
                 weight = ButtonWeight.SECONDARY,
+                // The commit's own figure (2.31): what it is about to do,
+                // in the numbers the detail line already states.
+                figure = if (state.sweeping) null else "20 s",
                 modifier = Modifier.fillMaxWidth()
             )
         }

@@ -390,7 +390,7 @@ fun DeviceScreen(
                     ),
                     Tile(
                         title = "Lost",
-                        icon = SafeShadeIcons.Search01,
+                        icon = SafeShadeIcons.LostSearch,
                         state = if (state.lostCount > 0) LampState.ATTENTION else LampState.OFF,
                         stateLabel = if (state.lostCount > 0) "${state.lostCount} lost" else "None",
                         onClick = { onOpenWay(Routes.DEVICE_LOST) }

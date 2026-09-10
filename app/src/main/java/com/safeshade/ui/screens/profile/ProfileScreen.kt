@@ -22,7 +22,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.tooling.preview.Preview
@@ -40,9 +39,10 @@ import com.safeshade.ui.board.Nameplate
 import com.safeshade.ui.board.PersonRow
 import com.safeshade.ui.board.ScreenHeader
 import com.safeshade.ui.board.SectionPlate
+import com.safeshade.ui.board.Tile
+import com.safeshade.ui.board.TileGrid
+import com.safeshade.ui.board.WatermarkPlate
 import com.safeshade.ui.board.Way
-import com.safeshade.ui.board.plateClickable
-import com.safeshade.ui.board.rowClickable
 import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.nav.Routes
 import com.safeshade.ui.screens.settings.blurb
@@ -50,6 +50,7 @@ import com.safeshade.ui.screens.settings.icon
 import com.safeshade.ui.screens.settings.label
 import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
+import com.safeshade.ui.theme.accentFor
 import com.safeshade.ui.theme.board
 import com.safeshade.ui.theme.boardType
 
@@ -175,7 +176,10 @@ fun ProfileScreen(
 
         item("app-heading") { SectionPlate(title = "This phone") }
 
-        item("app") {
+        // SafeShade Cloud reports the account's own state and Appearance
+        // expands in place, so both stay Ways; the rows that only navigate
+        // elsewhere become tiles (2.84).
+        item("app-reporting") {
             BoardPlate(modifier = Modifier.fillMaxWidth()) {
                 Way(
                     name = "SafeShade Cloud",
@@ -186,19 +190,11 @@ fun ProfileScreen(
                     onClick = if (state.account.tappable) { { onOpenWay(Routes.SETTINGS_ACCOUNT) } } else null
                 )
                 Hairline()
-                Way(
-                    name = "Your role",
-                    state = LampState.LIVE,
-                    stateLabel = state.role.label,
-                    detail = state.role.blurb,
-                    icon = SafeShadeIcons.User,
-                    onClick = { onOpenWay(Routes.SETTINGS_ROLE) }
-                )
-                Hairline()
                 ExpandableSection(
                     label = "Appearance",
                     icon = SafeShadeIcons.Appearance,
-                    count = DarkModePreference.entries.size
+                    count = DarkModePreference.entries.size,
+                    preview = listOf(state.darkMode.label to LampState.LIVE)
                 ) {
                     DarkModePreference.entries.forEach { option ->
                         Hairline()
@@ -212,52 +208,66 @@ fun ProfileScreen(
                         )
                     }
                 }
-                Hairline()
-                Way(
-                    name = "Alert reliability",
-                    // Amber, not red. A missing permission is not an emergency;
-                    // it is a thing that will quietly cost you one later.
-                    state = if (state.reliabilityIssueCount > 0) LampState.ATTENTION else LampState.LIVE,
-                    stateLabel = if (state.reliabilityIssueCount > 0) "${state.reliabilityIssueCount} to fix" else "All set",
-                    detail = if (state.reliabilityIssueCount > 0) "Some alerts may not reach this phone"
-                    else "Permissions and battery settings are in order",
-                    icon = SafeShadeIcons.Alert02,
-                    onClick = { onOpenWay(Routes.SETTINGS_RELIABILITY) }
-                )
-                Hairline()
-                Way(
-                    name = "Privacy",
-                    state = LampState.OFF,
-                    stateLabel = "Facts",
-                    detail = "What this phone knows, and where each thing goes",
-                    icon = SafeShadeIcons.ShieldWithPadlock,
-                    onClick = { onOpenWay(Routes.SETTINGS_PRIVACY) }
-                )
             }
+        }
+
+        item("app") {
+            TileGrid(
+                tiles = listOf(
+                    Tile(
+                        title = "Your role",
+                        icon = SafeShadeIcons.User,
+                        state = LampState.LIVE,
+                        stateLabel = state.role.label,
+                        onClick = { onOpenWay(Routes.SETTINGS_ROLE) }
+                    ),
+                    Tile(
+                        title = "Alert reliability",
+                        icon = SafeShadeIcons.Alert02,
+                        // Amber, not red. A missing permission is not an
+                        // emergency; it is a thing that will quietly cost you
+                        // one later.
+                        state = if (state.reliabilityIssueCount > 0) LampState.ATTENTION else LampState.LIVE,
+                        stateLabel = if (state.reliabilityIssueCount > 0) "${state.reliabilityIssueCount} to fix" else "All set",
+                        onClick = { onOpenWay(Routes.SETTINGS_RELIABILITY) }
+                    ),
+                    Tile(
+                        title = "Privacy",
+                        icon = SafeShadeIcons.ShieldWithPadlock,
+                        state = LampState.OFF,
+                        stateLabel = "Facts",
+                        onClick = { onOpenWay(Routes.SETTINGS_PRIVACY) }
+                    )
+                )
+            )
         }
 
         item("about-heading") { SectionPlate(title = "About") }
 
         item("about") {
-            BoardPlate(modifier = Modifier.fillMaxWidth()) {
-                Way(
-                    name = "About SafeShade",
-                    state = LampState.OFF,
-                    stateLabel = state.versionName.ifBlank { "Version" },
-                    icon = SafeShadeIcons.Info,
-                    onClick = { onOpenWay(Routes.SETTINGS_ABOUT) }
+            val aboutTiles = buildList {
+                add(
+                    Tile(
+                        title = "About SafeShade",
+                        icon = SafeShadeIcons.Info,
+                        state = LampState.OFF,
+                        stateLabel = state.versionName.ifBlank { "Version" },
+                        onClick = { onOpenWay(Routes.SETTINGS_ABOUT) }
+                    )
                 )
                 if (state.showDeveloperOptions) {
-                    Hairline()
-                    Way(
-                        name = "Developer",
-                        state = LampState.OFF,
-                        stateLabel = "Debug",
-                        icon = SafeShadeIcons.SourceCode,
-                        onClick = { onOpenWay(Routes.SETTINGS_DEVELOPER) }
+                    add(
+                        Tile(
+                            title = "Developer",
+                            icon = SafeShadeIcons.SourceCode,
+                            state = LampState.OFF,
+                            stateLabel = "Debug",
+                            onClick = { onOpenWay(Routes.SETTINGS_DEVELOPER) }
+                        )
                     )
                 }
             }
+            TileGrid(tiles = aboutTiles)
         }
     }
 }
@@ -276,10 +286,12 @@ private fun IdentityPlate(
 ) {
     val colors = MaterialTheme.board
     val shown = name.ifBlank { placeholder }
-    BoardPlate(
+    WatermarkPlate(
+        icon = SafeShadeIcons.User,
+        tint = colors.accentFor(shown),
+        onClick = onClick,
         modifier = Modifier
             .fillMaxWidth()
-            .plateClickable(role = Role.Button, onClick = onClick)
             .clearAndSetSemantics { contentDescription = "$shown. $line. Edit." }
     ) {
         Row(

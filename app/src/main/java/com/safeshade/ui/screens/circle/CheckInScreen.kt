@@ -29,9 +29,12 @@ import com.safeshade.data.UserRole
 import com.safeshade.ui.board.BoardButton
 import com.safeshade.ui.board.BoardPlate
 import com.safeshade.ui.board.ButtonWeight
+import com.safeshade.ui.board.DialControl
 import com.safeshade.ui.board.EmptyBay
+import com.safeshade.ui.board.FooterAction
 import com.safeshade.ui.board.Hairline
 import com.safeshade.ui.board.LampState
+import com.safeshade.ui.board.NumberedRow
 import com.safeshade.ui.board.PilotLamp
 import com.safeshade.ui.board.Readout
 import com.safeshade.ui.board.ScreenHeader
@@ -44,6 +47,7 @@ import com.safeshade.ui.theme.SafeShadeTheme
 import com.safeshade.ui.theme.Spacing
 import com.safeshade.ui.theme.Stroke
 import com.safeshade.ui.theme.board
+import kotlin.math.roundToInt
 
 /** How a past check-in ended. */
 enum class CheckInOutcome { ANSWERED, MISSED, CANCELLED }
@@ -182,18 +186,23 @@ fun CheckInScreen(
                     }
                 }
             } else if (state.role == UserRole.GUARDIAN) {
-                item("deadline-heading") {
-                    SectionPlate(title = "How long to wait for an answer")
-                }
                 item("deadline") {
-                    ChoiceGrid(items = state.deadlineOptions) { minutes, cell ->
-                        ChoicePlate(
-                            label = "$minutes min",
-                            selected = state.deadlineMinutes == minutes,
-                            onClick = { onDeadlineSelected(minutes) },
-                            modifier = cell
-                        )
-                    }
+                    // A quantity, not a small fixed set (2.24 vs `DialControl`):
+                    // the four stops that used to be rows here were four
+                    // numbers somebody picked, not four real behaviours, so
+                    // this is a dial over the range they spanned.
+                    val minDeadline = state.deadlineOptions.minOrNull()?.toFloat() ?: 1f
+                    val maxDeadline = state.deadlineOptions.maxOrNull()?.toFloat() ?: 30f
+                    DialControl(
+                        label = "Time to wait for an answer",
+                        value = state.deadlineMinutes.toFloat(),
+                        valueRange = minDeadline..maxDeadline,
+                        step = 1f,
+                        onValueChange = { onDeadlineSelected(it.roundToInt()) },
+                        unit = "minutes",
+                        advice = { "The device buzzes again and ${state.contactsSummary} are told if there is still no answer after this long." },
+                        spokenValue = { "${it.roundToInt()} minutes" }
+                    )
                 }
                 item("send") {
                     BoardButton(
@@ -373,35 +382,25 @@ private fun EscalationPlate(state: CheckInUiState, onOpenContacts: () -> Unit) {
     val subject = wearerSubject(state.role, state.wearerName)
 
     BoardPlate(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(Spacing.lg)) {
-            listOf(
-                "The device buzzes again and keeps the question on screen.",
-                "A missed check-in is recorded on the board as a trip, with the time and the last known place.",
-                "${state.contactsSummary.replaceFirstChar { it.uppercase() }} are sent a message saying $subject did not answer, with that last known place."
-            ).forEachIndexed { index, line ->
-                if (index > 0) Spacer(Modifier.height(Spacing.sm))
-                Row {
-                    Text(
-                        text = "—",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = colors.inkFaint
-                    )
-                    Spacer(Modifier.width(Spacing.sm))
-                    Text(
-                        text = line,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = colors.inkMuted
-                    )
-                }
-            }
-            Spacer(Modifier.height(Spacing.md))
-            BoardButton(
-                label = "See who would be contacted",
-                onClick = onOpenContacts,
-                weight = ButtonWeight.QUIET,
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
+        // The ladder of what happens next, as a ranked list (2.83) rather
+        // than a paragraph with a dash before each line. Nothing has
+        // happened yet, so no rung reports a state — the ring already
+        // carries the order.
+        NumberedRow(number = 1, name = "The device", state = LampState.OFF, stateLabel = "Automatic", detail = "Buzzes again and keeps the question on screen")
+        Hairline()
+        NumberedRow(number = 2, name = "The board", state = LampState.OFF, stateLabel = "Automatic", detail = "Records a trip, with the time and the last known place")
+        Hairline()
+        NumberedRow(
+            number = 3,
+            name = state.contactsSummary.replaceFirstChar { it.uppercase() },
+            state = LampState.OFF,
+            stateLabel = "Automatic",
+            detail = "Told $subject did not answer, with that last known place"
+        )
+        FooterAction(
+            label = "See who would be contacted",
+            onClick = onOpenContacts
+        )
     }
 }
 

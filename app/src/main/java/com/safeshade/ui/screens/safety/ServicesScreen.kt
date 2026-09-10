@@ -3,6 +3,7 @@ package com.safeshade.ui.screens.safety
 import android.content.res.Configuration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -34,6 +35,7 @@ import com.safeshade.ui.board.ScreenHeader
 import com.safeshade.ui.board.BoardButton
 import com.safeshade.ui.board.BoardPlate
 import com.safeshade.ui.board.ButtonWeight
+import com.safeshade.ui.board.Footnote
 import com.safeshade.ui.board.Hairline
 import com.safeshade.ui.board.LampState
 import com.safeshade.ui.board.SectionPlate
@@ -299,12 +301,9 @@ private fun NearbyPlate(
                     modifier = Modifier.padding(Spacing.lg)
                 )
             } else {
-                Text(
-                    text = "A row with a number dials it; one without opens directions.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colors.inkFaint,
-                    modifier = Modifier.padding(start = Spacing.lg, end = Spacing.lg, bottom = Spacing.lg, top = Spacing.sm)
-                )
+                Column(modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.sm)) {
+                    Footnote(text = "A row with a number dials it; one without opens directions.")
+                }
             }
         }
     }

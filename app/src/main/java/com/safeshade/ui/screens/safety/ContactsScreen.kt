@@ -18,10 +18,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -29,16 +25,18 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.safeshade.data.EmergencyContact
 import com.safeshade.ui.board.ScreenHeader
-import com.safeshade.ui.board.BoardButton
+import com.safeshade.ui.board.BankHeader
 import com.safeshade.ui.board.BoardPlate
-import com.safeshade.ui.board.ButtonWeight
 import com.safeshade.ui.board.ChipRow
+import com.safeshade.ui.board.EditorFootBar
+import com.safeshade.ui.board.EditorScaffold
 import com.safeshade.ui.board.EmptyBay
+import com.safeshade.ui.board.Footnote
 import com.safeshade.ui.board.Hairline
+import com.safeshade.ui.board.HoldToConfirm
 import com.safeshade.ui.board.LampState
 import com.safeshade.ui.board.PlateField
 import com.safeshade.ui.board.RELATIONSHIP_SUGGESTIONS
-import com.safeshade.ui.board.SectionPlate
 import com.safeshade.ui.board.Way
 import com.safeshade.ui.icons.SafeShadeIcons
 import com.safeshade.ui.screens.profile.FaceEditor
@@ -177,10 +175,15 @@ private fun ContactList(
                 )
             }
         } else {
-            item("list-heading") { SectionPlate(title = "In order") }
-
             item("list") {
                 BoardPlate(modifier = Modifier.fillMaxWidth()) {
+                    BankHeader(
+                        title = "In order",
+                        count = state.contacts.size,
+                        actionIcon = SafeShadeIcons.UserAdd,
+                        actionDescription = "Add a contact",
+                        onAction = onStartAdd
+                    )
                     state.contacts.forEachIndexed { index, contact ->
                         if (index > 0) Hairline()
                         val isFirst = contact.isPrimary ||
@@ -211,28 +214,15 @@ private fun ContactList(
             }
 
             item("reorder") {
-                Note(
+                Footnote(
                     text = "The first contact is the one the phone calls. Open any other " +
                         "contact to move them to the front."
-                )
-            }
-
-            // The empty bay above already carries this action while there are
-            // no contacts — a second "add" button beside it would just be the
-            // same offer said twice.
-            item("add") {
-                BoardButton(
-                    label = "Add a contact",
-                    icon = SafeShadeIcons.UserAdd,
-                    onClick = onStartAdd,
-                    weight = ButtonWeight.SECONDARY,
-                    modifier = Modifier.fillMaxWidth()
                 )
             }
         }
 
         item("how") {
-            Note(
+            Footnote(
                 text = buildString {
                     append("A fall alert ")
                     append(if (state.autoCallEnabled) "calls the first contact" else "does not call anybody, because calling after a fall is switched off")
@@ -283,21 +273,38 @@ private fun ContactEditor(
     val canSave = draft.name.isNotBlank() &&
         isPlausiblePhone(draft.phone) &&
         phoneDigits.length <= 10
+    val blocker = when {
+        phoneError != null -> "Correct the number before saving."
+        draft.name.isBlank() -> "A name is needed before this can be saved."
+        else -> null
+    }
 
-    // A single confirming step for the destructive action, held locally
-    // because it is a property of this press and nothing else needs to know.
-    var confirmingRemove by remember(draft.index) { mutableStateOf(false) }
-
+    EditorScaffold(
+        modifier = modifier.fillMaxSize().background(colors.ground),
+        bottomPadding = contentPadding.calculateBottomPadding(),
+        foot = {
+            EditorFootBar(
+                primaryLabel = if (isNew) "Add Contact" else "Save Changes",
+                onPrimary = onSave,
+                secondaryLabel = "Discard",
+                onSecondary = onBack,
+                statusLine = blocker,
+                statusState = if (blocker != null) LampState.TRIP else null,
+                primaryEnabled = canSave,
+                secondaryEnabled = true,
+                secondaryDestructive = true
+            )
+        }
+    ) { footPadding ->
     Column(
-        modifier = modifier
+        modifier = Modifier
             .fillMaxSize()
-            .background(colors.ground)
             .verticalScroll(rememberScrollState())
             .padding(
                 start = Spacing.gutter,
                 end = Spacing.gutter,
                 top = contentPadding.calculateTopPadding() + Spacing.sm,
-                bottom = contentPadding.calculateBottomPadding() + Spacing.xxl
+                bottom = footPadding.calculateBottomPadding() + Spacing.lg
             )
     ) {
         PanelHeader(
@@ -383,43 +390,15 @@ private fun ContactEditor(
             )
         }
 
-        Spacer(Modifier.height(Spacing.xl))
-
-        BoardButton(
-            label = if (isNew) "Add Contact" else "Save Changes",
-            onClick = onSave,
-            enabled = canSave,
-            weight = ButtonWeight.COMMIT,
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        if (!canSave) {
-            Spacer(Modifier.height(Spacing.sm))
-            // Names the actual blocker. "A name and a number are both needed"
-            // was the only hint, and it is plainly wrong when both are filled
-            // in and it is the number's length that is holding the save —
-            // leaving the user to stare at a dead button with no explanation.
-            Note(
-                text = when {
-                    phoneError != null -> "Correct the number before saving."
-                    draft.name.isBlank() -> "A name is needed before this can be saved."
-                    else -> "A name and a number are both needed before this can be saved."
-                }
-            )
-        }
-
         if (!isNew) {
-            Spacer(Modifier.height(Spacing.lg))
-            BoardButton(
-                label = if (confirmingRemove) "Tap again to remove" else "Remove this contact",
-                supporting = if (confirmingRemove) "This cannot be undone." else null,
-                onClick = {
-                    if (confirmingRemove) onDelete() else confirmingRemove = true
-                },
-                weight = ButtonWeight.SECONDARY,
-                modifier = Modifier.fillMaxWidth()
+            Spacer(Modifier.height(Spacing.xl))
+            HoldToConfirm(
+                label = "Hold to Remove This Contact",
+                onConfirm = onDelete,
+                icon = SafeShadeIcons.DeleteBin
             )
         }
+    }
     }
 }
 
